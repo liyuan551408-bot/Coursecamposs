@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test and build output
+coverage/
+dist/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Local AI/editor tooling
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
