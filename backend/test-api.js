@@ -1,3 +1,4 @@
+//node --dns-result-order=ipv4first app.js
 const axios = require("axios");
 
 async function test() {
