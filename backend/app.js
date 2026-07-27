@@ -3,20 +3,17 @@ const cors = require('cors');
 const app = express();
 const PORT = 3000;
 
-// 1. 配置中间件
-app.use(cors()); // 允许前端跨域调用
-app.use(express.json()); // 允许后端解析前端发来的 JSON 数据
+// 1. 配置全局中间件
+app.use(cors()); 
+app.use(express.json()); 
 
-// 2. 模拟的课程数据（写死在这里，等数据库建好再换）
-const mockCourses = [
-    { id: 1, name: "高等数学", code: "MATH101", credits: 4 },
-    { id: 2, name: "软件工程导论", code: "SE201", credits: 3 }
-];
+// 2. 引入你刚刚写好的路由文件！
+// 这里是关键，让 app.js 知道去哪里找接口逻辑
+const courseRoutes = require('./src/routes/courseRoutes');
 
-// 3. 编写第一个测试接口：获取课程列表
-app.get('/api/courses', (req, res) => {
-    res.json({ success: true, data: mockCourses });
-});
+// 3. 挂载路由
+// 意思是：所有以 /api/courses 开头的请求，全都交给 courseRoutes 去处理
+app.use('/api/courses', courseRoutes);
 
 // 4. 启动服务器监听
 app.listen(PORT, () => {

@@ -1,1 +1,29 @@
+<<<<<<< HEAD
 node_modules/
+=======
+# Dependencies
+node_modules/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test and build output
+coverage/
+dist/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Local AI/editor tooling
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+>>>>>>> 9038fda7c35109159ca502b76f74d57d393ac099
