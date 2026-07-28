@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client"
+  provider        = "prisma-client-js"
+  output          = "../backend/node_modules/.prisma/client"
+  previewFeatures = ["postgresqlExtensions"] 
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
 }
 
 enum UserRole {
@@ -44,6 +46,9 @@ model Course {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  // 512 维度向量字段，匹配智谱 embedding-3 模型
+  embedding     Unsupported("vector(512)")?
 
   reviews      Review[]
   savedCourses SavedCourse[]
