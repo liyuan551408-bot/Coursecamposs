@@ -1,0 +1,115 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../backend/node_modules/.prisma/client"
+  previewFeatures = ["postgresqlExtensions"] 
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector] 
+}
+
+enum UserRole {
+  STUDENT
+  MODERATOR
+  ADMIN
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(STUDENT)
+  major        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reviews       Review[]
+  savedCourses  SavedCourse[]
+  semesterPlans SemesterPlan[]
+}
+
+model Course {
+  id            Int      @id @default(autoincrement())
+  name          String
+  code          String   @unique
+  description   String?
+  credits       Int
+  workloadHours Int?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 512 维度向量字段，匹配智谱 embedding-3 模型
+  embedding     Unsupported("vector(512)")?
+
+  reviews      Review[]
+  savedCourses SavedCourse[]
+  planCourses  PlanCourse[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Review {
+  id               Int          @id @default(autoincrement())
+  userId           Int
+  courseId         Int
+  overallRating    Int
+  difficultyRating Int
+  workloadRating   Int
+  comment          String?
+  status           ReviewStatus @default(PENDING)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([courseId, status])
+}
+
+model SavedCourse {
+  userId    Int
+  courseId  Int
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, courseId])
+}
+
+model SemesterPlan {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  name      String
+  year      Int
+  semester  String
+  createdAt DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planCourses PlanCourse[]
+
+  @@index([userId, year, semester])
+}
+
+model PlanCourse {
+  planId   Int
+  courseId Int
+
+  plan   SemesterPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  course Course       @relation(fields: [courseId], references: [id])
+
+  @@id([planId, courseId])
+}
