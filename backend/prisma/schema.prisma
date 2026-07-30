@@ -94,6 +94,7 @@ model SemesterPlan {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   planCourses PlanCourse[]
 
+  @@unique([userId, year, semester, name])
   @@index([userId, year, semester])
 }
 

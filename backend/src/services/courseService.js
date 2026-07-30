@@ -1,11 +1,39 @@
-// 模拟从数据库获取课程列表
-// 数据库负责人以后会在这里引入 prisma 并写真实的查询逻辑
-const getAllCourses = async () => {
-    // 模拟数据返回
-    return [
-        { id: 1, title: 'Introduction to Software Engineering', code: '159.272' },
-        { id: 2, title: 'Programming Project', code: '159.333' }
-    ];
+const prisma = require('../lib/prisma');
+
+const courseSelect = {
+    id: true,
+    code: true,
+    name: true,
+    description: true,
+    credits: true,
+    workloadHours: true,
+    isActive: true,
+    createdAt: true,
+    updatedAt: true
+};
+
+const getAllCourses = async ({ skip = 0, take = 50 } = {}) => {
+    const safeSkip =
+        Number.isInteger(skip) && skip >= 0
+            ? skip
+            : 0;
+
+    const safeTake =
+        Number.isInteger(take) && take > 0
+            ? Math.min(take, 100)
+            : 50;
+
+    return prisma.course.findMany({
+        where: {
+            isActive: true
+        },
+        select: courseSelect,
+        orderBy: {
+            code: 'asc'
+        },
+        skip: safeSkip,
+        take: safeTake
+    });
 };
 
 module.exports = {
