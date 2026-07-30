@@ -4,9 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "test": "echo \"Error: no test specified\" && exit 1",
-  "test:user-service": "node scripts/userService.smoke.js"
-},
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "db:status": "prisma migrate status",
+    "db:seed": "prisma db seed",
+    "test:user-service": "node scripts/userService.smoke.js",
+    "test:course-service": "node scripts/courseService.smoke.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
