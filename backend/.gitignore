@@ -26,3 +26,5 @@ Thumbs.db
 .claude/
 .windsurf/
 skills-lock.json
+# Local temporary files
+tmp/

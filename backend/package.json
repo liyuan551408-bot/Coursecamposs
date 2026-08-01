@@ -8,8 +8,10 @@
     "dev": "nodemon app.js",
     "db:status": "prisma migrate status",
     "db:seed": "prisma db seed",
+    "test": "npm run test:user-service && npm run test:course-service && npm run test:database",
     "test:user-service": "node scripts/userService.smoke.js",
-    "test:course-service": "node scripts/courseService.smoke.js"
+    "test:course-service": "node scripts/courseService.smoke.js",
+    "test:database": "node scripts/databaseConstraints.smoke.js"
   },
   "keywords": [],
   "author": "",
