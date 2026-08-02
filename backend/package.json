@@ -4,12 +4,20 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "db:status": "prisma migrate status",
+    "db:seed": "prisma db seed",
+    "test": "npm run test:user-service && npm run test:course-service && npm run test:database",
+    "test:user-service": "node scripts/userService.smoke.js",
+    "test:course-service": "node scripts/courseService.smoke.js",
+    "test:database": "node scripts/databaseConstraints.smoke.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
