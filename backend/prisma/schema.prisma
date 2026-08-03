@@ -1,11 +1,7 @@
 generator client {
-<<<<<<< HEAD
   provider        = "prisma-client-js"
   output          = "../backend/node_modules/.prisma/client"
   previewFeatures = ["postgresqlExtensions"] 
-=======
-  provider = "prisma-client-js"
->>>>>>> 3791733e0a764cb27c005569b60c9585f6fe66fb
 }
 
 datasource db {
