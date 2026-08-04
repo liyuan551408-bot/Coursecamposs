@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-node_modules/
-=======
 # Dependencies
 node_modules/
 
@@ -8,6 +5,9 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Generated Prisma Client
+generated/
 
 # Logs
 *.log
@@ -26,4 +26,5 @@ Thumbs.db
 .claude/
 .windsurf/
 skills-lock.json
->>>>>>> 9038fda7c35109159ca502b76f74d57d393ac099
+# Local temporary files
+tmp/
