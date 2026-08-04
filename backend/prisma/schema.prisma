@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -20,12 +20,18 @@ enum ReviewStatus {
 }
 
 model User {
+  // 基础信息
   id           Int      @id @default(autoincrement())
   email        String   @unique
   passwordHash String
   name         String
   role         UserRole @default(STUDENT)
   major        String?
+
+  // 密码重置
+  resetCode    String?           // 6位邮箱验证码
+  resetCodeExpires  DateTime?    //验证码过期时间
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -94,6 +100,7 @@ model SemesterPlan {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   planCourses PlanCourse[]
 
+  @@unique([userId, year, semester, name])
   @@index([userId, year, semester])
 }
 
