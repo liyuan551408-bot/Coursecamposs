@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getToken } from '../utils/auth'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
+import Register from '../views/Register.vue'
 import Dashboard from '../views/Dashboard.vue'
 import CourseList from '../views/CourseList.vue'
 import CourseDetail from '../views/CourseDetail.vue'
@@ -13,21 +15,55 @@ import AiRecommendation from '../views/AiRecommendation.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
-  { path: '/login', name: 'Login', component: Login },
-  { path: '/dashboard', name: 'Dashboard', component: Dashboard },
+  { path: '/login', name: 'Login', component: Login, meta: { guestOnly: true } },
+  { path: '/register', name: 'Register', component: Register, meta: { guestOnly: true } },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: Dashboard,
+    meta: { requiresAuth: true },
+  },
   { path: '/courses', name: 'CourseList', component: CourseList },
-  { path: '/courses/:id', name: 'CourseDetail', component: CourseDetail }, // :id 是动态参数,后面查课程详情用
+  { path: '/courses/:id', name: 'CourseDetail', component: CourseDetail },
   { path: '/compare', name: 'CompareCourses', component: CompareCourses },
-  { path: '/planner', name: 'Planner', component: Planner },
-  { path: '/saved', name: 'SavedCourses', component: SavedCourses },
-  { path: '/admin', name: 'AdminDashboard', component: AdminDashboard },
-  { path: '/profile', name: 'Profile', component: Profile },
+  { path: '/planner', name: 'Planner', component: Planner, meta: { requiresAuth: true } },
+  { path: '/saved', name: 'SavedCourses', component: SavedCourses, meta: { requiresAuth: true } },
+  {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: AdminDashboard,
+    meta: { requiresAuth: true, roles: ['admin'] },
+  },
+  { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+
+router.beforeEach((to, _from, next) => {
+  const token = getToken()
+  const user = JSON.parse(localStorage.getItem('course_compass_user') || 'null')
+
+  if (to.meta.requiresAuth && !token) {
+    next({ name: 'Login', query: { redirect: to.fullPath } })
+    return
+  }
+
+  if (to.meta.roles && user && !to.meta.roles.includes(user.role)) {
+    next({ name: 'Home' })
+    return
+  }
+
+  if (to.meta.guestOnly && token) {
+    next({ name: 'Dashboard' })
+    return
+  }
+
+  next()
 })
 
 export default router
