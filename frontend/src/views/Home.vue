@@ -11,24 +11,16 @@ const authStore = useAuthStore()
 
 const features = [
   {
-    icon: '🔍',
     title: '智能课程搜索',
     desc: '按专业、学期、难度快速筛选课程，找到最适合你的那一门。',
   },
   {
-    icon: '⚖️',
     title: '多维度对比',
     desc: ' side-by-side 对比课程内容、评分、工作量，决策不再纠结。',
   },
   {
-    icon: '🤖',
     title: 'AI 智能推荐',
     desc: '基于你的兴趣和成绩，AI 为你量身推荐课程组合。',
-  },
-  {
-    icon: '📅',
-    title: '学期规划器',
-    desc: '拖拽式规划你的整个学位路径，提前看清毕业节奏。',
   },
 ]
 
