@@ -1,13 +1,12 @@
 generator client {
   provider        = "prisma-client-js"
-  output          = "../backend/node_modules/.prisma/client"
   previewFeatures = ["postgresqlExtensions"] 
 }
 
 datasource db {
-  provider   = "postgresql"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
-
 enum UserRole {
   STUDENT
   MODERATOR
@@ -22,12 +21,18 @@ enum ReviewStatus {
 }
 
 model User {
+  // 基础信息
   id           Int      @id @default(autoincrement())
   email        String   @unique
   passwordHash String
   name         String
   role         UserRole @default(STUDENT)
   major        String?
+
+  // 密码重置
+  resetCode    String?           // 6位邮箱验证码
+  resetCodeExpires  DateTime?    //验证码过期时间
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
