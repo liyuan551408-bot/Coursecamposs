@@ -1,0 +1,2 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+ALTER TABLE "Course" ADD COLUMN "embedding" vector(512);
