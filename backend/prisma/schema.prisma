@@ -51,6 +51,14 @@ model Course {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  embedding     Unsupported("vector(512)")?
+
+  // 先决条件
+  // 当前课程需要哪些前置课
+  prerequisites     Course[] @relation("CoursePrerequisites")
+  // 当前课程是哪些其他课的前置课
+  prerequisiteFor   Course[] @relation("CoursePrerequisites")
+
   reviews      Review[]
   savedCourses SavedCourse[]
   planCourses  PlanCourse[]
