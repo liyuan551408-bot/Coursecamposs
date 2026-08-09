@@ -29,11 +29,11 @@ model User {
   major        String?
 
   // 密码重置
-  resetCode    String?           // 6位邮箱验证码
-  resetCodeExpires  DateTime?    //验证码过期时间
+  resetCode        String? // 6位邮箱验证码
+  resetCodeExpires DateTime? //验证码过期时间
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   reviews       Review[]
   savedCourses  SavedCourse[]
@@ -51,13 +51,13 @@ model Course {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  embedding     Unsupported("vector(512)")?
+  embedding Unsupported("vector(512)")?
 
   // 先决条件
   // 当前课程需要哪些前置课
-  prerequisites     Course[] @relation("CoursePrerequisites")
+  prerequisites   Course[] @relation("CoursePrerequisites")
   // 当前课程是哪些其他课的前置课
-  prerequisiteFor   Course[] @relation("CoursePrerequisites")
+  prerequisiteFor Course[] @relation("CoursePrerequisites")
 
   reviews      Review[]
   savedCourses SavedCourse[]

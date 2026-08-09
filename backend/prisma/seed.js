@@ -129,6 +129,36 @@ const main = async () => {
             }
         });
     }
+    await prisma.course.update({
+        where: {
+            code: '159.201'
+        },
+        data: {
+            prerequisites: {
+                connect: {
+                    id: savedCourses['159.101'].id
+                }
+            }
+        }
+    });
+
+    await prisma.course.update({
+        where: {
+            code: '159.333'
+        },
+        data: {
+            prerequisites: {
+                connect: [
+                    {
+                        id: savedCourses['159.201'].id
+                    },
+                    {
+                        id: savedCourses['159.272'].id
+                    }
+                ]
+            }
+        }
+    });
 
     const student = savedUsers.STUDENT;
     const softwareEngineering = savedCourses['159.272'];
