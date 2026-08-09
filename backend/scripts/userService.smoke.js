@@ -80,9 +80,33 @@ const run = async () => {
     assert.ok(userWithResetCode.resetCodeExpires instanceof Date);
     assert.ok(userWithResetCode.resetCodeExpires > new Date());
 
+    await prisma.user.update({
+        where: {
+            email: TEST_EMAIL
+        },
+        data: {
+            resetCodeExpires: new Date(Date.now() - 1000)
+        }
+    });
+
+    await assert.rejects(
+        () =>
+            userService.resetPassword(
+                TEST_EMAIL,
+                resetCode,
+                NEW_PASSWORD
+            ),
+        (error) => error.message === 'Code expired'
+    );
+
+    const validResetCode =
+        await userService.generateResetCode(TEST_EMAIL);
+
+    assert.match(validResetCode, /^\d{6}$/);
+
     const resetResult = await userService.resetPassword(
         TEST_EMAIL,
-        resetCode,
+        validResetCode,
         NEW_PASSWORD
     );
 
