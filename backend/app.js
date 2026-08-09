@@ -11,12 +11,14 @@ app.use(express.json());
 const courseRoutes = require('./src/routes/courseRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const authRoutes = require('./src/routes/authRoutes');
+const reviewRoutes = require('./src/routes/reviewRoutes');
 
 // 3. 挂载路由
 // 意思是：所有以 /api/courses 开头的请求，全都交给 courseRoutes 去处理
 app.use('/api/courses', courseRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // 4. 启动服务器监听
 app.listen(PORT, () => {
