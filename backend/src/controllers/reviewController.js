@@ -19,8 +19,6 @@ const addReview = async (req, res) => {
             data: review 
         });
     } catch (error) {
-        // P2002 是 Prisma 的唯一约束冲突错误
-        // 因为我们在 Schema 里写了 @@unique([userId, courseId])
         if (error.code === 'P2002') {
             return res.status(409).json({ 
                 success: false, 
@@ -32,7 +30,7 @@ const addReview = async (req, res) => {
     }
 };
 
-// 获取课程评价（公开接口）
+// 获取课程评价
 const getCourseReviews = async (req, res) => {
     try {
         const courseId = req.params.courseId;
@@ -49,7 +47,7 @@ const getCourseReviews = async (req, res) => {
 const moderateReview = async (req, res) => {
     try {
         const reviewId = req.params.id;
-        const { status } = req.body; // 例如传入 "APPROVED" 或 "REJECTED"
+        const { status } = req.body;
 
         // 简单的角色权限校验
         if (req.user.role !== 'ADMIN' && req.user.role !== 'MODERATOR') {

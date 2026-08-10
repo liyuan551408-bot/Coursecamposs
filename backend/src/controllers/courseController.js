@@ -61,8 +61,35 @@ const getCourseById = async (req, res) => {
     }
 };
 
+// 处理多课程对比的逻辑
+const compareCourses = async (req, res) => {
+    try {
+        // 从请求体中获取前端传来的 ID 数组
+        const { courseIds } = req.body;
+
+        //确保传过来的是一个非空数组
+        if (!Array.isArray(courseIds) || courseIds.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Please provide an array of courseIds (e.g., [1, 2, 3])' 
+            });
+        }
+
+        const courses = await courseService.getCoursesByIds(courseIds);
+
+        res.status(200).json({ 
+            success: true, 
+            data: courses 
+        });
+    } catch (error) {
+        console.error("批量查询对比课程失败:", error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
 module.exports = {
     getCourses,
     createCourse,
-    getCourseById
+    getCourseById,
+    compareCourses
 };
