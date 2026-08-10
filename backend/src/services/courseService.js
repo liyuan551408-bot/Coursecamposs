@@ -25,7 +25,7 @@ const getAllCourses = async ({ skip = 0, take = 50 } = {}) => {
     });
 };
 
-// 【新增】1. 创建课程（支持绑定先决条件）
+// 1. 创建课程（支持绑定先决条件）
 const createCourse = async (courseData, prerequisiteIds = []) => {
     const data = {
         name: courseData.name,
@@ -51,7 +51,7 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
     });
 };
 
-// 【新增】2. 根据 ID 获取单门课程详情（带出它需要的前置课程）
+// 2. 根据 ID 获取单门课程详情（带出它需要的前置课程）
 const getCourseById = async (id) => {
     return prisma.course.findUnique({
         where: { id: Number(id) },
@@ -62,8 +62,25 @@ const getCourseById = async (id) => {
     });
 };
 
+// 3. 根据多个 ID 批量获取课程（用于横向对比）
+const getCoursesByIds = async (courseIds) => {
+    return prisma.course.findMany({
+        where: {
+            // 使用 in 操作符，匹配数组中的任何一个 ID
+            id: { 
+                in: courseIds.map(id => Number(id)) 
+            },
+            isActive: true // 只对比还在开设的课程
+        },
+        include: {
+            prerequisites: true // 把先决条件也带上，方便学生对比
+        }
+    });
+};
+
 module.exports = {
     getAllCourses,
     createCourse,
-    getCourseById
+    getCourseById,
+    getCoursesByIds
 };

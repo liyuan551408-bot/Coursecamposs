@@ -3,7 +3,6 @@ const userService = require('../services/userService');
 // 获取当前登录用户的资料
 const getMe = async (req, res) => {
     try {
-        // 关键点：这里的 req.user.id 是刚才的中间件从 Token 里解析出来并挂载上去的！
         const userId = req.user.id; 
         
         // 调用底层查库
