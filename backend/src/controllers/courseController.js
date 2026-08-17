@@ -20,6 +20,39 @@ const getCourses = async (req, res) => {
     }
 };
 
+// 根据课程代码获取课程详情和已审核评价
+const getCourseByCode = async (req, res) => {
+    try {
+        const course = await courseService.getCourseByCode(req.params.code);
+
+        if (!course) {
+            return res.status(404).json({
+                success: false,
+                message: 'Course not found'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: course
+        });
+    } catch (error) {
+        if (error instanceof TypeError) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error('Get Course By Code Error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error'
+        });
+    }
+};
+
 module.exports = {
-    getCourses
+    getCourses,
+    getCourseByCode
 };
