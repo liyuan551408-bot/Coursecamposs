@@ -9,7 +9,52 @@ const courseSelect = {
     workloadHours: true,
     isActive: true,
     createdAt: true,
-    updatedAt: true
+    updatedAt: true,
+    offeredSemesters: true,
+    level: true,
+    assessmentTypes: true,
+    officialLink: true,
+    prerequisites: {
+        select: {
+            id:true,
+            code:true,
+            name:true
+        },
+        orderBy: {
+            code: 'asc'
+        }
+    },
+
+};
+const courseDetailSelect = {
+    ...courseSelect,
+
+    reviews: {
+        where: {
+            status: 'APPROVED'
+        },
+        select: {
+            id:true,
+            overallRating:true,
+            difficultyRating:true,
+            workloadRating:true,
+            teachingRating:true,
+            assessmentStyle:true,
+            usefulnessRating:true,
+            comment:true,
+            createdAt:true,
+
+            user: {
+                select: {
+                    id:true,
+                    name:true
+                }
+            }
+        },
+        orderBy: {
+            createdAt: 'desc'
+        }
+    }
 };
 
 const getAllCourses = async ({ skip = 0, take = 50 } = {}) => {
@@ -36,6 +81,22 @@ const getAllCourses = async ({ skip = 0, take = 50 } = {}) => {
     });
 };
 
+const getCourseByCode = async (code) => {
+    if (typeof code !== 'string' || code.trim() === '') {
+        throw new TypeError('A valid course code is required');
+    }
+
+    const normalizedCode = code.trim().toUpperCase();
+
+    return prisma.course.findUnique({
+        where: {
+            code: normalizedCode
+        },
+        select: courseDetailSelect
+    });
+};
+
 module.exports = {
-    getAllCourses
+    getAllCourses,
+    getCourseByCode
 };
