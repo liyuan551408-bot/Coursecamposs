@@ -123,11 +123,26 @@ const resetPassword = async (email, resetCode, newPassword) => {
     return true;
 };
 
+// 更新用户的个人资料
+const updateUserProfile = async (id, data) => {
+    // 过滤掉未定义的值，避免覆盖为空
+    const updateData = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.major !== undefined) updateData.major = data.major;
+
+    return prisma.user.update({
+        where: { id },
+        data: updateData,
+        select: publicUserSelect // 复用你之前写好的、不包含密码的安全返回格式
+    });
+};
+
 module.exports = {
     normalizeEmail,
     findUserForAuthenticationByEmail,
     findPublicUserById,
     createUser,
     generateResetCode,
-    resetPassword
+    resetPassword,
+    updateUserProfile
 };
