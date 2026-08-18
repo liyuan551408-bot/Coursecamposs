@@ -11,6 +11,7 @@ import Planner from '../views/Planner.vue'
 import SavedCourses from '../views/SavedCourses.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
 import Profile from '../views/Profile.vue'
+import AiRecommendation from '../views/AiRecommendation.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -25,6 +26,7 @@ const routes = [
   { path: '/courses', name: 'CourseList', component: CourseList },
   { path: '/courses/:id', name: 'CourseDetail', component: CourseDetail },
   { path: '/compare', name: 'CompareCourses', component: CompareCourses },
+  { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation },
   { path: '/planner', name: 'Planner', component: Planner, meta: { requiresAuth: true } },
   { path: '/saved', name: 'SavedCourses', component: SavedCourses, meta: { requiresAuth: true } },
   {
@@ -42,7 +44,7 @@ const router = createRouter({
 })
 
 /**
- * 路由守卫 —— 进入页面前检查权限
+ * Route guard: validate access before navigation.
  */
 router.beforeEach((to, _from, next) => {
   const token = getToken()
@@ -53,7 +55,7 @@ router.beforeEach((to, _from, next) => {
     return
   }
 
-  if (to.meta.roles && user && !to.meta.roles.includes(user.role)) {
+  if (to.meta.roles && user && !to.meta.roles.includes(user.role?.toLowerCase())) {
     next({ name: 'Home' })
     return
   }

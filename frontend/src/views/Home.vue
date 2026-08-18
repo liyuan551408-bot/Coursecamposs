@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 首页
+ * Home page
  */
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -12,30 +12,30 @@ const authStore = useAuthStore()
 const features = [
   {
     icon: '🔍',
-    title: '智能课程搜索',
-    desc: '按专业、学期、难度快速筛选课程，找到最适合你的那一门。',
+    title: 'Smart course search',
+    desc: 'Filter by subject, semester and difficulty to find the course that fits you.',
   },
   {
     icon: '⚖️',
-    title: '多维度对比',
-    desc: ' side-by-side 对比课程内容、评分、工作量，决策不再纠结。',
+    title: 'Side-by-side comparison',
+    desc: 'Compare course content, ratings and workload to make clearer decisions.',
   },
   {
     icon: '🤖',
-    title: 'AI 智能推荐',
-    desc: '基于你的兴趣和成绩，AI 为你量身推荐课程组合。',
+    title: 'AI recommendations',
+    desc: 'Get a tailored course shortlist based on your interests and learning goals.',
   },
   {
     icon: '📅',
-    title: '学期规划器',
-    desc: '拖拽式规划你的整个学位路径，提前看清毕业节奏。',
+    title: 'Semester planner',
+    desc: 'Plan your degree pathway and see your graduation pace ahead of time.',
   },
 ]
 
 const stats = [
-  { number: '500+', label: '门课程数据' },
-  { number: '10k+', label: '学生评价' },
-  { number: '98%', label: '规划满意度' },
+  { number: '500+', label: 'courses' },
+  { number: '10k+', label: 'student reviews' },
+  { number: '98%', label: 'planning satisfaction' },
 ]
 
 function handleGetStarted() {
@@ -49,22 +49,22 @@ function handleGetStarted() {
 
 <template>
   <div class="home-page">
-    <!-- ===== Hero 区域 ===== -->
+    <!-- Hero -->
     <section class="hero-section">
       <div class="hero-content">
         <h1 class="hero-title">
-          找到<span class="highlight">最适合你</span>的课程
+          Find courses that <span class="highlight">fit you best</span>
         </h1>
         <p class="hero-subtitle">
-          CourseCompass 帮你探索、对比、规划你的大学课程。
-          不再靠猜，用数据做出更好的选课决策。
+          CourseCompass helps you explore, compare and plan your university courses.
+          Make better enrolment decisions with data, not guesswork.
         </p>
         <div class="hero-actions">
           <el-button type="primary" size="large" @click="handleGetStarted">
-            免费开始使用
+            Get started free
           </el-button>
           <el-button size="large" @click="$router.push('/courses')">
-            浏览课程
+            Browse courses
           </el-button>
         </div>
         <div class="hero-stats">
@@ -81,11 +81,11 @@ function handleGetStarted() {
       </div>
     </section>
 
-    <!-- ===== 功能特性 ===== -->
+    <!-- Features -->
     <section class="features-section">
       <div class="section-header">
-        <h2>为什么选择 CourseCompass</h2>
-        <p>一站式课程规划工具，让你的选课不再迷茫</p>
+        <h2>Why CourseCompass</h2>
+        <p>Your all-in-one course planning toolkit</p>
       </div>
       <div class="features-grid">
         <el-card
@@ -101,14 +101,14 @@ function handleGetStarted() {
       </div>
     </section>
 
-    <!-- ===== CTA 区域 ===== -->
+    <!-- Call to action -->
     <section class="cta-section">
       <el-card class="cta-card" shadow="hover">
         <div class="cta-content">
-          <h2>准备好开始了吗？</h2>
-          <p>创建免费账号，立刻开始规划你的课程之旅</p>
+          <h2>Ready to get started?</h2>
+          <p>Create a free account and begin planning your course journey.</p>
           <el-button type="primary" size="large" @click="handleGetStarted">
-            {{ authStore.isLoggedIn ? '进入控制台' : '立即注册' }}
+            {{ authStore.isLoggedIn ? 'Go to dashboard' : 'Create an account' }}
           </el-button>
         </div>
       </el-card>
@@ -119,6 +119,7 @@ function handleGetStarted() {
 <style scoped>
 .home-page {
   width: 100%;
+  overflow: hidden;
 }
 
 /* ===== Hero ===== */
@@ -127,7 +128,8 @@ function handleGetStarted() {
   align-items: center;
   gap: 48px;
   padding: 64px 0;
-  min-height: 500px;
+  min-height: 540px;
+  position: relative;
 }
 
 .hero-content {
@@ -135,7 +137,7 @@ function handleGetStarted() {
 }
 
 .hero-title {
-  font-size: 48px;
+  font-size: clamp(42px, 5vw, 64px);
   font-weight: 700;
   line-height: 1.2;
   margin: 0 0 20px;
@@ -143,7 +145,11 @@ function handleGetStarted() {
 }
 
 .highlight {
-  color: var(--accent);
+  color: #7251e8;
+  background: linear-gradient(100deg, #7251e8, #c14bdb);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-subtitle {
@@ -190,8 +196,11 @@ function handleGetStarted() {
 
 .hero-image-wrapper {
   position: relative;
-  width: 320px;
-  height: 320px;
+  width: 370px;
+  height: 370px;
+  border-radius: 38% 62% 58% 42% / 45% 44% 56% 55%;
+  background: linear-gradient(135deg, rgba(114,81,232,.18), rgba(94,207,191,.14));
+  box-shadow: 0 26px 70px rgba(90, 61, 148, .15);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -214,7 +223,7 @@ function handleGetStarted() {
 
 /* ===== Features ===== */
 .features-section {
-  padding: 80px 0;
+  padding: 90px 0;
 }
 
 .section-header {
@@ -242,11 +251,14 @@ function handleGetStarted() {
 
 .feature-card {
   text-align: left;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 20px;
+  border-top: 3px solid rgba(114,81,232,.3);
 }
 
 .feature-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-7px);
+  box-shadow: 0 20px 38px rgba(61, 43, 92, .12);
 }
 
 .feature-icon {
@@ -274,8 +286,9 @@ function handleGetStarted() {
 }
 
 .cta-card {
-  background: linear-gradient(135deg, var(--accent-bg) 0%, transparent 100%);
-  border: 1px solid var(--accent-border);
+  background: linear-gradient(120deg, #6e4ce2 0%, #a84dde 100%);
+  border: 0;
+  box-shadow: 0 20px 42px rgba(93, 59, 173, .24);
 }
 
 .cta-content {
@@ -287,16 +300,16 @@ function handleGetStarted() {
   font-size: 28px;
   font-weight: 600;
   margin: 0 0 8px;
-  color: var(--text-h);
+  color: white;
 }
 
 .cta-content p {
   font-size: 16px;
-  color: var(--text);
+  color: rgba(255,255,255,.82);
   margin-bottom: 24px;
 }
 
-/* ===== 响应式 ===== */
+/* Responsive layout */
 @media (max-width: 768px) {
   .hero-section {
     flex-direction: column;
