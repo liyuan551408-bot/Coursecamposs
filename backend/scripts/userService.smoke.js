@@ -6,21 +6,18 @@ const userService = require('../src/services/userService');
 
 const TEST_EMAIL = 'day2.student@coursecompass.test';
 const TEST_PASSWORD = 'Day2Test123!';
+const NEW_PASSWORD = 'Day2Changed456!';
 
 const run = async () => {
-    // 清理之前可能遗留的测试用户。
     await prisma.user.deleteMany({
         where: {
             email: TEST_EMAIL
         }
     });
 
-    const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
-
-    // 测试创建用户。
     const createdUser = await userService.createUser({
         email: '  DAY2.Student@CourseCompass.Test  ',
-        passwordHash,
+        password: TEST_PASSWORD,
         name: 'Day 2 Student',
         major: 'Software Engineering'
     });
@@ -28,8 +25,9 @@ const run = async () => {
     assert.equal(createdUser.email, TEST_EMAIL);
     assert.equal(createdUser.role, 'STUDENT');
     assert.equal('passwordHash' in createdUser, false);
+    assert.equal('resetCode' in createdUser, false);
+    assert.equal('resetCodeExpires' in createdUser, false);
 
-    // 测试登录查询以及 email 大小写处理。
     const authenticationUser =
         await userService.findUserForAuthenticationByEmail(
             'DAY2.STUDENT@COURSECOMPASS.TEST'
@@ -45,22 +43,100 @@ const run = async () => {
 
     assert.equal(passwordMatches, true);
 
-    // 测试公开资料不返回密码哈希。
-    const publicUser = await userService.findPublicUserById(createdUser.id);
+    const publicUser =
+        await userService.findPublicUserById(createdUser.id);
 
     assert.ok(publicUser);
     assert.equal('passwordHash' in publicUser, false);
+    assert.equal('resetCode' in publicUser, false);
+    assert.equal('resetCodeExpires' in publicUser, false);
 
-    // 测试重复 email 唯一约束。
     await assert.rejects(
         () =>
             userService.createUser({
                 email: TEST_EMAIL,
-                passwordHash,
+                password: TEST_PASSWORD,
                 name: 'Duplicate User'
             }),
         (error) => error.code === 'P2002'
     );
+
+    const resetCode =
+        await userService.generateResetCode(TEST_EMAIL);
+
+    assert.match(resetCode, /^\d{6}$/);
+
+    const userWithResetCode = await prisma.user.findUnique({
+        where: {
+            email: TEST_EMAIL
+        },
+        select: {
+            resetCode: true,
+            resetCodeExpires: true
+        }
+    });
+
+    assert.equal(userWithResetCode.resetCode, resetCode);
+    assert.ok(userWithResetCode.resetCodeExpires instanceof Date);
+    assert.ok(userWithResetCode.resetCodeExpires > new Date());
+
+    await prisma.user.update({
+        where: {
+            email: TEST_EMAIL
+        },
+        data: {
+            resetCodeExpires: new Date(Date.now() - 1000)
+        }
+    });
+
+    await assert.rejects(
+        () =>
+            userService.resetPassword(
+                TEST_EMAIL,
+                resetCode,
+                NEW_PASSWORD
+            ),
+        (error) => error.message === 'Code expired'
+    );
+
+    const validResetCode =
+        await userService.generateResetCode(TEST_EMAIL);
+
+    assert.match(validResetCode, /^\d{6}$/);
+
+    const resetResult = await userService.resetPassword(
+        TEST_EMAIL,
+        validResetCode,
+        NEW_PASSWORD
+    );
+
+    assert.equal(resetResult, true);
+
+    const userAfterReset = await prisma.user.findUnique({
+        where: {
+            email: TEST_EMAIL
+        },
+        select: {
+            passwordHash: true,
+            resetCode: true,
+            resetCodeExpires: true
+        }
+    });
+
+    const newPasswordMatches = await bcrypt.compare(
+        NEW_PASSWORD,
+        userAfterReset.passwordHash
+    );
+
+    const oldPasswordMatches = await bcrypt.compare(
+        TEST_PASSWORD,
+        userAfterReset.passwordHash
+    );
+
+    assert.equal(newPasswordMatches, true);
+    assert.equal(oldPasswordMatches, false);
+    assert.equal(userAfterReset.resetCode, null);
+    assert.equal(userAfterReset.resetCodeExpires, null);
 
     console.log('User Service smoke test passed.');
 };
@@ -72,7 +148,6 @@ run()
         process.exitCode = 1;
     })
     .finally(async () => {
-        // 测试结束后删除假用户。
         await prisma.user.deleteMany({
             where: {
                 email: TEST_EMAIL
