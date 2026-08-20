@@ -37,15 +37,23 @@ const getMyPlans = async (req, res) => {
 // 往计划里添加课程
 const addCourse = async (req, res) => {
     try {
+        const userId = req.user.id; // 拿到当前操作的学生 ID
         const planId = req.params.planId;
-        const { courseId } = req.body; // 从请求体里获取要添加的课程 ID
+        const { courseId } = req.body; 
 
         if (!courseId) {
             return res.status(400).json({ success: false, message: 'courseId is required' });
         }
 
-        const addedCourse = await plannerService.addCourseToPlan(planId, courseId);
-        res.status(201).json({ success: true, message: 'Course added to plan', data: addedCourse });
+        // 把 userId 传进去
+        const result = await plannerService.addCourseToPlan(userId, planId, courseId);
+        
+        res.status(201).json({ 
+            success: true, 
+            message: 'Course added to plan', 
+            warnings: result.warnings, // 把警告数组独立返回给前端
+            data: result.course // 只返回课程数据本体
+        });
     } catch (error) {
         if (error.code === 'P2002') {
             return res.status(409).json({ success: false, message: 'This course is already in the plan' });

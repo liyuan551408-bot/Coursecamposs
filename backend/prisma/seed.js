@@ -8,19 +8,39 @@ const users = [
         email: 'student@coursecompass.test',
         name: 'Demo Student',
         role: 'STUDENT',
-        major: 'Software Engineering'
+        major: 'Software Engineering',
+        studyYear: 5,
+        interests: ['Game Development', 'Software Engineering'],
+        goals: [
+            'Build practical software projects',
+            'Develop industry-ready skills'
+        ],
+        planningPreferences: {
+            maxCreditsPerSemester: 60,
+            preferredAssessmentTypes: ['PROJECT', 'ASSIGNMENT'],
+            preferredWorkload: 'MEDIUM',
+            avoidExamHeavy: true
+        }
     },
     {
         email: 'moderator@coursecompass.test',
         name: 'Demo Moderator',
         role: 'MODERATOR',
-        major: null
+        major: null,
+        studyYear: null,
+        interests: [],
+        goals: [],
+        planningPreferences: {}
     },
     {
         email: 'admin@coursecompass.test',
         name: 'Demo Administrator',
         role: 'ADMIN',
-        major: null
+        major: null,
+        studyYear: null,
+        interests: [],
+        goals: [],
+        planningPreferences: {}
     }
 ];
 
@@ -30,56 +50,88 @@ const courses = [
         name: 'Programming Fundamentals',
         description: 'Introduction to programming and problem solving.',
         credits: 15,
-        workloadHours: 150
+        workloadHours: 150,
+        offeredSemesters: ['SEMESTER_1', 'SEMESTER_2'],
+        level: 100,
+        assessmentTypes: ['ASSIGNMENT', 'QUIZ', 'EXAM'],
+        officialLink: null
     },
     {
         code: '159.201',
         name: 'Algorithms and Data Structures',
         description: 'Core algorithms, data structures and complexity.',
         credits: 15,
-        workloadHours: 160
+        workloadHours: 160,
+        offeredSemesters: ['SEMESTER_1'],
+        level: 200,
+        assessmentTypes: ['ASSIGNMENT', 'EXAM'],
+        officialLink: null
     },
     {
         code: '159.272',
         name: 'Software Engineering',
         description: 'Software development processes and team practices.',
         credits: 15,
-        workloadHours: 150
+        workloadHours: 150,
+        offeredSemesters: ['SEMESTER_1', 'SEMESTER_2'],
+        level: 200,
+        assessmentTypes: ['ASSIGNMENT', 'PROJECT', 'PRESENTATION'],
+        officialLink: null
     },
     {
         code: '159.333',
         name: 'Programming Project',
         description: 'Team-based software development project.',
         credits: 15,
-        workloadHours: 180
+        workloadHours: 180,
+        offeredSemesters: ['SEMESTER_2'],
+        level: 300,
+        assessmentTypes: ['PROJECT', 'PRESENTATION'],
+        officialLink: null
     },
     {
         code: '158.212',
         name: 'Database Development',
         description: 'Relational modelling, SQL and database applications.',
         credits: 15,
-        workloadHours: 160
+        workloadHours: 160,
+        offeredSemesters: ['SEMESTER_1'],
+        level: 200,
+        assessmentTypes: ['ASSIGNMENT', 'LAB', 'EXAM'],
+        officialLink: null
     },
     {
         code: '158.258',
         name: 'Web Development',
         description: 'Development of modern web applications.',
         credits: 15,
-        workloadHours: 150
+        workloadHours: 150,
+        offeredSemesters: ['SEMESTER_2'],
+        level: 200,
+        assessmentTypes: ['ASSIGNMENT', 'PROJECT'],
+        officialLink: null
     },
     {
         code: '161.220',
         name: 'Data Science',
         description: 'Data analysis, preparation and visualisation.',
         credits: 15,
-        workloadHours: 160
+        workloadHours: 160,
+        offeredSemesters: ['SEMESTER_1'],
+        level: 200,
+        assessmentTypes: ['LAB', 'PROJECT', 'QUIZ'],
+        officialLink: null
     },
     {
         code: '157.240',
         name: 'Artificial Intelligence',
         description: 'Foundations of intelligent systems.',
         credits: 15,
-        workloadHours: 170
+        workloadHours: 170,
+        offeredSemesters: ['SEMESTER_2'],
+        level: 200,
+        assessmentTypes: ['ASSIGNMENT', 'PROJECT', 'EXAM'],
+        officialLink: null
     }
 ];
 
@@ -97,14 +149,22 @@ const main = async () => {
                 passwordHash,
                 name: user.name,
                 role: user.role,
-                major: user.major
+                major: user.major,
+                studyYear: user.studyYear,
+                interests: user.interests,
+                goals: user.goals,
+                planningPreferences: user.planningPreferences
             },
             create: {
                 email: user.email,
                 passwordHash,
                 name: user.name,
                 role: user.role,
-                major: user.major
+                major: user.major,
+                studyYear: user.studyYear,
+                interests: user.interests,
+                goals: user.goals,
+                planningPreferences: user.planningPreferences
             }
         });
     }
@@ -121,6 +181,10 @@ const main = async () => {
                 description: course.description,
                 credits: course.credits,
                 workloadHours: course.workloadHours,
+                offeredSemesters: course.offeredSemesters,
+                level: course.level,
+                assessmentTypes: course.assessmentTypes,
+                officialLink: course.officialLink,
                 isActive: true
             },
             create: {
@@ -129,10 +193,58 @@ const main = async () => {
             }
         });
     }
+    await prisma.course.update({
+        where: {
+            code: '159.201'
+        },
+        data: {
+            prerequisites: {
+                connect: {
+                    id: savedCourses['159.101'].id
+                }
+            }
+        }
+    });
+
+    await prisma.course.update({
+        where: {
+            code: '159.333'
+        },
+        data: {
+            prerequisites: {
+                connect: [
+                    {
+                        id: savedCourses['159.201'].id
+                    },
+                    {
+                        id: savedCourses['159.272'].id
+                    }
+                ]
+            }
+        }
+    });
 
     const student = savedUsers.STUDENT;
+    const programmingFundamentals = savedCourses['159.101'];
     const softwareEngineering = savedCourses['159.272'];
     const programmingProject = savedCourses['159.333'];
+
+    await prisma.completedCourse.upsert({
+        where: {
+            userId_courseId: {
+                userId: student.id,
+                courseId: programmingFundamentals.id
+            }
+        },
+        update: {
+            completedAt: new Date('2025-11-15T00:00:00.000Z')
+        },
+        create: {
+            userId: student.id,
+            courseId: programmingFundamentals.id,
+            completedAt: new Date('2025-11-15T00:00:00.000Z')
+        }
+    });
 
     await prisma.review.upsert({
         where: {
@@ -145,6 +257,9 @@ const main = async () => {
             overallRating: 5,
             difficultyRating: 3,
             workloadRating: 4,
+            teachingRating: 4,
+            assessmentStyle: 'PRACTICAL',
+            usefulnessRating: 5,
             comment: 'Useful course with practical teamwork.',
             status: 'APPROVED'
         },
@@ -154,6 +269,9 @@ const main = async () => {
             overallRating: 5,
             difficultyRating: 3,
             workloadRating: 4,
+            teachingRating: 4,
+            assessmentStyle: 'PRACTICAL',
+            usefulnessRating: 5,
             comment: 'Useful course with practical teamwork.',
             status: 'APPROVED'
         }

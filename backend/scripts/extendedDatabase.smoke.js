@@ -1,0 +1,256 @@
+const assert = require('node:assert/strict');
+const bcrypt = require('bcryptjs');
+
+const prisma = require('../src/lib/prisma');
+const reviewService =
+    require('../src/services/reviewService');
+const completedCourseService =
+    require('../src/services/completedCourseService');
+const courseService =
+    require('../src/services/courseService');
+
+const TEST_EMAIL =
+    'extended.database@coursecompass.test';
+
+const COURSE_CODES = [
+    'EXT.TEST.101',
+    'EXT.TEST.201'
+];
+
+const cleanUp = async () => {
+    await prisma.review.deleteMany({
+        where: {
+            course: {
+                code: {
+                    in: COURSE_CODES
+                }
+            }
+        }
+    });
+
+    await prisma.completedCourse.deleteMany({
+        where: {
+            course: {
+                code: {
+                    in: COURSE_CODES
+                }
+            }
+        }
+    });
+
+    await prisma.user.deleteMany({
+        where: {
+            email: TEST_EMAIL
+        }
+    });
+
+    await prisma.course.deleteMany({
+        where: {
+            code: {
+                in: COURSE_CODES
+            }
+        }
+    });
+};
+
+const run = async () => {
+    await cleanUp();
+
+    const passwordHash =
+        await bcrypt.hash('ExtendedTest123!', 10);
+
+    const user = await prisma.user.create({
+        data: {
+            email: TEST_EMAIL,
+            passwordHash,
+            name: 'Extended Database Test User',
+            studyYear: 3,
+            interests: ['Software Engineering'],
+            goals: ['Complete database testing'],
+            planningPreferences: {
+                preferredWorkload: 'MEDIUM'
+            }
+        }
+    });
+
+    const firstCourse = await prisma.course.create({
+        data: {
+            code: COURSE_CODES[0],
+            name: 'Extended Test Course 101',
+            credits: 15,
+            workloadHours: 120,
+            offeredSemesters: ['SEMESTER_1'],
+            level: 100,
+            assessmentTypes: [
+                'ASSIGNMENT',
+                'PROJECT'
+            ]
+        }
+    });
+
+    const secondCourse = await prisma.course.create({
+        data: {
+            code: COURSE_CODES[1],
+            name: 'Extended Test Course 201',
+            credits: 15,
+            workloadHours: 150,
+            offeredSemesters: ['SEMESTER_2'],
+            level: 200,
+            assessmentTypes: [
+                'EXAM',
+                'ASSIGNMENT'
+            ]
+        }
+    });
+
+    const createdReview =
+        await reviewService.createReview({
+            userId: user.id,
+            courseId: firstCourse.id,
+            overallRating: 4,
+            difficultyRating: 3,
+            workloadRating: 4,
+            teachingRating: 5,
+            assessmentStyle: 'PROJECT_BASED',
+            usefulnessRating: 5,
+            comment: 'Extended database test review.'
+        });
+
+    assert.equal(createdReview.status, 'PENDING');
+    assert.equal(createdReview.teachingRating, 5);
+    assert.equal(
+        createdReview.assessmentStyle,
+        'PROJECT_BASED'
+    );
+    assert.equal(createdReview.usefulnessRating, 5);
+
+    console.log('Passed: create review');
+
+    await prisma.review.update({
+        where: {
+            id: createdReview.id
+        },
+        data: {
+            status: 'APPROVED'
+        }
+    });
+
+    const comparison =
+        await courseService.getCoursesForComparison(
+            COURSE_CODES
+        );
+
+    assert.equal(comparison.length, 2);
+
+    const firstComparison = comparison.find(
+        (course) => course.code === COURSE_CODES[0]
+    );
+
+    const secondComparison = comparison.find(
+        (course) => course.code === COURSE_CODES[1]
+    );
+
+    assert.ok(firstComparison);
+    assert.ok(secondComparison);
+
+    assert.equal(
+        firstComparison.ratingSummary.reviewCount,
+        1
+    );
+    assert.equal(
+        firstComparison.ratingSummary.overallRating,
+        4
+    );
+    assert.equal(
+        secondComparison.ratingSummary.reviewCount,
+        0
+    );
+
+    console.log('Passed: course comparison');
+
+    const updatedReview =
+        await reviewService.updateReview(
+            user.id,
+            firstCourse.id,
+            {
+                overallRating: 5,
+                assessmentStyle: 'BALANCED',
+                usefulnessRating: 4
+            }
+        );
+
+    assert.equal(updatedReview.overallRating, 5);
+    assert.equal(
+        updatedReview.assessmentStyle,
+        'BALANCED'
+    );
+    assert.equal(updatedReview.usefulnessRating, 4);
+    assert.equal(updatedReview.status, 'PENDING');
+
+    console.log('Passed: update review');
+
+    const completionDate =
+        '2026-06-30T00:00:00.000Z';
+
+    await completedCourseService.markCourseCompleted(
+        user.id,
+        secondCourse.id,
+        completionDate
+    );
+
+    // 再执行一次，验证 upsert 不会产生重复记录
+    await completedCourseService.markCourseCompleted(
+        user.id,
+        secondCourse.id,
+        completionDate
+    );
+
+    const completedCourses =
+        await completedCourseService
+            .getCompletedCoursesByUser(user.id);
+
+    assert.equal(completedCourses.length, 1);
+    assert.equal(
+        completedCourses[0].course.code,
+        COURSE_CODES[1]
+    );
+    assert.equal(
+        completedCourses[0].completedAt.toISOString(),
+        completionDate
+    );
+
+    console.log('Passed: mark and query completed course');
+
+    const removed =
+        await completedCourseService
+            .unmarkCourseCompleted(
+                user.id,
+                secondCourse.id
+            );
+
+    assert.equal(removed, true);
+
+    const remainingCourses =
+        await completedCourseService
+            .getCompletedCoursesByUser(user.id);
+
+    assert.equal(remainingCourses.length, 0);
+
+    console.log('Passed: unmark completed course');
+    console.log(
+        'Extended database smoke test passed.'
+    );
+};
+
+run()
+    .catch((error) => {
+        console.error(
+            'Extended database smoke test failed.'
+        );
+        console.error(error);
+        process.exitCode = 1;
+    })
+    .finally(async () => {
+        await cleanUp();
+        await prisma.$disconnect();
+    });

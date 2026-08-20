@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1400" viewBox="0 0 1900 1400">
+  <defs>
+    <style>
+      .bg{fill:#111}
+      .box{fill:#1f2020;stroke:#b8b8b8;stroke-width:2}
+      .newbox{fill:#1f2020;stroke:#66b2ff;stroke-width:2}
+      .enumbox{fill:#182432;stroke:#66b2ff;stroke-width:2}
+      .header{font:700 18px Arial,sans-serif;fill:#f2f2f2}
+      .row{font:14px Consolas,monospace;fill:#e8e8e8}
+      .small{font:13px Consolas,monospace;fill:#ccc}
+      .edge{fill:none;stroke:#d0d0d0;stroke-width:2}
+      .newedge{fill:none;stroke:#66b2ff;stroke-width:2}
+      .selfedge{fill:none;stroke:#ffb366;stroke-width:2}
+      .label{font:13px Arial,sans-serif;fill:#f0f0f0}
+    </style>
+    <marker id="many" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L10,6 L1,11 M1,1 L1,11" fill="none" stroke="#d0d0d0" stroke-width="1.5"/>
+    </marker>
+    <marker id="manyBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L10,6 L1,11 M1,1 L1,11" fill="none" stroke="#66b2ff" stroke-width="1.5"/>
+    </marker>
+    <marker id="manyOrange" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M1,1 L10,6 L1,11 M1,1 L1,11" fill="none" stroke="#ffb366" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1900" height="1400"/>
+  <text x="40" y="50" class="header" style="font-size:28px">CourseCompass ERD v0.2</text>
+
+  <g transform="translate(40 90)">
+    <rect class="box" width="340" height="410"/>
+    <text x="170" y="28" text-anchor="middle" class="header">USER</text>
+    <line x1="0" y1="40" x2="340" y2="40" class="edge"/>
+    <text x="14" y="66" class="row">
+      <tspan x="14" dy="0">PK  id : Int</tspan><tspan x="14" dy="23">UK  email : String</tspan>
+      <tspan x="14" dy="23">    passwordHash : String</tspan><tspan x="14" dy="23">    name : String</tspan>
+      <tspan x="14" dy="23">    role : UserRole</tspan><tspan x="14" dy="23">    major : String?</tspan>
+      <tspan x="14" dy="23">    studyYear : Int?</tspan><tspan x="14" dy="23">    interests : String[]</tspan>
+      <tspan x="14" dy="23">    goals : String[]</tspan><tspan x="14" dy="23">    planningPreferences : Json?</tspan>
+      <tspan x="14" dy="23">    resetCode : String?</tspan><tspan x="14" dy="23">    resetCodeExpires : DateTime?</tspan>
+      <tspan x="14" dy="23">    createdAt : DateTime</tspan><tspan x="14" dy="23">    updatedAt : DateTime</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(620 70)">
+    <rect class="box" width="390" height="430"/>
+    <text x="195" y="28" text-anchor="middle" class="header">COURSE</text>
+    <line x1="0" y1="40" x2="390" y2="40" class="edge"/>
+    <text x="14" y="66" class="row">
+      <tspan x="14" dy="0">PK  id : Int</tspan><tspan x="14" dy="22">UK  code : String</tspan>
+      <tspan x="14" dy="22">    name : String</tspan><tspan x="14" dy="22">    description : String?</tspan>
+      <tspan x="14" dy="22">    credits : Int</tspan><tspan x="14" dy="22">    workloadHours : Int?</tspan>
+      <tspan x="14" dy="22">    offeredSemesters : CourseSemester[]</tspan><tspan x="14" dy="22">    level : Int?</tspan>
+      <tspan x="14" dy="22">    assessmentTypes : AssessmentType[]</tspan><tspan x="14" dy="22">    officialLink : String?</tspan>
+      <tspan x="14" dy="22">    isActive : Boolean</tspan><tspan x="14" dy="22">    embedding : vector(512)?</tspan>
+      <tspan x="14" dy="22">    createdAt : DateTime</tspan><tspan x="14" dy="22">    updatedAt : DateTime</tspan>
+      <tspan x="14" dy="22">IDX level, name, isActive</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(250 650)">
+    <rect class="box" width="390" height="400"/>
+    <text x="195" y="28" text-anchor="middle" class="header">REVIEW</text>
+    <line x1="0" y1="40" x2="390" y2="40" class="edge"/>
+    <text x="14" y="65" class="row">
+      <tspan x="14" dy="0">PK  id : Int</tspan><tspan x="14" dy="21">FK  userId : Int</tspan>
+      <tspan x="14" dy="21">FK  courseId : Int</tspan><tspan x="14" dy="21">    overallRating : Int</tspan>
+      <tspan x="14" dy="21">    difficultyRating : Int</tspan><tspan x="14" dy="21">    workloadRating : Int</tspan>
+      <tspan x="14" dy="21">    teachingRating : Int?</tspan><tspan x="14" dy="21">    assessmentStyle : AssessmentStyle?</tspan>
+      <tspan x="14" dy="21">    usefulnessRating : Int?</tspan><tspan x="14" dy="21">    comment : String?</tspan>
+      <tspan x="14" dy="21">    status : ReviewStatus</tspan><tspan x="14" dy="21">    createdAt : DateTime</tspan>
+      <tspan x="14" dy="21">    updatedAt : DateTime</tspan><tspan x="14" dy="21">UK  (userId, courseId)</tspan>
+      <tspan x="14" dy="21">IDX (courseId, status)</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(1060 100)">
+    <rect class="box" width="320" height="135"/>
+    <text x="160" y="28" text-anchor="middle" class="header">SAVED_COURSE</text>
+    <line x1="0" y1="40" x2="320" y2="40" class="edge"/>
+    <text x="14" y="67" class="row"><tspan x="14">PK,FK  userId : Int</tspan><tspan x="14" dy="24">PK,FK  courseId : Int</tspan><tspan x="14" dy="24">       createdAt : DateTime</tspan></text>
+  </g>
+
+  <g transform="translate(1060 320)">
+    <rect class="newbox" width="320" height="155"/>
+    <text x="160" y="28" text-anchor="middle" class="header">COMPLETED_COURSE</text>
+    <line x1="0" y1="40" x2="320" y2="40" class="newedge"/>
+    <text x="14" y="67" class="row"><tspan x="14">PK,FK  userId : Int</tspan><tspan x="14" dy="24">PK,FK  courseId : Int</tspan><tspan x="14" dy="24">       completedAt : DateTime?</tspan><tspan x="14" dy="24">IDX    courseId</tspan></text>
+  </g>
+
+  <g transform="translate(1040 670)">
+    <rect class="box" width="350" height="255"/>
+    <text x="175" y="28" text-anchor="middle" class="header">SEMESTER_PLAN</text>
+    <line x1="0" y1="40" x2="350" y2="40" class="edge"/>
+    <text x="14" y="67" class="row"><tspan x="14">PK  id : Int</tspan><tspan x="14" dy="23">FK  userId : Int</tspan><tspan x="14" dy="23">    name : String</tspan><tspan x="14" dy="23">    year : Int</tspan><tspan x="14" dy="23">    semester : String</tspan><tspan x="14" dy="23">    createdAt : DateTime</tspan><tspan x="14" dy="23">UK  (userId, year, semester, name)</tspan><tspan x="14" dy="23">IDX (userId, year, semester)</tspan></text>
+  </g>
+
+  <g transform="translate(1500 740)">
+    <rect class="box" width="300" height="115"/>
+    <text x="150" y="28" text-anchor="middle" class="header">PLAN_COURSE</text>
+    <line x1="0" y1="40" x2="300" y2="40" class="edge"/>
+    <text x="14" y="67" class="row"><tspan x="14">PK,FK  planId : Int</tspan><tspan x="14" dy="25">PK,FK  courseId : Int</tspan></text>
+  </g>
+
+  <g transform="translate(1450 70)">
+    <rect class="enumbox" width="400" height="475" rx="10"/>
+    <text x="200" y="30" text-anchor="middle" class="header">ENUMERATIONS</text>
+    <text x="18" y="65" class="row">
+      <tspan x="18" font-weight="bold">UserRole</tspan><tspan x="18" dy="22">STUDENT | MODERATOR | ADMIN</tspan>
+      <tspan x="18" dy="38" font-weight="bold">ReviewStatus</tspan><tspan x="18" dy="22">PENDING | APPROVED | REJECTED | HIDDEN</tspan>
+      <tspan x="18" dy="38" font-weight="bold">CourseSemester</tspan><tspan x="18" dy="22">SEMESTER_1 | SEMESTER_2 | SUMMER</tspan>
+      <tspan x="18" dy="38" font-weight="bold">AssessmentType</tspan><tspan x="18" dy="22">EXAM | ASSIGNMENT | QUIZ | PROJECT</tspan><tspan x="18" dy="22">LAB | PRESENTATION</tspan>
+      <tspan x="18" dy="38" font-weight="bold">AssessmentStyle</tspan><tspan x="18" dy="22">EXAM_HEAVY | COURSEWORK_HEAVY</tspan><tspan x="18" dy="22">PROJECT_BASED | PRACTICAL | BALANCED</tspan>
+    </text>
+  </g>
+
+  <path d="M210 500 L210 590 L350 590 L350 650" class="edge" marker-end="url(#many)"/><text x="220" y="580" class="label">writes</text>
+  <path d="M760 500 L760 585 L540 585 L540 650" class="edge" marker-end="url(#many)"/><text x="650" y="575" class="label">receives</text>
+  <path d="M380 210 L430 210 L430 545 L1030 545 L1030 165 L1060 165" class="edge" marker-end="url(#many)"/><text x="770" y="534" class="label">saves</text>
+  <path d="M1010 170 L1060 170" class="edge" marker-end="url(#many)"/><text x="1012" y="155" class="label">saved in</text>
+  <path d="M380 360 L455 360 L455 570 L1020 570 L1020 430 L1060 430" class="newedge" marker-end="url(#manyBlue)"/><text x="790" y="559" class="label">completes</text>
+  <path d="M1010 390 L1060 390" class="newedge" marker-end="url(#manyBlue)"/><text x="1005" y="377" class="label">completed by</text>
+  <path d="M380 470 L470 470 L470 610 L900 610 L900 790 L1040 790" class="edge" marker-end="url(#many)"/><text x="905" y="775" class="label">creates</text>
+  <path d="M1390 800 L1500 800" class="edge" marker-end="url(#many)"/><text x="1412" y="786" class="label">contains</text>
+  <path d="M820 500 L820 1140 L1650 1140 L1650 855" class="edge" marker-end="url(#many)"/><text x="1230" y="1127" class="label">planned in</text>
+  <path d="M720 70 C720 5 910 5 910 70" class="selfedge" marker-start="url(#manyOrange)" marker-end="url(#manyOrange)"/><text x="750" y="20" class="label">prerequisites (M:N)</text>
+
+  <text x="40" y="1360" class="small">PK = Primary Key   FK = Foreign Key   UK = Unique Key   IDX = Index</text>
+</svg>
