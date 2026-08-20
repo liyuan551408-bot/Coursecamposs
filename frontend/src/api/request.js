@@ -1,5 +1,5 @@
 /**
- * Axios 请求封装
+ * Axios request wrapper
  */
 import axios from 'axios'
 import { getToken, clearAuthStorage } from '../utils/auth'
@@ -10,7 +10,7 @@ const request = axios.create({
   timeout: 10000,
 })
 
-// 请求发出前：如果有 token，自动加到 Header
+// Add the token automatically before sending a request.
 request.interceptors.request.use((config) => {
   const token = getToken()
   if (token) {
@@ -19,7 +19,7 @@ request.interceptors.request.use((config) => {
   return config
 })
 
-// 收到响应后：401 表示登录失效，清本地数据并跳转登录页
+// A 401 means the session has expired: clear local data and redirect to login.
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
