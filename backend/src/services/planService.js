@@ -31,17 +31,59 @@ const getUserPlans = async (userId) => {
     });
 };
 
-// 往指定的计划里添加一门课
-const addCourseToPlan = async (planId, courseId) => {
-    return prisma.planCourse.create({
+// 往指定的计划里添加一门课,并检测先觉条件
+const addCourseToPlan = async (userId, planId, courseId) => {
+    // 获取这门课以及它的先决条件
+    const course = await prisma.course.findUnique({
+        where: { id: Number(courseId) },
+        include: { prerequisites: true }
+    });
+
+    if (!course) throw new Error('Course not found');
+
+    let warnings = [];
+
+    // 有先决条件
+    if (course.prerequisites.length > 0) {
+        // 取用户【已经修完】的课程 ID 列表
+        const completed = await prisma.completedCourse.findMany({
+            where: { userId: Number(userId) }
+        });
+        const completedIds = completed.map(c => c.courseId);
+
+        // 获取用户在【所有计划】中已添加的课程 ID 列表
+        const planned = await prisma.planCourse.findMany({
+            where: { plan: { userId: Number(userId) } }
+        });
+        const plannedIds = planned.map(p => p.courseId);
+
+        // 滤出那些既没有完成，也没有在计划中的先决条件
+        const missingPrereqs = course.prerequisites.filter(p => 
+            !completedIds.includes(p.id) && !plannedIds.includes(p.id)
+        );
+
+        if (missingPrereqs.length > 0) {
+            const missingCodes = missingPrereqs.map(p => p.code).join(', ');
+            warnings.push(`Warning: You may be missing prerequisites for this course: ${missingCodes}`);
+        }
+    }
+
+    // 把课正常加进计划
+    const addedCourse = await prisma.planCourse.create({
         data: {
             planId: Number(planId),
             courseId: Number(courseId)
         },
         include: {
-            course: true // 返回刚加进去的那门课的信息
+            course: true // 返回课程详细信息
         }
     });
+
+    // 把警告信息打包和数据一起返回给 Controller
+    return {
+        ...addedCourse,
+        warnings 
+    };
 };
 
 // 从计划里移除一门课

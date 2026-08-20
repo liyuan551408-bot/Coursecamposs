@@ -23,9 +23,9 @@ const getMe = async (req, res) => {
 const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { name, major } = req.body; // 前端传过来的新数据
+        const { name, major, studyYear, interests, goals, planningPreferences } = req.body; // 前端传过来的新数据
 
-        const updatedUser = await userService.updateUserProfile(userId, { name, major });
+        const updatedUser = await userService.updateUserProfile(userId, { name, major, studyYear, interests, goals, planningPreferences });
 
         res.status(200).json({ 
             success: true, 
