@@ -9,7 +9,27 @@ const publicUserSelect = {
     role: true,
     major: true,
     createdAt: true,
-    updatedAt: true
+    updatedAt: true,
+    studyYear:true,
+    interests:true,
+    goals:true,
+    planningPreferences:true,
+
+    completedCourses: {
+    select: {
+        completedAt: true,
+        course: {
+            select: {
+               id:true,
+               code:true,
+               name:true,
+               credits:true
+            }
+        }
+    }
+}
+
+
 }; //[cite: 2]
 
 const normalizeEmail = (email) => {
@@ -129,7 +149,10 @@ const updateUserProfile = async (id, data) => {
     const updateData = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.major !== undefined) updateData.major = data.major;
-
+    if (data.studyYear !== undefined) updateData.studyYear = data.studyYear;
+    if (data.interests !== undefined) updateData.interests = data.interests;
+    if (data.goals !== undefined) updateData.goals = data.goals;
+    if (data.planningPreferences !== undefined) updateData.planningPreferences = data.planningPreferences;
     return prisma.user.update({
         where: { id },
         data: updateData,
