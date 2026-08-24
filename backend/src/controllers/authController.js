@@ -3,13 +3,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
 const emailService = require('../services/emailService');
-// 处理用户注册的逻辑
+// Handle user registration.
 const register = async (req, res) => {
     try {
-        // 1. 从前端发来的请求体 (body) 中提取数据
+        // 1. Extract data from the request body sent by the frontend.
         const { email, password, name, major } = req.body;
 
-        // 2. 简单的数据校验（确保必填项都有）
+        // 2. Basic validation for required fields.
         if (!email || !password || !name) {
             return res.status(400).json({
                 success: false,
@@ -17,10 +17,10 @@ const register = async (req, res) => {
             });
         }
 
-        // 3. 将明文密码加密（盐值设为 10）
+        // 3. Hash the plaintext password with salt rounds set to 10.
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // 4. 调用队友写好的底层的 createUser 方法存入数据库
+        // 4. Call the lower-level createUser method to store the user in the database.
         const newUser = await userService.createUser({
             email,
             password,
@@ -28,7 +28,7 @@ const register = async (req, res) => {
             major
         });
 
-        // 5. 成功后，返回给前端 JSON 数据
+        // 5. Return JSON data to the frontend after success.
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
@@ -38,7 +38,7 @@ const register = async (req, res) => {
     } catch (error) {
         console.error('Registration Error:', error);
         
-        // 处理邮箱重复的特殊错误 (Prisma 的 P2002 错误码)
+        // Handle duplicate email errors (Prisma error code P2002).
         if (error.code === 'P2002') {
             return res.status(409).json({
                 success: false,
@@ -46,7 +46,7 @@ const register = async (req, res) => {
             });
         }
 
-        // 其他未知服务器错误
+        // Other unknown server errors.
         res.status(500).json({
             success: false,
             message: 'Server Error during registration'
@@ -54,13 +54,13 @@ const register = async (req, res) => {
     }
 };
 
-// 处理用户登录的逻辑
+// Handle user login.
 const login = async (req, res) => {
     try {
-        // 1. 从请求体中提取邮箱和密码
+        // 1. Extract email and password from the request body.
         const { email, password } = req.body;
 
-        // 2. 基础数据校验
+        // 2. Basic validation.
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -68,10 +68,10 @@ const login = async (req, res) => {
             });
         }
 
-        // 3. 调用底层的 findUserForAuthenticationByEmail 拿到带密码哈希的用户数据
+        // 3. Get user data with password hash from findUserForAuthenticationByEmail.
         const user = await userService.findUserForAuthenticationByEmail(email);
 
-        // 如果用户不存在，为了安全，统一返回“凭证无效”
+        // For security, return the same invalid credentials message if the user does not exist.
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -79,7 +79,7 @@ const login = async (req, res) => {
             });
         }
 
-        // 4. 使用 bcrypt 比对前端传来的明文密码和数据库里的密码哈希
+        // 4. Compare the plaintext password from the frontend with the stored password hash.
         const isMatch = await bcrypt.compare(password, user.passwordHash);
 
         if (!isMatch) {
@@ -90,21 +90,21 @@ const login = async (req, res) => {
         }
 
         // 5. JWT logc
-        // 放一些基础身份信息
+        // Include basic identity information.
         const payload = {
             id: user.id,
             email: user.email,
             role: user.role
         };
 
-        // 2. 签发 Token
+        // 2. Issue token.
         const token = jwt.sign(
             payload,
-            process.env.JWT_SECRET, // 使用 .env 中定义的密钥
-            { expiresIn: '24h' }    // 设置 24 小时后过期
+            process.env.JWT_SECRET, // Use the secret defined in .env.
+            { expiresIn: '24h' }    // Expire after 24 hours.
         );
 
-        // 6. 密码正确，准备返回数据。为了安全，解构剔除 passwordHash
+        // 6. Password is correct. Remove passwordHash before returning data.
         const { passwordHash, ...safeUser } = user;
 
         res.status(200).json({
@@ -136,19 +136,19 @@ const forgotPassword = async(req, res) => {
 
         const resetCode = await userService.generateResetCode(email);
 
-        // 如果用户存在并成功生成了代码，我们先把它打印在控制台模拟发送邮件
+        // If the user exists and a code was generated, send the reset email.
         if (resetCode) {
             try {
-                // 调用真实的邮件发送
+                // Send the real email.
                 await emailService.sendResetEmail(email, resetCode);
-                console.log(`[Email Success] 已成功发送真实重置邮件到 ${email}`);
+                console.log(`[Email Success] Reset email sent successfully to ${email}`);
             } catch (emailError) {
-                console.error('[Email Error] 邮件发送失败:', emailError);
+                console.error('[Email Error] Failed to send email:', emailError);
             }
         }
 
-        // 重要安全实践：无论该邮箱是否在数据库中存在，都返回相同的成功提示
-        // 这样黑客就无法通过枚举来判断哪些邮箱注册了你的应用
+        // Important security practice: always return the same success message regardless of whether the email exists.
+        // This prevents attackers from enumerating registered emails.
         res.status(200).json({
             success: true,
             message: 'If that email address is in our database, we will send you an email with a reset code.'
@@ -163,12 +163,12 @@ const forgotPassword = async(req, res) => {
     }
 }
 
-// 处理重置密码的逻辑
+// Handle password reset.
 const resetPassword = async (req, res) => {
     try {
         const { email, resetCode, newPassword } = req.body;
 
-        // 1. 基础数据校验：三个参数缺一不可
+        // 1. Basic validation: all three parameters are required.
         if (!email || !resetCode || !newPassword) {
             return res.status(400).json({
                 success: false,
@@ -176,10 +176,10 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        // 2. 调用底层 Service 完成密码重置
+        // 2. Call the service layer to reset the password.
         await userService.resetPassword(email, resetCode, newPassword);
 
-        // 3. 成功返回
+        // 3. Return success.
         res.status(200).json({
             success: true,
             message: 'Password has been successfully reset'
@@ -188,7 +188,7 @@ const resetPassword = async (req, res) => {
     } catch (error) {
         console.error('Reset Password Error:', error);
         
-        // 捕获我们刚才在 Service 层抛出的特定错误，转成友好的前端提示
+        // Convert specific service-layer errors into friendly frontend messages.
         if (error.message === 'Invalid code') {
             return res.status(400).json({
                 success: false,
@@ -203,7 +203,7 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        // 其他服务器未知错误
+        // Other unknown server errors.
         res.status(500).json({
             success: false,
             message: 'Server Error during password reset'
@@ -211,7 +211,7 @@ const resetPassword = async (req, res) => {
     }
 };
 
-// 导出这个函数，给路由层使用
+// Export these functions for the route layer.
 module.exports = {
     register,
     login,

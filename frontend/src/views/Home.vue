@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 首页
+ * Home page
  */
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -11,23 +11,23 @@ const authStore = useAuthStore()
 
 const features = [
   {
-    title: '智能课程搜索',
-    desc: '按专业、学期、难度快速筛选课程，找到最适合你的那一门。',
+    title: 'Smart Course Search',
+    desc: 'Filter courses quickly by major, semester, and difficulty to find the best fit.',
   },
   {
-    title: '多维度对比',
-    desc: ' side-by-side 对比课程内容、评分、工作量，决策不再纠结。',
+    title: 'Multi-Dimensional Comparison',
+    desc: 'Compare course content, ratings, and workload side by side so decisions are easier.',
   },
   {
-    title: 'AI 智能推荐',
-    desc: '基于你的兴趣和成绩，AI 为你量身推荐课程组合。',
+    title: 'AI Recommendations',
+    desc: 'Get tailored course combinations based on your interests and academic profile.',
   },
 ]
 
 const stats = [
-  { number: '500+', label: '门课程数据' },
-  { number: '10k+', label: '学生评价' },
-  { number: '98%', label: '规划满意度' },
+  { number: '500+', label: 'Courses' },
+  { number: '10k+', label: 'Student Reviews' },
+  { number: '98%', label: 'Planning Satisfaction' },
 ]
 
 function handleGetStarted() {
@@ -41,22 +41,22 @@ function handleGetStarted() {
 
 <template>
   <div class="home-page">
-    <!-- ===== Hero 区域 ===== -->
+    <!-- ===== Hero Section ===== -->
     <section class="hero-section">
       <div class="hero-content">
         <h1 class="hero-title">
-          找到<span class="highlight">最适合你</span>的课程
+          Find the <span class="highlight">best-fit</span> courses
         </h1>
         <p class="hero-subtitle">
-          CourseCompass 帮你探索、对比、规划你的大学课程。
-          不再靠猜，用数据做出更好的选课决策。
+          CourseCompass helps you explore, compare, and plan your university courses.
+          Make better course decisions with data instead of guesswork.
         </p>
         <div class="hero-actions">
           <el-button type="primary" size="large" @click="handleGetStarted">
-            免费开始使用
+            Get Started Free
           </el-button>
           <el-button size="large" @click="$router.push('/courses')">
-            浏览课程
+            Browse Courses
           </el-button>
         </div>
         <div class="hero-stats">
@@ -73,11 +73,11 @@ function handleGetStarted() {
       </div>
     </section>
 
-    <!-- ===== 功能特性 ===== -->
+    <!-- ===== Features ===== -->
     <section class="features-section">
       <div class="section-header">
-        <h2>为什么选择 CourseCompass</h2>
-        <p>一站式课程规划工具，让你的选课不再迷茫</p>
+        <h2>Why Choose CourseCompass</h2>
+        <p>One course planning tool to make course selection clearer.</p>
       </div>
       <div class="features-grid">
         <el-card
@@ -93,14 +93,14 @@ function handleGetStarted() {
       </div>
     </section>
 
-    <!-- ===== CTA 区域 ===== -->
+    <!-- ===== CTA Section ===== -->
     <section class="cta-section">
       <el-card class="cta-card" shadow="hover">
         <div class="cta-content">
-          <h2>准备好开始了吗？</h2>
-          <p>创建免费账号，立刻开始规划你的课程之旅</p>
+          <h2>Ready to get started?</h2>
+          <p>Create a free account and start planning your course journey.</p>
           <el-button type="primary" size="large" @click="handleGetStarted">
-            {{ authStore.isLoggedIn ? '进入控制台' : '立即注册' }}
+            {{ authStore.isLoggedIn ? 'Go to Dashboard' : 'Sign Up Now' }}
           </el-button>
         </div>
       </el-card>
@@ -288,7 +288,7 @@ function handleGetStarted() {
   margin-bottom: 24px;
 }
 
-/* ===== 响应式 ===== */
+/* ===== Responsive ===== */
 @media (max-width: 768px) {
   .hero-section {
     flex-direction: column;
