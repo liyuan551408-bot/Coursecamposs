@@ -16,20 +16,20 @@ const generateEmbedding = async (text) => {
     const data = await response.json();
     
     if (!data.data || !data.data[0] || !data.data[0].embedding) {
-      throw new Error("智谱 API 返回格式异常: " + JSON.stringify(data));
+      throw new Error("Zhipu API returned an unexpected format: " + JSON.stringify(data));
     }
 
-    // 智谱默认返回 2048 维真实数据
+    // Zhipu returns 2048-dimensional data by default.
     const rawVector = data.data[0].embedding;
     
-    // embedding-3 支持无损降维，我们直接截取前 512 维，完美匹配数据库的 vector(512)
+    // embedding-3 supports dimensionality reduction, so use the first 512 dimensions to match vector(512).
     const vector = rawVector.slice(0, 512);
     
-    console.log(`[AI 服务] 成功生成向量，前 5 个值为: ${vector.slice(0, 5).join(', ')}`);
+    console.log(`[AI Service] Embedding generated successfully. First 5 values: ${vector.slice(0, 5).join(', ')}`);
     
     return vector;
   } catch (error) {
-    console.error("调用智谱 AI 向量接口失败:", error);
+    console.error("Failed to call Zhipu AI embedding API:", error);
     throw error;
   }
 };

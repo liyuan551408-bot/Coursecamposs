@@ -21,7 +21,7 @@ enum ReviewStatus {
 }
 
 model User {
-  // 基础信息
+  // Basic information
   id           Int      @id @default(autoincrement())
   email        String   @unique
   passwordHash String
@@ -29,9 +29,9 @@ model User {
   role         UserRole @default(STUDENT)
   major        String?
 
-  // 密码重置
-  resetCode    String?           // 6位邮箱验证码
-  resetCodeExpires  DateTime?    //验证码过期时间
+  // Password reset
+  resetCode    String?           // 6-digit email verification code
+  resetCodeExpires  DateTime?    // Verification code expiration time
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -52,7 +52,7 @@ model Course {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // 512 维度向量字段，匹配智谱 embedding-3 模型
+  // 512-dimensional vector field matching the Zhipu embedding-3 model
   embedding     Unsupported("vector(512)")?
 
   reviews      Review[]
