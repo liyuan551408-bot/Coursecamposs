@@ -19,6 +19,12 @@ enum ReviewStatus {
   HIDDEN
 }
 
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
 enum CourseSemester {
   SEMESTER_1
   SEMESTER_2
@@ -63,6 +69,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   reviews          Review[]
+  reviewReports    ReviewReport[]
   savedCourses     SavedCourse[]
   semesterPlans    SemesterPlan[]
   completedCourses CompletedCourse[]
@@ -116,11 +123,27 @@ model Review {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
+  user    User           @relation(fields: [userId], references: [id])
+  course  Course         @relation(fields: [courseId], references: [id])
+  reports ReviewReport[]
 
   @@unique([userId, courseId])
   @@index([courseId, status])
+}
+
+model ReviewReport {
+  id         Int          @id @default(autoincrement())
+  reviewId   Int
+  reporterId Int
+  reason     String
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporter User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, reporterId])
+  @@index([status])
 }
 
 model SavedCourse {

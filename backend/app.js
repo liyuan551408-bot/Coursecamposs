@@ -3,27 +3,29 @@ const cors = require('cors');
 const app = express();
 const PORT = 3000;
 
-// 1. 配置全局中间件
+// 1. Configure global middleware
 app.use(cors()); 
 app.use(express.json()); 
 
-// 2. 引入你刚刚写好的路由文件！
+// 2. Import the routing file you just wrote!
 const courseRoutes = require('./src/routes/courseRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const reviewRoutes = require('./src/routes/reviewRoutes');
 const planRoutes = require('./src/routes/planRoutes');
+const savedCourseRoutes = require('./src/routes/savedCourseRoutes');
 
-// 3. 挂载路由
-// 意思是：所有以 /api/courses 开头的请求，全都交给 courseRoutes 去处理
+// 3. Mount routes
+// It means: all requests starting with /api/courses are handed over to courseRoutes for processing
 app.use('/api/courses', courseRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/plans',planRoutes);
+app.use('/api/saved-courses', savedCourseRoutes);
 
-// 4. 启动服务器监听
+// 4.
 app.listen(PORT, () => {
-    console.log(`你的 Express 后端服务器已成功启动！`);
-    console.log(`正在监听地址: http://localhost:${PORT}`);
+    console.log(`Your Express backend server has started successfully!`);
+    console.log(`Listening at: http://localhost:${PORT}`);
 });

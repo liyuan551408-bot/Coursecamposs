@@ -1,30 +1,52 @@
 const prisma = require('../lib/prisma');
 
+const VALID_STATUSES = new Set(['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN']);
+
 const reviewSelect = {
-    id:true,
-    userId:true,
-    courseId:true,
-    overallRating:true,
-    difficultyRating:true,
-    workloadRating:true,
-    teachingRating:true,
-    assessmentStyle:true,
-    usefulnessRating:true,
-    comment:true,
-    status:true,
-    createdAt:true,
-    updatedAt:true,
+    id: true,
+    userId: true,
+    courseId: true,
+    overallRating: true,
+    difficultyRating: true,
+    workloadRating: true,
+    teachingRating: true,
+    assessmentStyle: true,
+    usefulnessRating: true,
+    comment: true,
+    status: true,
+    createdAt: true,
+    updatedAt: true,
     user: {
-        select: { id:true, name:true, major:true } // 融合了你之前的要求，带上 major
+        select: { id: true, name: true, major: true }
     },
     course: {
-        select: { id:true, code:true, name:true }
+        select: { id: true, code: true, name: true }
+    }
+};
+
+const reportSelect = {
+    id: true,
+    reviewId: true,
+    reporterId: true,
+    reason: true,
+    status: true,
+    createdAt: true,
+    review: {
+        select: {
+            id: true,
+            comment: true,
+            status: true,
+            course: { select: { id: true, code: true, name: true } }
+        }
+    },
+    reporter: {
+        select: { id: true, name: true }
     }
 };
 
 const validateRating = (fieldName, value, required = true) => {
-    if(value === undefined || value === null){
-        if(required){ throw new TypeError(`${fieldName} is required`); }
+    if (value === undefined || value === null) {
+        if (required) { throw new TypeError(`${fieldName} is required`); }
         return;
     }
     if (!Number.isInteger(value) || value < 1 || value > 5) {
@@ -62,10 +84,23 @@ const validateReviewData = (data, required) => {
     }
 };
 
+const ensureCourseExists = async (courseId) => {
+    const course = await prisma.course.findFirst({
+        where: { id: courseId, isActive: true }
+    });
+    if (!course) {
+        const error = new Error('Course not found');
+        error.statusCode = 404;
+        throw error;
+    }
+    return course;
+};
+
 const createReview = async (data) => {
     validatePositiveInteger('userId', data.userId);
     validatePositiveInteger('courseId', data.courseId);
     validateReviewData(data, true);
+    await ensureCourseExists(data.courseId);
 
     return prisma.review.create({
         data: {
@@ -89,6 +124,15 @@ const updateReview = async (userId, courseId, data) => {
     validatePositiveInteger('courseId', courseId);
     validateReviewData(data, false);
 
+    const existing = await prisma.review.findUnique({
+        where: { userId_courseId: { userId, courseId } }
+    });
+    if (!existing) {
+        const error = new Error('Review not found');
+        error.statusCode = 404;
+        throw error;
+    }
+
     const updateData = {};
     const editableFields = [
         'overallRating', 'difficultyRating', 'workloadRating', 'teachingRating',
@@ -109,22 +153,39 @@ const updateReview = async (userId, courseId, data) => {
     });
 };
 
-// --- 下面是你原有的功能，完美保留 ---
-
-// 获取某门课程所有【已通过审核】的评价
 const getApprovedReviewsByCourse = async (courseId) => {
     return prisma.review.findMany({
         where: {
             courseId: Number(courseId),
             status: 'APPROVED'
         },
-        select: reviewSelect, // 使用上面统一安全的格式
+        select: reviewSelect,
         orderBy: { createdAt: 'desc' }
     });
 };
 
-// 管理员审核评价（更新状态）
+const getPendingReviews = async () => {
+    return prisma.review.findMany({
+        where: { status: 'PENDING' },
+        select: reviewSelect,
+        orderBy: { createdAt: 'asc' }
+    });
+};
+
 const updateReviewStatus = async (reviewId, newStatus) => {
+    if (!VALID_STATUSES.has(newStatus)) {
+        throw new TypeError('Invalid review status');
+    }
+
+    const review = await prisma.review.findUnique({
+        where: { id: Number(reviewId) }
+    });
+    if (!review) {
+        const error = new Error('Review not found');
+        error.statusCode = 404;
+        throw error;
+    }
+
     return prisma.review.update({
         where: { id: Number(reviewId) },
         data: { status: newStatus },
@@ -132,9 +193,90 @@ const updateReviewStatus = async (reviewId, newStatus) => {
     });
 };
 
+const reportReview = async (reviewId, reporterId, reason) => {
+    validatePositiveInteger('reviewId', reviewId);
+    validatePositiveInteger('reporterId', reporterId);
+
+    if (typeof reason !== 'string' || reason.trim() === '') {
+        throw new TypeError('A report reason is required');
+    }
+
+    const review = await prisma.review.findUnique({
+        where: { id: reviewId }
+    });
+    if (!review) {
+        const error = new Error('Review not found');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return prisma.reviewReport.create({
+        data: {
+            reviewId,
+            reporterId,
+            reason: reason.trim()
+        },
+        select: reportSelect
+    });
+};
+
+const getPendingReports = async () => {
+    return prisma.reviewReport.findMany({
+        where: { status: 'PENDING' },
+        select: reportSelect,
+        orderBy: { createdAt: 'asc' }
+    });
+};
+
+const getCourseRatingSummary = async (courseId) => {
+    const numericCourseId = Number(courseId);
+    const groups = await prisma.review.groupBy({
+        by: ['courseId'],
+        where: {
+            courseId: numericCourseId,
+            status: 'APPROVED'
+        },
+        _avg: {
+            overallRating: true,
+            difficultyRating: true,
+            workloadRating: true,
+            teachingRating: true,
+            usefulnessRating: true
+        },
+        _count: { _all: true }
+    });
+
+    if (groups.length === 0) {
+        return {
+            courseId: numericCourseId,
+            reviewCount: 0,
+            overallRating: null,
+            difficultyRating: null,
+            workloadRating: null,
+            teachingRating: null,
+            usefulnessRating: null
+        };
+    }
+
+    const group = groups[0];
+    return {
+        courseId: numericCourseId,
+        reviewCount: group._count._all,
+        overallRating: group._avg.overallRating,
+        difficultyRating: group._avg.difficultyRating,
+        workloadRating: group._avg.workloadRating,
+        teachingRating: group._avg.teachingRating,
+        usefulnessRating: group._avg.usefulnessRating
+    };
+};
+
 module.exports = {
     createReview,
     updateReview,
     getApprovedReviewsByCourse,
-    updateReviewStatus
+    getPendingReviews,
+    updateReviewStatus,
+    reportReview,
+    getPendingReports,
+    getCourseRatingSummary
 };
