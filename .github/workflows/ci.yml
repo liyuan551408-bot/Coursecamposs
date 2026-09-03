@@ -44,6 +44,10 @@ jobs:
   backend:
     name: Backend validation
     runs-on: ubuntu-latest
+    env:
+      # Prisma requires the variable during schema validation and client generation.
+      # These steps do not connect to a database.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/coursecompass_ci
 
     steps:
       - name: Check out repository
