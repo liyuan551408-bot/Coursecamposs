@@ -10,7 +10,7 @@ const { requireRole } = require('../middlewares/roleMiddleware');
 router.get('/', courseController.getCourses);
 
 // POST /api/courses: create a course.
-router.post('/', courseController.createCourse);
+router.post('/', verifyToken, requireRole('ADMIN'), courseController.createCourse);
 router.patch('/:id', verifyToken, requireRole('ADMIN'), courseController.updateCourse);
 
 // POST /api/courses/compare: compare courses.

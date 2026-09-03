@@ -3,6 +3,18 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const SIMILARITY_THRESHOLD = 0.35;
 const MAX_RESULT_LIMIT = 10;
+const MAX_QUERY_LENGTH = 500;
+const MAX_EMBEDDING_TEXT_LENGTH = 2000;
+
+const validateText = (value, field, maxLength) => {
+    if (typeof value !== 'string' || value.trim() === '') {
+        return `${field} must be a non-empty string`;
+    }
+    if (value.trim().length > maxLength) {
+        return `${field} must be at most ${maxLength} characters`;
+    }
+    return null;
+};
 
 const normalizeLimit = (value, fallback) => {
     const parsed = Number(value);
@@ -14,13 +26,15 @@ const normalizeLimit = (value, fallback) => {
 
 const testEmbedding = async (req, res) => {
     try {
-        const { text } = req.body;
-        if (!text) {
-            return res.status(400).json({ success: false, error: "Please provide the text field to convert: 'text'" });
+        const { text } = req.body || {};
+        const textError = validateText(text, 'text', MAX_EMBEDDING_TEXT_LENGTH);
+        if (textError) {
+            return res.status(400).json({ success: false, error: textError });
         }
-        
-        console.log(`Received embedding generation request: "${text}"`);
-        const embeddingVector = await aiService.generateEmbedding(text);
+
+        const normalizedText = text.trim();
+        console.log(`Received embedding generation request (${normalizedText.length} chars)`);
+        const embeddingVector = await aiService.generateEmbedding(normalizedText);
         
         res.json({ success: true, data: embeddingVector });
     } catch (error) {
@@ -31,16 +45,18 @@ const testEmbedding = async (req, res) => {
 
 const semanticSearch = async (req, res) => {
     try {
-        const { query, limit = 5 } = req.body;
+        const { query, limit = 5 } = req.body || {};
         const safeLimit = normalizeLimit(limit, 5);
+        const queryError = validateText(query, 'query', MAX_QUERY_LENGTH);
 
-        if (!query) {
-            return res.status(400).json({ success: false, error: "Please provide the search term 'query'" });
+        if (queryError) {
+            return res.status(400).json({ success: false, error: queryError });
         }
 
-        console.log(`Received semantic search request: "${query}"`);
+        const normalizedQuery = query.trim();
+        console.log(`Received semantic search request (${normalizedQuery.length} chars)`);
 
-        const queryVector = await aiService.generateEmbedding(query);
+        const queryVector = await aiService.generateEmbedding(normalizedQuery);
         const vectorString = `[${queryVector.join(',')}]`;
         const courses = await prisma.$queryRawUnsafe(`
             SELECT id, code, name, description, level, "offeredSemesters",
@@ -80,16 +96,18 @@ const semanticSearch = async (req, res) => {
 
 const aiRecommendCourses = async (req, res) => {
     try {
-        const { query, limit = 3 } = req.body;
+        const { query, limit = 3 } = req.body || {};
         const safeLimit = normalizeLimit(limit, 3);
+        const queryError = validateText(query, 'query', MAX_QUERY_LENGTH);
 
-        if (!query) {
-            return res.status(400).json({ success: false, error: "Please provide the student's requirements in 'query'" });
+        if (queryError) {
+            return res.status(400).json({ success: false, error: queryError });
         }
 
-        console.log(`Received AI recommendation request: "${query}"`);
+        const normalizedQuery = query.trim();
+        console.log(`Received AI recommendation request (${normalizedQuery.length} chars)`);
 
-        const queryVector = await aiService.generateEmbedding(query);
+        const queryVector = await aiService.generateEmbedding(normalizedQuery);
         const vectorString = `[${queryVector.join(',')}]`;
 
         const courses = await prisma.$queryRawUnsafe(`
@@ -127,7 +145,7 @@ const aiRecommendCourses = async (req, res) => {
 
         const systemPrompt = "You are CourseCompass's intelligent course selection assistant. Based on the student's requirements and the provided candidate course list, analyze why each course fits the student and generate a professional recommendation analysis with clear reasons in English. Stay objective, encouraging, and rigorous.";
         
-        const userContent = `Student requirements: "${query}"\n\nCandidate course data:\n` + JSON.stringify(candidates, null, 2);
+        const userContent = `Student requirements: "${normalizedQuery}"\n\nCandidate course data:\n` + JSON.stringify(candidates, null, 2);
 
         const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
             method: "POST",
@@ -146,6 +164,9 @@ const aiRecommendCourses = async (req, res) => {
         });
 
         const aiData = await response.json();
+        if (!response.ok) {
+            throw new Error(`Zhipu chat completion failed (${response.status}): ${JSON.stringify(aiData)}`);
+        }
         const aiAnalysis = aiData.choices?.[0]?.message?.content || "AI analysis generation failed";
 
         res.json({
@@ -208,6 +229,9 @@ const getCourseSummary = async (req, res) => {
         });
 
         const aiData = await response.json();
+        if (!response.ok) {
+            throw new Error(`Zhipu chat completion failed (${response.status}): ${JSON.stringify(aiData)}`);
+        }
         const aiAnalysis = aiData.choices?.[0]?.message?.content || "AI analysis generation failed";
 
         res.json({ success: true, summary: aiAnalysis });
