@@ -13,6 +13,18 @@ const authStore = useAuthStore()
 const loading = ref(false)
 const formRef = ref(null)
 const isMockMode = import.meta.env.VITE_USE_MOCK === 'true'
+const majors = [
+  'Computer Science',
+  'Data Science',
+  'Software Engineering',
+  'Information Technology',
+  'Mathematics',
+  'Business',
+  'Psychology',
+  'Education',
+  'Health Science',
+  'Other',
+]
 
 const form = reactive({
   name: '',
@@ -24,21 +36,21 @@ const form = reactive({
 })
 
 const rules = {
-  name: [{ required: true, message: 'Please enter your name', trigger: 'blur' }],
+  name: [{ required: true, message: 'Enter your name', trigger: 'blur' }],
   email: [
-    { required: true, message: 'Please enter your email', trigger: 'blur' },
-    { type: 'email', message: 'Invalid email format', trigger: 'blur' },
+    { required: true, message: 'Enter your email address', trigger: 'blur' },
+    { type: 'email', message: 'Enter a valid email address', trigger: 'blur' },
   ],
   password: [
-    { required: true, message: 'Please enter your password', trigger: 'blur' },
+    { required: true, message: 'Enter a password', trigger: 'blur' },
     { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
   ],
   confirmPassword: [
-    { required: true, message: 'Please enter your password again', trigger: 'blur' },
+    { required: true, message: 'Enter your password again', trigger: 'blur' },
     {
       validator: (_rule, value, callback) => {
         if (value !== form.password) {
-          callback(new Error('The two passwords do not match'))
+          callback(new Error('Passwords do not match'))
         } else {
           callback()
         }
@@ -55,10 +67,10 @@ async function handleRegister() {
   loading.value = true
   try {
     await authStore.register({ ...form })
-    ElMessage.success('Registration successful. You are now logged in')
+    ElMessage.success('Account created and signed in successfully')
     router.push('/dashboard')
   } catch (err) {
-    ElMessage.error(err.message || 'Registration failed')
+    ElMessage.error(err.message || 'Account creation failed')
   } finally {
     loading.value = false
   }
@@ -68,7 +80,7 @@ async function handleRegister() {
 <template>
   <div class="auth-page">
     <el-card class="auth-card" shadow="hover">
-      <h1>Create Account</h1>
+      <h1>Create an account</h1>
       <p class="subtitle">Join CourseCompass and start planning your courses.</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
@@ -95,7 +107,7 @@ async function handleRegister() {
           />
         </el-form-item>
 
-        <el-form-item label="Confirm Password" prop="confirmPassword">
+        <el-form-item label="Confirm password" prop="confirmPassword">
           <el-input
             v-model="form.confirmPassword"
             placeholder="Enter your password again"
@@ -106,11 +118,13 @@ async function handleRegister() {
           />
         </el-form-item>
 
-        <el-form-item label="Major (Optional)" prop="programme">
-          <el-input v-model="form.programme" placeholder="For example, Computer Science" />
+        <el-form-item label="Major (optional)" prop="programme">
+          <el-select v-model="form.programme" filterable clearable placeholder="Select your major" style="width: 100%">
+            <el-option v-for="major in majors" :key="major" :label="major" :value="major" />
+          </el-select>
         </el-form-item>
 
-        <el-form-item label="Year (Optional)" prop="year">
+        <el-form-item label="Year of study (optional)" prop="year">
           <el-select v-model="form.year" placeholder="Select year" clearable style="width: 100%">
             <el-option label="Year 1" value="1" />
             <el-option label="Year 2" value="2" />
@@ -120,7 +134,7 @@ async function handleRegister() {
         </el-form-item>
 
         <el-button type="primary" class="submit-btn" :loading="loading" @click="handleRegister">
-          Sign Up
+          Create account
         </el-button>
       </el-form>
 
@@ -130,7 +144,7 @@ async function handleRegister() {
       </p>
 
       <p v-if="isMockMode" class="mock-hint">
-        Development mode: complete the form to register. You will be logged in automatically after registration.
+        Development mode: complete the form to register, then you will be signed in automatically.
       </p>
     </el-card>
   </div>
@@ -138,7 +152,7 @@ async function handleRegister() {
 
 <style scoped>
 .auth-page {
-  min-height: 60vh;
+  min-height: 72vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -149,10 +163,14 @@ async function handleRegister() {
   width: 100%;
   max-width: 440px;
   text-align: left;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 24px 70px rgba(67, 42, 114, 0.16);
+  overflow: hidden;
 }
 
 .auth-card h1 {
-  font-size: 28px;
+  font-size: 32px;
   margin: 0 0 4px;
   text-align: center;
 }

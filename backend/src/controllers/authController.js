@@ -1,4 +1,3 @@
-// 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
@@ -17,10 +16,7 @@ const register = async (req, res) => {
             });
         }
 
-        // 3. Hash the plaintext password with salt rounds set to 10.
-        const passwordHash = await bcrypt.hash(password, 10);
-
-        // 4. Call the lower-level createUser method to store the user in the database.
+        // 3. Call the lower-level createUser method to store the user in the database.
         const newUser = await userService.createUser({
             email,
             password,
@@ -28,7 +24,7 @@ const register = async (req, res) => {
             major
         });
 
-        // 5. Return JSON data to the frontend after success.
+        // 4. Return JSON data to the frontend after success.
         res.status(201).json({
             success: true,
             message: 'User registered successfully',

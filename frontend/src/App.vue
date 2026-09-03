@@ -1,5 +1,8 @@
 <script setup>
-
+/**
+ * Application shell shared by all pages.
+ * The header remains visible while router-view changes the page content.
+*/
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
@@ -15,7 +18,7 @@ function handleLogout() {
 <template>
   <div id="app-root">
     <header class="app-header">
-      <router-link to="/" class="logo">CourseCompass</router-link>
+      <router-link to="/" class="logo"><span class="logo-mark">C</span>CourseCompass</router-link>
 
       <nav class="nav-links">
         <router-link to="/courses">Courses</router-link>
@@ -53,15 +56,35 @@ function handleLogout() {
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  border-bottom: 1px solid rgba(91, 74, 130, 0.1);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .logo {
-  font-weight: 600;
+  font-weight: 800;
   color: var(--text-h);
   text-decoration: none;
   font-size: 18px;
+  letter-spacing: -0.6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.logo-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: white;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6d4aff, #c14bdb);
+  box-shadow: 0 7px 14px rgba(109, 74, 255, 0.25);
 }
 
 .nav-links {
@@ -73,10 +96,16 @@ function handleLogout() {
 .nav-links a {
   color: var(--text);
   text-decoration: none;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: .2s ease;
 }
 
 .nav-links a.router-link-active {
   color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .auth-area {
@@ -92,10 +121,17 @@ function handleLogout() {
 
 .app-main {
   flex: 1;
-  padding: 24px;
+  padding: 36px 24px 56px;
   max-width: 1126px;
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
+}
+
+@media (max-width: 800px) {
+  .app-header { padding: 12px 16px; gap: 12px; flex-wrap: wrap; }
+  .nav-links { order: 3; flex-basis: 100%; overflow-x: auto; padding-bottom: 2px; }
+  .auth-area { margin-left: auto; }
+  .app-main { padding: 24px 16px 40px; }
 }
 </style>

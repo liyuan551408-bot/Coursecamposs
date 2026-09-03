@@ -1,5 +1,10 @@
+const EMBEDDING_DIMENSIONS = 512;
 
 const generateEmbedding = async (text) => {
+  if (typeof text !== 'string' || text.trim() === '') {
+    throw new TypeError('Embedding input must be a non-empty string');
+  }
+
   try {
     const response = await fetch("https://open.bigmodel.cn/api/paas/v4/embeddings", {
       method: "POST",
@@ -9,21 +14,25 @@ const generateEmbedding = async (text) => {
       },
       body: JSON.stringify({
         model: "embedding-3",
-        input: text
+        input: text,
+        dimensions: EMBEDDING_DIMENSIONS
       })
     });
 
     const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`Zhipu embedding request failed (${response.status}): ${JSON.stringify(data)}`);
+    }
     
     if (!data.data || !data.data[0] || !data.data[0].embedding) {
       throw new Error("Zhipu API returned an unexpected format: " + JSON.stringify(data));
     }
 
-    // Zhipu returns 2048-dimensional data by default.
-    const rawVector = data.data[0].embedding;
-    
-    // embedding-3 supports dimensionality reduction, so use the first 512 dimensions to match vector(512).
-    const vector = rawVector.slice(0, 512);
+    const vector = data.data[0].embedding;
+    if (vector.length !== EMBEDDING_DIMENSIONS) {
+      throw new Error(`Expected an ${EMBEDDING_DIMENSIONS}-dimensional embedding, got ${vector.length}`);
+    }
     
     console.log(`[AI Service] Embedding generated successfully. First 5 values: ${vector.slice(0, 5).join(', ')}`);
     
@@ -35,5 +44,6 @@ const generateEmbedding = async (text) => {
 };
 
 module.exports = {
-  generateEmbedding
+  generateEmbedding,
+  EMBEDDING_DIMENSIONS
 };

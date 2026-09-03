@@ -35,7 +35,7 @@ export function removeStoredUser() {
   localStorage.removeItem(USER_KEY)
 }
 
-/** Clear all local login information on logout. */
+/** Clear all locally stored login information. */
 export function clearAuthStorage() {
   removeToken()
   removeStoredUser()

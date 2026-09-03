@@ -1,0 +1,104 @@
+<mxfile host="Electron" modified="2026-08-18T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="coursecompass-erd-v02" name="ERD v0.2">
+    <mxGraphModel dx="1900" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1900" pageHeight="1400" math="0" shadow="0" background="#111111">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="CourseCompass ERD v0.2" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=28;fontStyle=1;fontColor=#f0f0f0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="500" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="user" value="&lt;b&gt;USER&lt;/b&gt;&lt;br&gt;PK  id : Int&lt;br&gt;UK  email : String&lt;br&gt;    passwordHash : String&lt;br&gt;    name : String&lt;br&gt;    role : UserRole&lt;br&gt;    major : String?&lt;br&gt;    studyYear : Int?&lt;br&gt;    interests : String[]&lt;br&gt;    goals : String[]&lt;br&gt;    planningPreferences : Json?&lt;br&gt;    resetCode : String?&lt;br&gt;    resetCodeExpires : DateTime?&lt;br&gt;    createdAt : DateTime&lt;br&gt;    updatedAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fontFamily=Consolas;fontSize=13;fillColor=#1f2020;strokeColor=#b8b8b8;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="340" height="410" as="geometry" />
+        </mxCell>
+
+        <mxCell id="course" value="&lt;b&gt;COURSE&lt;/b&gt;&lt;br&gt;PK  id : Int&lt;br&gt;UK  code : String&lt;br&gt;    name : String&lt;br&gt;    description : String?&lt;br&gt;    credits : Int&lt;br&gt;    workloadHours : Int?&lt;br&gt;    offeredSemesters : CourseSemester[]&lt;br&gt;    level : Int?&lt;br&gt;    assessmentTypes : AssessmentType[]&lt;br&gt;    officialLink : String?&lt;br&gt;    isActive : Boolean&lt;br&gt;    embedding : vector(512)?&lt;br&gt;    createdAt : DateTime&lt;br&gt;    updatedAt : DateTime&lt;br&gt;IDX level, name, isActive" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fontFamily=Consolas;fontSize=13;fillColor=#1f2020;strokeColor=#b8b8b8;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="620" y="70" width="390" height="430" as="geometry" />
+        </mxCell>
+
+        <mxCell id="review" value="&lt;b&gt;REVIEW&lt;/b&gt;&lt;br&gt;PK  id : Int&lt;br&gt;FK  userId : Int&lt;br&gt;FK  courseId : Int&lt;br&gt;    overallRating : Int&lt;br&gt;    difficultyRating : Int&lt;br&gt;    workloadRating : Int&lt;br&gt;    teachingRating : Int?&lt;br&gt;    assessmentStyle : AssessmentStyle?&lt;br&gt;    usefulnessRating : Int?&lt;br&gt;    comment : String?&lt;br&gt;    status : ReviewStatus&lt;br&gt;    createdAt : DateTime&lt;br&gt;    updatedAt : DateTime&lt;br&gt;UK  (userId, courseId)&lt;br&gt;IDX (courseId, status)" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fontFamily=Consolas;fontSize=13;fillColor=#1f2020;strokeColor=#b8b8b8;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="250" y="650" width="390" height="400" as="geometry" />
+        </mxCell>
+
+        <mxCell id="savedCourse" value="&lt;b&gt;SAVED_COURSE&lt;/b&gt;&lt;br&gt;PK,FK  userId : Int&lt;br&gt;PK,FK  courseId : Int&lt;br&gt;       createdAt : DateTime" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fontFamily=Consolas;fontSize=13;fillColor=#1f2020;strokeColor=#b8b8b8;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="100" width="320" height="135" as="geometry" />
+        </mxCell>
+
+        <mxCell id="completedCourse" value="&lt;b&gt;COMPLETED_COURSE&lt;/b&gt;&lt;br&gt;PK,FK  userId : Int&lt;br&gt;PK,FK  courseId : Int&lt;br&gt;       completedAt : DateTime?&lt;br&gt;IDX    courseId" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fontFamily=Consolas;fontSize=13;fillColor=#1f2020;strokeColor=#66b2ff;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="320" width="320" height="155" as="geometry" />
+        </mxCell>
+
+        <mxCell id="semesterPlan" value="&lt;b&gt;SEMESTER_PLAN&lt;/b&gt;&lt;br&gt;PK  id : Int&lt;br&gt;FK  userId : Int&lt;br&gt;    name : String&lt;br&gt;    year : Int&lt;br&gt;    semester : String&lt;br&gt;    createdAt : DateTime&lt;br&gt;UK  (userId, year, semester, name)&lt;br&gt;IDX (userId, year, semester)" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fontFamily=Consolas;fontSize=13;fillColor=#1f2020;strokeColor=#b8b8b8;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="670" width="350" height="255" as="geometry" />
+        </mxCell>
+
+        <mxCell id="planCourse" value="&lt;b&gt;PLAN_COURSE&lt;/b&gt;&lt;br&gt;PK,FK  planId : Int&lt;br&gt;PK,FK  courseId : Int" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=12;fontFamily=Consolas;fontSize=13;fillColor=#1f2020;strokeColor=#b8b8b8;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1500" y="740" width="300" height="115" as="geometry" />
+        </mxCell>
+
+        <mxCell id="enums" value="&lt;b&gt;ENUMERATIONS&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;UserRole&lt;/b&gt;&lt;br&gt;STUDENT | MODERATOR | ADMIN&lt;br&gt;&lt;br&gt;&lt;b&gt;ReviewStatus&lt;/b&gt;&lt;br&gt;PENDING | APPROVED | REJECTED | HIDDEN&lt;br&gt;&lt;br&gt;&lt;b&gt;CourseSemester&lt;/b&gt;&lt;br&gt;SEMESTER_1 | SEMESTER_2 | SUMMER&lt;br&gt;&lt;br&gt;&lt;b&gt;AssessmentType&lt;/b&gt;&lt;br&gt;EXAM | ASSIGNMENT | QUIZ | PROJECT&lt;br&gt;LAB | PRESENTATION&lt;br&gt;&lt;br&gt;&lt;b&gt;AssessmentStyle&lt;/b&gt;&lt;br&gt;EXAM_HEAVY | COURSEWORK_HEAVY&lt;br&gt;PROJECT_BASED | PRACTICAL | BALANCED" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontFamily=Consolas;fontSize=13;fillColor=#182432;strokeColor=#66b2ff;fontColor=#eeeeee;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="70" width="400" height="475" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="PK = Primary Key   FK = Foreign Key   UK = Unique Key   IDX = Index" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Consolas;fontSize=13;fontColor=#cccccc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1330" width="850" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="user-review" value="writes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d0d0d0;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="user" target="review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="course-review" value="receives" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d0d0d0;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="course" target="review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="user-saved" value="saves" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d0d0d0;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="user" target="savedCourse">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="545" />
+              <mxPoint x="1030" y="545" />
+              <mxPoint x="1030" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="course-saved" value="saved in" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d0d0d0;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="course" target="savedCourse">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="user-completed" value="completes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#66b2ff;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="user" target="completedCourse">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="455" y="570" />
+              <mxPoint x="1020" y="570" />
+              <mxPoint x="1020" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="course-completed" value="completed by" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#66b2ff;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="course" target="completedCourse">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="user-plan" value="creates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d0d0d0;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="user" target="semesterPlan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="610" />
+              <mxPoint x="900" y="610" />
+              <mxPoint x="900" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="plan-items" value="contains" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d0d0d0;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="semesterPlan" target="planCourse">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="course-plan" value="planned in" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d0d0d0;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="course" target="planCourse">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="course-prerequisites" value="prerequisites (M:N self relation)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=60;html=1;strokeColor=#ffb366;fontColor=#eeeeee;endArrow=ERmany;endFill=0;startArrow=ERmany;startFill=0;" edge="1" parent="1" source="course" target="course">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="720" y="15" />
+              <mxPoint x="910" y="15" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

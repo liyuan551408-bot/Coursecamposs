@@ -1,5 +1,5 @@
 /**
- * Login state management
+ * Authentication state management
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
@@ -18,11 +18,12 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(getStoredUser())
 
   const isLoggedIn = computed(() => !!token.value)
-  const isAdmin = computed(() => user.value?.role === 'admin')
-  const isModerator = computed(() => user.value?.role === 'moderator')
+  const normalizedRole = computed(() => user.value?.role?.toLowerCase())
+  const isAdmin = computed(() => normalizedRole.value === 'admin')
+  const isModerator = computed(() => normalizedRole.value === 'moderator')
   const userName = computed(() => user.value?.name || user.value?.email || '')
 
-  /** Write backend/mock response data to the store and localStorage. */
+  /** Store backend/mock authentication data in Pinia and localStorage. */
   function applyAuthData(data) {
     token.value = data.token
     user.value = data.user
@@ -30,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
     setStoredUser(data.user)
   }
 
-  /** Login: call API, store token/user, and update store. */
+  /** Log in: call the API, save the token/user, then update the store. */
   async function login(credentials) {
     const useMock = import.meta.env.VITE_USE_MOCK === 'true'
     const data = useMock ? await mockLogin(credentials) : await loginApi(credentials)
@@ -38,22 +39,26 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  /** Register: account creation usually logs in automatically, similar to login. */
+  /** Register an account, then sign in with the newly created credentials. */
   async function register(formData) {
     const useMock = import.meta.env.VITE_USE_MOCK === 'true'
-    const data = useMock ? await mockRegister(formData) : await registerApi(formData)
+    if (!useMock) {
+      await registerApi(formData)
+      return login({ email: formData.email, password: formData.password })
+    }
+    const data = await mockRegister(formData)
     applyAuthData(data)
     return data
   }
 
-  /** Logout: clear store and localStorage. */
+  /** Log out: clear the store and localStorage. */
   function logout() {
     token.value = null
     user.value = null
     clearAuthStorage()
   }
 
-  /** Restore login state from localStorage on page refresh. */
+  /** Restore the login state from localStorage after a refresh. */
   function restoreSession() {
     token.value = getToken()
     user.value = getStoredUser()
