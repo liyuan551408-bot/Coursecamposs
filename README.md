@@ -169,6 +169,7 @@ Main backend routes:
 - `GET /api/users/me` (authenticated)
 - `PATCH /api/users/me` (authenticated)
 - `GET /api/courses`
+- `POST /api/courses` (administrator only)
 - `PATCH /api/courses/:id` (administrator only)
 - `POST /api/ai/test-embedding` (administrator only)
 - `POST /api/ai/semantic-search` (authenticated)
