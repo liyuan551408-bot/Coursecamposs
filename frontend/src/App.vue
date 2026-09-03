@@ -18,21 +18,21 @@ function handleLogout() {
       <router-link to="/" class="logo">CourseCompass</router-link>
 
       <nav class="nav-links">
-        <router-link to="/courses">课程</router-link>
-        <router-link to="/saved">收藏</router-link>
-        <router-link to="/planner">规划</router-link>
-        <router-link to="/compare">对比</router-link>
-        <!-- 将你的 AI 智能推荐加入到顶部导航中 -->
-        <router-link to="/ai-recommend">AI 智能推荐</router-link>
-        <router-link v-if="authStore.isAdmin" to="/admin">管理</router-link>
+        <router-link to="/courses">Courses</router-link>
+        <router-link to="/saved">Saved</router-link>
+        <router-link to="/planner">Planner</router-link>
+        <router-link to="/compare">Compare</router-link>
+        <!-- Add AI recommendations to the top navigation -->
+        <router-link to="/ai-recommend">AI Recommendations</router-link>
+        <router-link v-if="authStore.isAdmin" to="/admin">Admin</router-link>
       </nav>
 
       <div class="auth-area">
         <template v-if="authStore.isLoggedIn">
           <router-link to="/profile">{{ authStore.userName }}</router-link>
-          <el-button size="small" @click="handleLogout">退出</el-button>
+          <el-button size="small" @click="handleLogout">Log out</el-button>
         </template>
-        <router-link v-else to="/login">登录</router-link>
+        <router-link v-else to="/login">Log in</router-link>
       </div>
     </header>
 

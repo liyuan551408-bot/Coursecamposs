@@ -5,14 +5,14 @@ const prisma = new PrismaClient();
 
 async function main() {
   try {
-    console.log('正在尝试连接 Supabase 数据库...');
+    console.log('Trying to connect to the Supabase database...');
     const result = await prisma.$queryRaw`SELECT NOW()`;
     
-    console.log('数据库连接完美！打通了！');
-    console.log('云端数据库当前时间：', result[0].now);
+    console.log('Database connection succeeded.');
+    console.log('Current cloud database time:', result[0].now);
     
   } catch (error) {
-    console.error('数据库连接失败，抓到错误：', error);
+    console.error('Database connection failed:', error);
   } finally {
     await prisma.$disconnect();
   }

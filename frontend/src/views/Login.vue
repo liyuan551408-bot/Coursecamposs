@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 登录页
+ * Login page
  */
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -20,12 +20,12 @@ const form = reactive({
 
 const rules = {
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
+    { required: true, message: 'Please enter your email', trigger: 'blur' },
+    { type: 'email', message: 'Invalid email format', trigger: 'blur' },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
+    { required: true, message: 'Please enter your password', trigger: 'blur' },
+    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
   ],
 }
 
@@ -39,13 +39,13 @@ async function handleLogin() {
   loading.value = true
   try {
     await authStore.login({ email: form.email, password: form.password })
-    ElMessage.success('登录成功')
+    ElMessage.success('Logged in successfully')
 
-    // 登录前想访问的页面，登录后跳回去；否则去 dashboard
+    // Return to the page requested before login, or go to the dashboard.
     const redirect = route.query.redirect || '/dashboard'
     router.push(typeof redirect === 'string' ? redirect : '/dashboard')
   } catch (err) {
-    ElMessage.error(err.message || '登录失败，请检查账号密码')
+    ElMessage.error(err.message || 'Login failed. Please check your email and password')
   } finally {
     loading.value = false
   }
@@ -56,10 +56,10 @@ async function handleLogin() {
   <div class="login-page">
     <el-card class="login-card" shadow="hover">
       <h1>CourseCompass</h1>
-      <p class="subtitle">登录你的账号</p>
+      <p class="subtitle">Log in to your account</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-        <el-form-item label="邮箱" prop="email">
+        <el-form-item label="Email" prop="email">
           <el-input
             v-model="form.email"
             placeholder="student@massey.ac.nz"
@@ -68,10 +68,10 @@ async function handleLogin() {
           />
         </el-form-item>
 
-        <el-form-item label="密码" prop="password">
+        <el-form-item label="Password" prop="password">
           <el-input
             v-model="form.password"
-            placeholder="至少 6 位"
+            placeholder="At least 6 characters"
             type="password"
             show-password
             autocomplete="current-password"
@@ -80,17 +80,17 @@ async function handleLogin() {
         </el-form-item>
 
         <el-button type="primary" class="login-btn" :loading="loading" @click="handleLogin">
-          登录
+          Log In
         </el-button>
       </el-form>
 
       <p class="footer-link">
-        还没有账号？
-        <router-link to="/register">去注册</router-link>
+        Do not have an account?
+        <router-link to="/register">Sign up</router-link>
       </p>
 
       <p v-if="isMockMode" class="mock-hint">
-        开发模式：任意邮箱 + 6 位以上密码即可登录；邮箱含 admin 会以管理员身份进入
+        Development mode: use any email and a password of at least 6 characters. Emails containing admin log in as administrators.
       </p>
     </el-card>
   </div>

@@ -1,18 +1,18 @@
-// 引入 service 层提供的方法
+// Import methods provided by the service layer.
 const courseService = require('../services/courseService');
 
-// 处理获取所有课程的请求
+// Handle requests to get all courses.
 const getCourses = async (req, res) => {
     try {
-        // 调用数据库层拿数据
+        // Fetch data from the database layer.
         const courses = await courseService.getAllCourses();
-        // 返回成功的 JSON 响应
+        // Return a successful JSON response.
         res.status(200).json({
             success: true,
             data: courses
         });
     } catch (error) {
-        // 统一的错误处理
+        // Unified error handling.
         res.status(500).json({
             success: false,
             message: 'Server Error'
