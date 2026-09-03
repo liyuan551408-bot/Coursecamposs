@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-// 引入 Controller
+// Import controller.
 const courseController = require('../controllers/courseController');
 
-// 定义 GET /api/courses 路由，并交给 getCourses 函数处理
+// Define GET /api/courses and delegate it to getCourses.
 router.get('/', courseController.getCourses);
 
 module.exports = router;

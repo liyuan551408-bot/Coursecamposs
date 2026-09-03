@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs'); // 新增引入 bcrypt
+const bcrypt = require('bcryptjs'); // Import bcrypt.
 const crypto = require('crypto');
 const prisma = require('../lib/prisma'); //[cite: 2]
 
@@ -40,7 +40,7 @@ const findPublicUserById = async (id) => {
     });
 }; //[cite: 2]
 
-// 标准化：接收明文 password，在这里完成加密
+// Standardization: receive plaintext password and hash it here.
 const createUser = async ({ email, password, name, major = null }) => {
     if (typeof password !== 'string' || password === '') {
         throw new TypeError('A password is required');
@@ -49,13 +49,13 @@ const createUser = async ({ email, password, name, major = null }) => {
         throw new TypeError('A user name is required');
     }
 
-    // 在 Service 层进行加密，保持业务逻辑的内聚
+    // Hash in the service layer to keep business logic cohesive.
     const passwordHash = await bcrypt.hash(password, 10);
 
     return prisma.user.create({
         data: {
             email: normalizeEmail(email),
-            passwordHash, // 存入加密后的密码
+            passwordHash, // Store the hashed password.
             name: name.trim(),
             major: typeof major === 'string' && major.trim() !== '' ? major.trim() : null
         },
@@ -63,7 +63,7 @@ const createUser = async ({ email, password, name, major = null }) => {
     });
 };
 
-// 重置密码（生成并储存验证码）
+// Reset password: generate and store a verification code.
 const generateResetCode = async (email) => {
     // 1. find user
     const user = await prisma.user.findUnique({where:{ email: normalizeEmail(email)}});
@@ -87,9 +87,9 @@ const generateResetCode = async (email) => {
     return resetCode;
 }
 
-// 验证验证码并重置密码
+// Verify the code and reset the password.
 const resetPassword = async (email, resetCode, newPassword) => {
-    // 1. 去数据库里同时匹配邮箱和验证码
+    // 1. Match both email and verification code in the database.
     const user = await prisma.user.findFirst({
         where: { 
             email: normalizeEmail(email),
@@ -97,20 +97,20 @@ const resetPassword = async (email, resetCode, newPassword) => {
         }
     });
 
-    // 如果找不到人，说明邮箱不对或者验证码填错了
+    // If no user is found, the email or verification code is wrong.
     if (!user) {
         throw new Error('Invalid code');
     }
 
-    // 2. 检查验证码是否已经过期
+    // 2. Check whether the verification code has expired.
     if (new Date() > user.resetCodeExpires) {
         throw new Error('Code expired');
     }
 
-    // 3. 验证通过！对新密码进行加密 (保持跟你 createUser 里一样的加密规则)
+    // 3. Validation passed. Hash the new password with the same rule used by createUser.
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    // 4. 更新数据库：写入新密码，并且一定要清空验证码字段，防止被二次使用
+    // 4. Update the database with the new password and clear code fields to prevent reuse.
     await prisma.user.update({
         where: { id: user.id },
         data: {

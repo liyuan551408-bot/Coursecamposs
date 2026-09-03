@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 注册页
+ * Registration page
  */
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
@@ -24,21 +24,21 @@ const form = reactive({
 })
 
 const rules = {
-  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  name: [{ required: true, message: 'Please enter your name', trigger: 'blur' }],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
+    { required: true, message: 'Please enter your email', trigger: 'blur' },
+    { type: 'email', message: 'Invalid email format', trigger: 'blur' },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
+    { required: true, message: 'Please enter your password', trigger: 'blur' },
+    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
   ],
   confirmPassword: [
-    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    { required: true, message: 'Please enter your password again', trigger: 'blur' },
     {
       validator: (_rule, value, callback) => {
         if (value !== form.password) {
-          callback(new Error('两次密码不一致'))
+          callback(new Error('The two passwords do not match'))
         } else {
           callback()
         }
@@ -55,10 +55,10 @@ async function handleRegister() {
   loading.value = true
   try {
     await authStore.register({ ...form })
-    ElMessage.success('注册成功，已自动登录')
+    ElMessage.success('Registration successful. You are now logged in')
     router.push('/dashboard')
   } catch (err) {
-    ElMessage.error(err.message || '注册失败')
+    ElMessage.error(err.message || 'Registration failed')
   } finally {
     loading.value = false
   }
@@ -68,15 +68,15 @@ async function handleRegister() {
 <template>
   <div class="auth-page">
     <el-card class="auth-card" shadow="hover">
-      <h1>创建账号</h1>
-      <p class="subtitle">加入 CourseCompass，开始规划你的课程</p>
+      <h1>Create Account</h1>
+      <p class="subtitle">Join CourseCompass and start planning your courses.</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-        <el-form-item label="姓名" prop="name">
-          <el-input v-model="form.name" placeholder="你的姓名" autocomplete="name" />
+        <el-form-item label="Name" prop="name">
+          <el-input v-model="form.name" placeholder="Your name" autocomplete="name" />
         </el-form-item>
 
-        <el-form-item label="邮箱" prop="email">
+        <el-form-item label="Email" prop="email">
           <el-input
             v-model="form.email"
             placeholder="student@massey.ac.nz"
@@ -85,20 +85,20 @@ async function handleRegister() {
           />
         </el-form-item>
 
-        <el-form-item label="密码" prop="password">
+        <el-form-item label="Password" prop="password">
           <el-input
             v-model="form.password"
-            placeholder="至少 6 位"
+            placeholder="At least 6 characters"
             type="password"
             show-password
             autocomplete="new-password"
           />
         </el-form-item>
 
-        <el-form-item label="确认密码" prop="confirmPassword">
+        <el-form-item label="Confirm Password" prop="confirmPassword">
           <el-input
             v-model="form.confirmPassword"
-            placeholder="再输入一次密码"
+            placeholder="Enter your password again"
             type="password"
             show-password
             autocomplete="new-password"
@@ -106,12 +106,12 @@ async function handleRegister() {
           />
         </el-form-item>
 
-        <el-form-item label="专业（可选）" prop="programme">
-          <el-input v-model="form.programme" placeholder="例如 Computer Science" />
+        <el-form-item label="Major (Optional)" prop="programme">
+          <el-input v-model="form.programme" placeholder="For example, Computer Science" />
         </el-form-item>
 
-        <el-form-item label="年级（可选）" prop="year">
-          <el-select v-model="form.year" placeholder="选择年级" clearable style="width: 100%">
+        <el-form-item label="Year (Optional)" prop="year">
+          <el-select v-model="form.year" placeholder="Select year" clearable style="width: 100%">
             <el-option label="Year 1" value="1" />
             <el-option label="Year 2" value="2" />
             <el-option label="Year 3" value="3" />
@@ -120,17 +120,17 @@ async function handleRegister() {
         </el-form-item>
 
         <el-button type="primary" class="submit-btn" :loading="loading" @click="handleRegister">
-          注册
+          Sign Up
         </el-button>
       </el-form>
 
       <p class="footer-link">
-        已有账号？
-        <router-link to="/login">去登录</router-link>
+        Already have an account?
+        <router-link to="/login">Log in</router-link>
       </p>
 
       <p v-if="isMockMode" class="mock-hint">
-        开发模式：填完整表单即可注册，注册成功后会自动登录
+        Development mode: complete the form to register. You will be logged in automatically after registration.
       </p>
     </el-card>
   </div>

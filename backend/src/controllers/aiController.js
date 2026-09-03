@@ -6,16 +6,16 @@ const testEmbedding = async (req, res) => {
     try {
         const { text } = req.body;
         if (!text) {
-            return res.status(400).json({ success: false, error: "请提供需要转换的文本字段 'text'" });
+            return res.status(400).json({ success: false, error: "Please provide the text field to convert: 'text'" });
         }
         
-        console.log(`收到向量生成请求: "${text}"`);
+        console.log(`Received embedding generation request: "${text}"`);
         const embeddingVector = await aiService.generateEmbedding(text);
         
         res.json({ success: true, data: embeddingVector });
     } catch (error) {
-        console.error("向量生成失败:", error);
-        res.status(500).json({ success: false, error: "向量生成服务暂时不可用" });
+        console.error("Embedding generation failed:", error);
+        res.status(500).json({ success: false, error: "Embedding generation service is temporarily unavailable" });
     }
 };
 
@@ -24,10 +24,10 @@ const semanticSearch = async (req, res) => {
         const { query, limit = 5 } = req.body;
 
         if (!query) {
-            return res.status(400).json({ success: false, error: "请提供搜索词 'query'" });
+            return res.status(400).json({ success: false, error: "Please provide the search term 'query'" });
         }
 
-        console.log(`收到语义搜索请求: "${query}"`);
+        console.log(`Received semantic search request: "${query}"`);
 
         const queryVector = await aiService.generateEmbedding(query);
         const vectorString = `[${queryVector.join(',')}]`;
@@ -49,13 +49,13 @@ const semanticSearch = async (req, res) => {
 
         res.json({
             success: true,
-            message: `成功为您找到 ${formattedCourses.length} 门相关课程`,
+            message: `Found ${formattedCourses.length} relevant courses for you`,
             data: formattedCourses
         });
 
     } catch (error) {
-        console.error("语义搜索执行失败:", error);
-        res.status(500).json({ success: false, error: "AI 搜索服务暂时不可用" });
+        console.error("Semantic search failed:", error);
+        res.status(500).json({ success: false, error: "AI search service is temporarily unavailable" });
     }
 };
 
@@ -64,10 +64,10 @@ const aiRecommendCourses = async (req, res) => {
         const { query, limit = 3 } = req.body;
 
         if (!query) {
-            return res.status(400).json({ success: false, error: "请提供学生的需求描述 'query'" });
+            return res.status(400).json({ success: false, error: "Please provide the student's requirements in 'query'" });
         }
 
-        console.log(`收到 AI 智能推荐请求: "${query}"`);
+        console.log(`Received AI recommendation request: "${query}"`);
 
         const queryVector = await aiService.generateEmbedding(query);
         const vectorString = `[${queryVector.join(',')}]`;
@@ -92,14 +92,14 @@ const aiRecommendCourses = async (req, res) => {
         if (candidates.length === 0) {
             return res.json({
                 success: true,
-                message: "没有找到相关的候选课程",
-                data: { recommendations: [], aiAnalysis: "抱歉，数据库中暂无匹配的课程信息。" }
+                message: "No relevant candidate courses were found",
+                data: { recommendations: [], aiAnalysis: "Sorry, there are no matching courses in the database yet." }
             });
         }
 
-        const systemPrompt = "你是 CourseCompass 的智能选课助手。请根据学生的需求以及提供的候选课程列表，分析每门课为什么适合该学生，并生成一段专业的中文推荐分析与理由。请保持客观、鼓励和严谨。";
+        const systemPrompt = "You are CourseCompass's intelligent course selection assistant. Based on the student's requirements and the provided candidate course list, analyze why each course fits the student and generate a professional recommendation analysis with clear reasons in English. Stay objective, encouraging, and rigorous.";
         
-        const userContent = `学生需求: "${query}"\n\n候选课程数据:\n` + JSON.stringify(candidates, null, 2);
+        const userContent = `Student requirements: "${query}"\n\nCandidate course data:\n` + JSON.stringify(candidates, null, 2);
 
         const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
             method: "POST",
@@ -108,7 +108,7 @@ const aiRecommendCourses = async (req, res) => {
                 "Authorization": `Bearer ${process.env.ZHIPU_API_KEY}`
             },
             body: JSON.stringify({
-                model: "glm-4", // 使用智谱的标准大模型
+                model: "glm-4",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }
@@ -118,11 +118,11 @@ const aiRecommendCourses = async (req, res) => {
         });
 
         const aiData = await response.json();
-        const aiAnalysis = aiData.choices?.[0]?.message?.content || "AI 分析生成失败";
+        const aiAnalysis = aiData.choices?.[0]?.message?.content || "AI analysis generation failed";
 
         res.json({
             success: true,
-            message: "成功生成 AI 智能推荐与选课分析",
+            message: "AI recommendations and course analysis generated successfully",
             data: {
                 candidateCourses: candidates,
                 aiRationale: aiAnalysis
@@ -130,13 +130,69 @@ const aiRecommendCourses = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("AI 智能推荐执行失败:", error);
-        res.status(500).json({ success: false, error: "AI 推荐服务暂时不可用" });
+        console.error("AI recommendation failed:", error);
+        res.status(500).json({ success: false, error: "AI recommendation service is temporarily unavailable" });
+    }
+};
+
+const getCourseSummary = async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.id);
+
+        console.log(`Received course AI summary request, course ID: ${courseId}`);
+
+        const reviews = await prisma.review.findMany({
+            where: { 
+                courseId: courseId,
+                status: 'APPROVED', 
+                comment: { not: null } 
+            },
+            select: { comment: true },
+            take: 20
+        });
+
+        if (reviews.length === 0) {
+            return res.json({ 
+                success: true, 
+                summary: "There are no reviews for this course yet. Be the first to share your real course experience!" 
+            });
+        }
+
+        const combinedComments = reviews.map((r, index) => `Review ${index + 1}: ${r.comment}`).join('\n');
+
+        const systemPrompt = "You are a university course selection guide. Based on the following real student reviews for a course, generate a structured summary report in English. Requirements: 1. Extract the course's key strengths (Pros). 2. Extract the main drawbacks or cautions (Cons). 3. Summarize the general workload and exam difficulty (Workload & Difficulty). Keep the tone objective and authentic, use clear formatting, and keep it within 250 words.";
+        const userContent = `Here are the student reviews:\n${combinedComments}`;
+
+        const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${process.env.ZHIPU_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "glm-4",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userContent }
+                ],
+                temperature: 0.5
+            })
+        });
+
+        const aiData = await response.json();
+        const aiAnalysis = aiData.choices?.[0]?.message?.content || "AI analysis generation failed";
+
+        res.json({ success: true, summary: aiAnalysis });
+
+    } catch (error) {
+        console.error("AI summary generation failed:", error);
+        res.status(500).json({ success: false, error: "AI summary generation failed. Please try again later" });
     }
 };
 
 module.exports = {
     testEmbedding,
     semanticSearch,
-    aiRecommendCourses 
+    aiRecommendCourses,
+    getCourseSummary
 };
