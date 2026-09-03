@@ -28,6 +28,7 @@ courseCompass/
 - Course comparison views
 - AI course recommendations based on semantic search
 - AI-generated course review summaries
+- 512-dimensional pgvector embeddings for course search
 - Password reset email support
 - Prisma-backed PostgreSQL schema with seed data and smoke tests
 
@@ -84,7 +85,17 @@ From the `backend` directory:
 npx prisma generate
 npx prisma migrate deploy
 npm run db:seed
+npm run embeddings:generate
 ```
+
+The embedding command generates vectors for courses whose `embedding` is missing. It uses the course code, name, description, level, offered semesters, assessment types, workload hours, and official link. To rebuild every course vector after changing this text format, run:
+
+```powershell
+cd backend
+npm run embeddings:generate -- --force
+```
+
+Embeddings are stored in `Course.embedding` as `vector(512)` values. The AI search uses cosine similarity, returns only active courses with a similarity of at least `0.35`, and accepts a result limit from `1` to `10`.
 
 Development seed accounts:
 
@@ -133,6 +144,8 @@ npm start
 npm test
 npm run db:status
 npm run db:seed
+npm run embeddings:generate
+npm run embeddings:generate -- --force
 ```
 
 Prisma:
@@ -153,11 +166,16 @@ Main backend routes:
 - `POST /api/auth/login`
 - `POST /api/auth/forgot-password`
 - `POST /api/auth/reset-password`
+- `GET /api/users/me` (authenticated)
+- `PATCH /api/users/me` (authenticated)
 - `GET /api/courses`
-- `POST /api/ai/test-embedding`
-- `POST /api/ai/semantic-search`
-- `POST /api/ai/recommend`
-- `GET /api/ai/courses/:id/summary`
+- `PATCH /api/courses/:id` (administrator only)
+- `POST /api/ai/test-embedding` (administrator only)
+- `POST /api/ai/semantic-search` (authenticated)
+- `POST /api/ai/recommend` (authenticated)
+- `GET /api/ai/courses/:id/summary` (rate limited)
+
+All AI routes are rate limited to 20 requests per IP/user per 15-minute window. The current limiter is in-memory and should be replaced with a shared Redis or gateway limiter for multi-instance production deployments.
 
 ## Verification
 
@@ -180,4 +198,4 @@ npm test
 - Do not commit real `.env` files or secrets.
 - AI features require `ZHIPU_API_KEY`.
 - Password reset emails require valid SMTP settings.
-- Additional database details are documented in `backend/docs/database/README.md`.
+- Additional database details are documented in `backend/docs/database/README.md` and the related files in `backend/docs/database/`.
