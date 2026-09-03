@@ -19,7 +19,7 @@ export const getCourseRecommendations = async (userQuery) => {
     });
     return response.data;
   } catch (error) {
-    console.error('AI recommendation API request failed:', error);
+    console.error('AI 推荐接口请求失败:', error);
     throw error;
   }
 };

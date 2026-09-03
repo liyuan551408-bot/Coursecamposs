@@ -1,5 +1,5 @@
 /**
- * Authentication-related API
+ * 认证相关 API
  */
 import request from './request'
 
@@ -16,7 +16,7 @@ export function getMeApi() {
 }
 
 /**
- * Mock data for development
+ * Mock 数据（开发用）
  */
 export function mockLogin(credentials) {
   return new Promise((resolve, reject) => {
@@ -27,27 +27,27 @@ export function mockLogin(credentials) {
           user: {
             id: 1,
             email: credentials.email,
-            name: 'Test User',
+            name: '测试用户',
             role: credentials.email.includes('admin') ? 'admin' : 'student',
           },
         })
       } else {
-        reject(new Error('Invalid email or password (Mock: password must be at least 6 characters)'))
+        reject(new Error('邮箱或密码不正确（Mock：密码至少 6 位）'))
       }
     }, 500)
   })
 }
 
-/** Mock registration: pretend the backend created an account, then return the same token + user as login. */
+/** Mock 注册：假装后端创建账号，然后返回和登录一样的 token + user */
 export function mockRegister(data) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       if (!data.name || !data.email || data.password?.length < 6) {
-        reject(new Error('Please complete all required fields (Mock: password must be at least 6 characters)'))
+        reject(new Error('请填写完整信息（Mock：密码至少 6 位）'))
         return
       }
       if (data.password !== data.confirmPassword) {
-        reject(new Error('The two passwords do not match'))
+        reject(new Error('两次密码不一致'))
         return
       }
       resolve({

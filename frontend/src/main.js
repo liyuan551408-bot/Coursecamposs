@@ -14,7 +14,7 @@ app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
 
-// Restore login state from localStorage on page refresh.
+// 刷新页面时，从 localStorage 恢复登录状态
 const authStore = useAuthStore()
 authStore.restoreSession()
 

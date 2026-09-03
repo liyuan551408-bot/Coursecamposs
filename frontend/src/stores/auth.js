@@ -1,5 +1,5 @@
 /**
- * Login state management
+ * 登录状态管理
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
@@ -22,7 +22,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isModerator = computed(() => user.value?.role === 'moderator')
   const userName = computed(() => user.value?.name || user.value?.email || '')
 
-  /** Write backend/mock response data to the store and localStorage. */
+  /** 把后端/mock 返回的数据写入 Store 和 localStorage */
   function applyAuthData(data) {
     token.value = data.token
     user.value = data.user
@@ -30,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
     setStoredUser(data.user)
   }
 
-  /** Login: call API, store token/user, and update store. */
+  /** 登录：调 API → 存 token/user → 更新 Store */
   async function login(credentials) {
     const useMock = import.meta.env.VITE_USE_MOCK === 'true'
     const data = useMock ? await mockLogin(credentials) : await loginApi(credentials)
@@ -38,7 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  /** Register: account creation usually logs in automatically, similar to login. */
+  /** 注册：创建账号后通常会自动登录，流程和 login 类似 */
   async function register(formData) {
     const useMock = import.meta.env.VITE_USE_MOCK === 'true'
     const data = useMock ? await mockRegister(formData) : await registerApi(formData)
@@ -46,14 +46,14 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  /** Logout: clear store and localStorage. */
+  /** 退出：清 Store + 清 localStorage */
   function logout() {
     token.value = null
     user.value = null
     clearAuthStorage()
   }
 
-  /** Restore login state from localStorage on page refresh. */
+  /** 页面刷新时，从 localStorage 恢复登录态 */
   function restoreSession() {
     token.value = getToken()
     user.value = getStoredUser()
