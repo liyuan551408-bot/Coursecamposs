@@ -1,21 +1,17 @@
-<template>
-  <div class="ai-page">
-    <AiCourseAssistant />
-  </div>
-</template>
-
 <script setup>
-import AiCourseAssistant from '../components/AiCourseAssistant.vue';
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getCourseRecommendations } from '../api/ai'
+
+const query = ref(''), loading = ref(false), result = ref(null), error = ref('')
+const prompts = ['I want to study machine learning and have average maths confidence', 'I need a manageable course for a software development pathway', 'Help me plan a data science pathway starting with COMP101']
+async function recommend() {
+  if (!query.value.trim()) return
+  loading.value = true; error.value = ''; result.value = null
+  try { result.value = await getCourseRecommendations(query.value) }
+  catch (err) { error.value = err.response?.data?.message || 'The AI service is unavailable. Check that /api/ai/recommend has been deployed.'; ElMessage.warning(error.value) }
+  finally { loading.value = false }
+}
 </script>
-
-<style scoped>
-.ai-page {
-  padding: 20px;
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-</style>
+<template><section class="ai-page"><div class="ai-hero"><p class="eyebrow">AI COURSE COMPASS</p><h1>Turn your goals into a course pathway</h1><p>Tell the AI about your interests, background and time preferences for evidence-based course suggestions.</p><el-input v-model="query" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="For example: I want to begin studying AI next semester, with programming practice and a manageable workload." @keyup.ctrl.enter="recommend" /><div class="ai-actions"><el-button type="primary" :loading="loading" @click="recommend">✨ Generate recommendations</el-button><span>Press Ctrl + Enter to submit</span></div><div class="prompt-list"><el-button v-for="prompt in prompts" :key="prompt" round size="small" @click="query = prompt">{{ prompt }}</el-button></div></div><el-alert v-if="error" :title="error" type="warning" show-icon :closable="false" /><div v-if="result" class="ai-result"><el-card><h2>Why these courses</h2><p class="rationale">{{ result.aiRationale || result.rationale || 'The AI has selected relevant courses for you.' }}</p></el-card><div class="recommendations"><h2>Recommended courses</h2><el-card v-for="course in result.candidateCourses || result.courses || []" :key="course.id" class="recommendation"><div><span class="course-code">{{ course.code }}</span><h3>{{ course.name }}</h3><p>{{ course.description }}</p></div><el-tag v-if="course.similarity" type="success">{{ (course.similarity * 100).toFixed(0) }}% match</el-tag></el-card><el-empty v-if="!(result.candidateCourses || result.courses)?.length" description="The AI did not return any courses" /></div></div></section></template>
+<style scoped>.ai-page{max-width:850px;margin:0 auto}.ai-hero{padding:36px;border:1px solid var(--accent-border);border-radius:16px;background:linear-gradient(135deg,var(--accent-bg),transparent)}.eyebrow{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em}.ai-hero h1{font-size:38px;margin:8px 0}.ai-hero>p:not(.eyebrow){line-height:1.6;margin-bottom:22px}.ai-actions{display:flex;align-items:center;gap:12px;margin-top:12px}.ai-actions span{font-size:13px;color:var(--text)}.prompt-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.ai-result{margin-top:24px}.rationale{white-space:pre-wrap;line-height:1.7}.recommendations{margin-top:24px}.recommendation{margin-top:12px;display:flex;justify-content:space-between;gap:20px}.recommendation h3{margin:8px 0;font-size:18px}.recommendation p{font-size:14px;line-height:1.5}.course-code{color:var(--accent);font-weight:700}@media(max-width:600px){.ai-hero{padding:22px}.ai-hero h1{font-size:30px}.recommendation{display:block}.recommendation .el-tag{margin-top:10px}}</style>

@@ -11,7 +11,7 @@ import Planner from '../views/Planner.vue'
 import SavedCourses from '../views/SavedCourses.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
 import Profile from '../views/Profile.vue'
-import AiRecommendation from '../views/AiRecommendation.vue' 
+import AiRecommendation from '../views/AiRecommendation.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -26,6 +26,7 @@ const routes = [
   { path: '/courses', name: 'CourseList', component: CourseList },
   { path: '/courses/:id', name: 'CourseDetail', component: CourseDetail },
   { path: '/compare', name: 'CompareCourses', component: CompareCourses },
+  { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation, meta: { requiresAuth: true } },
   { path: '/planner', name: 'Planner', component: Planner, meta: { requiresAuth: true } },
   { path: '/saved', name: 'SavedCourses', component: SavedCourses, meta: { requiresAuth: true } },
   {
@@ -35,7 +36,6 @@ const routes = [
     meta: { requiresAuth: true, roles: ['admin'] },
   },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
-  { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation },
 ]
 
 const router = createRouter({
@@ -43,7 +43,9 @@ const router = createRouter({
   routes,
 })
 
-
+/**
+ * Route guard: validate access before navigation.
+ */
 router.beforeEach((to, _from, next) => {
   const token = getToken()
   const user = JSON.parse(localStorage.getItem('course_compass_user') || 'null')
@@ -53,7 +55,7 @@ router.beforeEach((to, _from, next) => {
     return
   }
 
-  if (to.meta.roles && user && !to.meta.roles.includes(user.role)) {
+  if (to.meta.roles && user && !to.meta.roles.includes(user.role?.toLowerCase())) {
     next({ name: 'Home' })
     return
   }

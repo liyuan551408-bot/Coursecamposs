@@ -9,7 +9,27 @@ const publicUserSelect = {
     role: true,
     major: true,
     createdAt: true,
-    updatedAt: true
+    updatedAt: true,
+    studyYear:true,
+    interests:true,
+    goals:true,
+    planningPreferences:true,
+
+    completedCourses: {
+    select: {
+        completedAt: true,
+        course: {
+            select: {
+               id:true,
+               code:true,
+               name:true,
+               credits:true
+            }
+        }
+    }
+}
+
+
 }; //[cite: 2]
 
 const normalizeEmail = (email) => {
@@ -123,11 +143,29 @@ const resetPassword = async (email, resetCode, newPassword) => {
     return true;
 };
 
+// Update a user's profile.
+const updateUserProfile = async (id, data) => {
+    // Ignore undefined values so existing fields are not overwritten accidentally.
+    const updateData = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.major !== undefined) updateData.major = data.major;
+    if (data.studyYear !== undefined) updateData.studyYear = data.studyYear;
+    if (data.interests !== undefined) updateData.interests = data.interests;
+    if (data.goals !== undefined) updateData.goals = data.goals;
+    if (data.planningPreferences !== undefined) updateData.planningPreferences = data.planningPreferences;
+    return prisma.user.update({
+        where: { id },
+        data: updateData,
+        select: publicUserSelect // Reuse the safe response shape without password fields.
+    });
+};
+
 module.exports = {
     normalizeEmail,
     findUserForAuthenticationByEmail,
     findPublicUserById,
     createUser,
     generateResetCode,
-    resetPassword
+    resetPassword,
+    updateUserProfile
 };

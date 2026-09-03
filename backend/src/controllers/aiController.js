@@ -1,6 +1,16 @@
 const aiService = require('../services/aiService');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const SIMILARITY_THRESHOLD = 0.35;
+const MAX_RESULT_LIMIT = 10;
+
+const normalizeLimit = (value, fallback) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+    return Math.min(Math.max(Math.trunc(parsed), 1), MAX_RESULT_LIMIT);
+};
 
 const testEmbedding = async (req, res) => {
     try {
@@ -22,6 +32,7 @@ const testEmbedding = async (req, res) => {
 const semanticSearch = async (req, res) => {
     try {
         const { query, limit = 5 } = req.body;
+        const safeLimit = normalizeLimit(limit, 5);
 
         if (!query) {
             return res.status(400).json({ success: false, error: "Please provide the search term 'query'" });
@@ -32,18 +43,26 @@ const semanticSearch = async (req, res) => {
         const queryVector = await aiService.generateEmbedding(query);
         const vectorString = `[${queryVector.join(',')}]`;
         const courses = await prisma.$queryRawUnsafe(`
-            SELECT id, code, name, description, 
+            SELECT id, code, name, description, level, "offeredSemesters",
+                   "assessmentTypes", "workloadHours", "officialLink",
                    CAST(1 - (embedding <=> $1::vector) AS TEXT) AS similarity_text
             FROM "Course"
             WHERE embedding IS NOT NULL
+              AND "isActive" = true
+              AND 1 - (embedding <=> $1::vector) >= $2::float
             ORDER BY embedding <=> $1::vector
-            LIMIT $2::int;
-        `, vectorString, limit);
+            LIMIT $3::int;
+        `, vectorString, SIMILARITY_THRESHOLD, safeLimit);
         const formattedCourses = courses.map(course => ({
             id: course.id,
             code: course.code,
             name: course.name,
             description: course.description,
+            level: course.level,
+            offeredSemesters: course.offeredSemesters,
+            assessmentTypes: course.assessmentTypes,
+            workloadHours: course.workloadHours,
+            officialLink: course.officialLink,
             similarity: course.similarity_text ? parseFloat(course.similarity_text) : 0
         }));
 
@@ -62,6 +81,7 @@ const semanticSearch = async (req, res) => {
 const aiRecommendCourses = async (req, res) => {
     try {
         const { query, limit = 3 } = req.body;
+        const safeLimit = normalizeLimit(limit, 3);
 
         if (!query) {
             return res.status(400).json({ success: false, error: "Please provide the student's requirements in 'query'" });
@@ -73,19 +93,27 @@ const aiRecommendCourses = async (req, res) => {
         const vectorString = `[${queryVector.join(',')}]`;
 
         const courses = await prisma.$queryRawUnsafe(`
-            SELECT id, code, name, description, 
+            SELECT id, code, name, description, level, "offeredSemesters",
+                   "assessmentTypes", "workloadHours", "officialLink",
                    CAST(1 - (embedding <=> $1::vector) AS TEXT) AS similarity_text
             FROM "Course"
             WHERE embedding IS NOT NULL
+              AND "isActive" = true
+              AND 1 - (embedding <=> $1::vector) >= $2::float
             ORDER BY embedding <=> $1::vector
-            LIMIT $2::int;
-        `, vectorString, limit);
+            LIMIT $3::int;
+        `, vectorString, SIMILARITY_THRESHOLD, safeLimit);
 
         const candidates = courses.map(c => ({
             id: c.id,
             code: c.code,
             name: c.name,
             description: c.description,
+            level: c.level,
+            offeredSemesters: c.offeredSemesters,
+            assessmentTypes: c.assessmentTypes,
+            workloadHours: c.workloadHours,
+            officialLink: c.officialLink,
             similarity: c.similarity_text ? parseFloat(c.similarity_text) : 0
         }));
 

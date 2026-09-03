@@ -20,11 +20,11 @@ const form = reactive({
 
 const rules = {
   email: [
-    { required: true, message: 'Please enter your email', trigger: 'blur' },
-    { type: 'email', message: 'Invalid email format', trigger: 'blur' },
+    { required: true, message: 'Enter your email address', trigger: 'blur' },
+    { type: 'email', message: 'Enter a valid email address', trigger: 'blur' },
   ],
   password: [
-    { required: true, message: 'Please enter your password', trigger: 'blur' },
+    { required: true, message: 'Enter your password', trigger: 'blur' },
     { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
   ],
 }
@@ -39,13 +39,13 @@ async function handleLogin() {
   loading.value = true
   try {
     await authStore.login({ email: form.email, password: form.password })
-    ElMessage.success('Logged in successfully')
+    ElMessage.success('Signed in successfully')
 
-    // Return to the page requested before login, or go to the dashboard.
+    // Return to the originally requested page, or the dashboard by default.
     const redirect = route.query.redirect || '/dashboard'
     router.push(typeof redirect === 'string' ? redirect : '/dashboard')
   } catch (err) {
-    ElMessage.error(err.message || 'Login failed. Please check your email and password')
+    ElMessage.error(err.message || 'Sign-in failed. Check your email and password.')
   } finally {
     loading.value = false
   }
@@ -56,7 +56,7 @@ async function handleLogin() {
   <div class="login-page">
     <el-card class="login-card" shadow="hover">
       <h1>CourseCompass</h1>
-      <p class="subtitle">Log in to your account</p>
+      <p class="subtitle">Sign in to your account</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item label="Email" prop="email">
@@ -80,17 +80,17 @@ async function handleLogin() {
         </el-form-item>
 
         <el-button type="primary" class="login-btn" :loading="loading" @click="handleLogin">
-          Log In
+          Log in
         </el-button>
       </el-form>
 
       <p class="footer-link">
-        Do not have an account?
-        <router-link to="/register">Sign up</router-link>
+        New to CourseCompass?
+        <router-link to="/register">Create an account</router-link>
       </p>
 
       <p v-if="isMockMode" class="mock-hint">
-        Development mode: use any email and a password of at least 6 characters. Emails containing admin log in as administrators.
+        Development mode: any email and a password of at least 6 characters will work; emails containing “admin” open an admin account.
       </p>
     </el-card>
   </div>

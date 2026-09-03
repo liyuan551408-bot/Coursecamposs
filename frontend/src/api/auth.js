@@ -1,10 +1,13 @@
 /**
- * Authentication-related API
+ * Authentication API
  */
 import request from './request'
 
 export function loginApi(credentials) {
-  return request.post('/auth/login', credentials)
+  return request.post('/auth/login', credentials).then((response) => ({
+    token: response.token,
+    user: response.data,
+  }))
 }
 
 export function registerApi(data) {
@@ -12,7 +15,7 @@ export function registerApi(data) {
 }
 
 export function getMeApi() {
-  return request.get('/auth/me')
+  return request.get('/users/me')
 }
 
 /**
@@ -32,22 +35,22 @@ export function mockLogin(credentials) {
           },
         })
       } else {
-        reject(new Error('Invalid email or password (Mock: password must be at least 6 characters)'))
+        reject(new Error('Invalid email or password (mock mode requires at least 6 characters)'))
       }
     }, 500)
   })
 }
 
-/** Mock registration: pretend the backend created an account, then return the same token + user as login. */
+/** Mock registration: return a token and user as if the backend created the account. */
 export function mockRegister(data) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       if (!data.name || !data.email || data.password?.length < 6) {
-        reject(new Error('Please complete all required fields (Mock: password must be at least 6 characters)'))
+        reject(new Error('Please complete all required fields (mock mode requires at least 6 characters)'))
         return
       }
       if (data.password !== data.confirmPassword) {
-        reject(new Error('The two passwords do not match'))
+        reject(new Error('Passwords do not match'))
         return
       }
       resolve({

@@ -10,7 +10,7 @@ const request = axios.create({
   timeout: 10000,
 })
 
-// Before requests are sent, add the token to the header if it exists.
+// Add the token automatically before sending a request.
 request.interceptors.request.use((config) => {
   const token = getToken()
   if (token) {
@@ -19,7 +19,7 @@ request.interceptors.request.use((config) => {
   return config
 })
 
-// After receiving a response, 401 means the session is invalid. Clear local data and redirect to login.
+// A 401 means the session has expired: clear local data and redirect to login.
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
