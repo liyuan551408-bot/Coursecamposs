@@ -1,28 +1,28 @@
 <template>
   <div class="ai-assistant-container">
-    <h2>AI Course Selection Assistant</h2>
+    <h2>AI 智能选课助手</h2>
     <div class="search-box">
       <input 
         v-model="searchQuery" 
         type="text" 
-        placeholder="I want to take a computer science course about deep learning or machine learning..." 
+        placeholder="我想学一门关于深度学习或者机器学习的计算机课程..." 
         @keyup.enter="handleSearch"
         :disabled="isLoading"
       />
       <button @click="handleSearch" :disabled="isLoading || !searchQuery.trim()">
-        {{ isLoading ? 'AI is analyzing...' : 'Get Recommendations' }}
+        {{ isLoading ? 'AI 分析中...' : '智能推荐' }}
       </button>
     </div>
 
     <div v-if="result" class="result-area">
    
       <div class="ai-rationale">
-        <h3>Recommendation Analysis</h3>
+        <h3>推荐分析</h3>
         <p style="white-space: pre-wrap;">{{ result.aiRationale }}</p>
       </div>
 
       <div class="course-list">
-        <h3>Recommended Courses</h3>
+        <h3>推荐课程</h3>
         <div class="course-card" v-for="course in result.candidateCourses" :key="course.id">
           <div class="course-header">
             <span class="course-code">{{ course.code }}</span>
@@ -30,7 +30,7 @@
           </div>
           <p class="course-desc">{{ course.description }}</p>
           <div class="course-footer">
-            <span class="similarity">Match: {{ (course.similarity * 100).toFixed(1) }}%</span>
+            <span class="similarity">匹配度: {{ (course.similarity * 100).toFixed(1) }}%</span>
           </div>
         </div>
       </div>
@@ -59,7 +59,7 @@ const handleSearch = async () => {
       result.value = res.data;
     }
   } catch (error) {
-    alert('Request failed. Please check whether the backend service is running.');
+    alert('请求失败，请检查后端服务是否正常运行。');
   } finally {
     isLoading.value = false;
   }

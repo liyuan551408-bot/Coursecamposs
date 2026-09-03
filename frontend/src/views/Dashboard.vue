@@ -8,8 +8,8 @@ const authStore = useAuthStore()
   <div>
     <h1>Dashboard</h1>
     <p v-if="authStore.isLoggedIn">
-      Welcome, {{ authStore.userName }}! You have successfully logged in.
+      欢迎，{{ authStore.userName }}！你已经成功登录。
     </p>
-    <p v-else>Please log in first.</p>
+    <p v-else>请先登录。</p>
   </div>
 </template>

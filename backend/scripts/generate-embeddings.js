@@ -5,18 +5,18 @@ const aiService = require('../src/services/aiService');
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('Starting batch generation of CourseCompass course semantic vectors...');
+    console.log('开始批量生成 CourseCompass 课程语义向量...');
     try {
         const courses = await prisma.course.findMany();
-        console.log(`Found ${courses.length} courses in the database. Preparing to process them...`);
+        console.log(`共在数据库中找到 ${courses.length} 门课程，准备处理...`);
         if (courses.length === 0) {
-            console.log('There is no course data in the database yet. Please add test courses through the frontend or database panel first.');
+            console.log('数据库里还没有课程数据，请先通过前端或数据库面板添加一些测试课程！');
             return;
         }
         for (const course of courses) {
-            const descriptionText = course.description ? course.description : 'No detailed description yet';
-            const textToEmbed = `Course code: ${course.code}. Course name: ${course.name}. Course description: ${descriptionText}`;
-            console.log(`Calling Zhipu AI to process: [${course.code}] ${course.name}...`);
+            const descriptionText = course.description ? course.description : '暂无详细描述';
+            const textToEmbed = `课程代码：${course.code}。课程名称：${course.name}。课程描述：${descriptionText}`;
+            console.log(`正在调用智谱 AI 处理: [${course.code}] ${course.name}...`);
             const embeddingVector = await aiService.generateEmbedding(textToEmbed);
             const vectorString = `[${embeddingVector.join(',')}]`;
             await prisma.$executeRawUnsafe(
@@ -25,12 +25,12 @@ async function main() {
                 course.id
             );
 
-            console.log(`Course vector updated successfully: ${course.code}`);
+            console.log(`成功更新课程向量: ${course.code}`);
         }
-        console.log('All course vectors have been generated and updated.');
+        console.log('所有课程的向量生成与更新已全部完成！');
 
     } catch (error) {
-        console.error('Script failed:', error);
+        console.error('脚本运行出错:', error);
     } finally {
         await prisma.$disconnect();
     }

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-// Import controller.
+// 引入刚刚写好的 Controller
 const userController = require('../controllers/userController');
 
 

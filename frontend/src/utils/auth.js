@@ -1,5 +1,5 @@
 /**
- * Token storage utilities
+ * Token 存储工具
  */
 
 const TOKEN_KEY = 'course_compass_token'
@@ -35,7 +35,7 @@ export function removeStoredUser() {
   localStorage.removeItem(USER_KEY)
 }
 
-/** Clear all local login information on logout. */
+/** 退出登录时，一次性清掉所有本地登录信息 */
 export function clearAuthStorage() {
   removeToken()
   removeStoredUser()
