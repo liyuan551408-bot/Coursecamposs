@@ -1,11 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"] 
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
-
 enum UserRole {
   STUDENT
   MODERATOR
@@ -49,7 +50,7 @@ enum AssessmentStyle {
 }
 
 model User {
-  // 基础信息
+  // Basic information
   id                  Int      @id @default(autoincrement())
   email               String   @unique
   passwordHash        String
@@ -61,9 +62,9 @@ model User {
   goals               String[] @default([])
   planningPreferences Json?
 
-  // 密码重置
-  resetCode        String? // 6位邮箱验证码
-  resetCodeExpires DateTime? //验证码过期时间
+  // Password reset
+  resetCode        String?
+  resetCodeExpires DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -90,12 +91,10 @@ model Course {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
+  // 512-dimensional vector field matching the Zhipu embedding-3 model
   embedding Unsupported("vector(512)")?
 
-  // 先决条件
-  // 当前课程需要哪些前置课
   prerequisites   Course[] @relation("CoursePrerequisites")
-  // 当前课程是哪些其他课的前置课
   prerequisiteFor Course[] @relation("CoursePrerequisites")
 
   reviews      Review[]

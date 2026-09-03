@@ -15,7 +15,7 @@ export function registerApi(data) {
 }
 
 export function getMeApi() {
-  return request.get('/auth/me')
+  return request.get('/users/me')
 }
 
 /**

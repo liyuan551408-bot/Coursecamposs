@@ -2,7 +2,7 @@
 /**
  * Application shell shared by all pages.
  * The header remains visible while router-view changes the page content.
- */
+*/
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
@@ -25,7 +25,8 @@ function handleLogout() {
         <router-link to="/saved">Saved</router-link>
         <router-link to="/planner">Planner</router-link>
         <router-link to="/compare">Compare</router-link>
-        <router-link to="/ai-recommend">AI Advisor</router-link>
+        <!-- Add AI recommendations to the top navigation -->
+        <router-link to="/ai-recommend">AI Recommendations</router-link>
         <router-link v-if="authStore.isAdmin" to="/admin">Admin</router-link>
       </nav>
 

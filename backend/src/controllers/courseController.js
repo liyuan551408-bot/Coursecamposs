@@ -1,7 +1,7 @@
-// 引入 service 层提供的方法
+// Import methods provided by the service layer.
 const courseService = require('../services/courseService');
 
-// 处理获取所有课程的请求
+// Handle requests to get all courses.
 const getCourses = async (req, res) => {
     try {
         const courses = await courseService.getAllCourses();
@@ -11,42 +11,44 @@ const getCourses = async (req, res) => {
     }
 };
 
-// 处理创建课程的逻辑
+// Handle course creation.
 const createCourse = async (req, res) => {
     try {
-        const { name, code, credits, description, workloadHours, prerequisiteIds } = req.body;
-        
+        const { name, code, credits, description, workloadHours, offeredSemesters,
+            level, assessmentTypes, officialLink, prerequisiteIds } = req.body;
+
         if (!name || !code) {
             return res.status(400).json({ success: false, message: 'Course name and code are required' });
         }
 
         const newCourse = await courseService.createCourse(
-            { name, code, credits, description, workloadHours }, 
+            { name, code, credits, description, workloadHours, offeredSemesters,
+                level, assessmentTypes, officialLink },
             prerequisiteIds
         );
         res.status(201).json({ success: true, data: newCourse });
     } catch (error) {
-        console.error("创建课程失败:", error);
+        console.error('Course creation failed:', error);
         res.status(500).json({ success: false, message: 'Server Error during course creation' });
     }
 };
 
-// 处理获取单门课程的逻辑 (按 ID)
+// Handle single-course lookup by ID.
 const getCourseById = async (req, res) => {
     try {
-        const courseId = req.params.id; 
+        const courseId = req.params.id;
         const course = await courseService.getCourseById(courseId);
         if (!course) {
             return res.status(404).json({ success: false, message: 'Course not found' });
         }
         res.status(200).json({ success: true, data: course });
     } catch (error) {
-        console.error("获取课程失败:", error);
+        console.error('Course lookup failed:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
-// 根据课程代码获取课程详情 (队友新增)
+// Handle single-course lookup by code.
 const getCourseByCode = async (req, res) => {
     try {
         const course = await courseService.getCourseByCode(req.params.code);
@@ -63,7 +65,7 @@ const getCourseByCode = async (req, res) => {
     }
 };
 
-// 处理多课程对比的逻辑
+// Handle course comparison.
 const compareCourses = async (req, res) => {
     try {
         const { courseIds } = req.body;
@@ -73,31 +75,42 @@ const compareCourses = async (req, res) => {
         const courses = await courseService.getCoursesByIds(courseIds);
         res.status(200).json({ success: true, data: courses });
     } catch (error) {
-        console.error("批量查询对比课程失败:", error);
+        console.error('Course comparison query failed:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
-// 处理高级搜索的请求
+// Handle advanced course search.
 const searchCourses = async (req, res) => {
     try {
-        // req.query 会自动提取 URL 中的参数，例如 ?keyword=java&level=200
         const courses = await courseService.searchCourses(req.query);
-        
-        res.status(200).json({ 
-            success: true, 
-            count: courses.length, // 返回总数方便前端分页或展示
-            data: courses 
+
+        res.status(200).json({
+            success: true,
+            count: courses.length,
+            data: courses
         });
     } catch (error) {
-        console.error("Advanced search failed:", error);
+        console.error('Advanced search failed:', error);
         res.status(500).json({ success: false, message: 'Server Error during search' });
+    }
+};
+
+// Handle course updates and refresh the course embedding.
+const updateCourse = async (req, res) => {
+    try {
+        const updatedCourse = await courseService.updateCourse(req.params.id, req.body);
+        res.status(200).json({ success: true, data: updatedCourse });
+    } catch (error) {
+        console.error('Course update failed:', error);
+        res.status(500).json({ success: false, message: 'Server Error during course update' });
     }
 };
 
 module.exports = {
     getCourses,
     createCourse,
+    updateCourse,
     getCourseById,
     getCourseByCode,
     compareCourses,

@@ -1,29 +1,35 @@
 const express = require('express');
 const router = express.Router();
-const courseController = require('../controllers/courseController');
 
-// GET /api/courses:返回课程详情
+// Import the course controller.
+const courseController = require('../controllers/courseController');
+const { verifyToken } = require('../middlewares/authMiddleware');
+const { requireRole } = require('../middlewares/roleMiddleware');
+
+// GET /api/courses: return all courses.
 router.get('/', courseController.getCourses);
 
-// POST /api/courses:创建课程
+// POST /api/courses: create a course.
 router.post('/', courseController.createCourse);
+router.patch('/:id', verifyToken, requireRole('ADMIN'), courseController.updateCourse);
 
-// POST /api/courses/compare 
+// POST /api/courses/compare: compare courses.
 router.post('/compare', courseController.compareCourses);
 
-// GET /api/courses/search: 高级搜索接口
+// GET /api/courses/search: advanced search.
 router.get('/search', courseController.searchCourses);
 
-// GET /api/courses/:id 
+// GET /api/courses/:id: return a course by numeric ID.
 router.get('/:id', (req, res, next) => {
-    // 检查参数是否只包含数字
+    // Only numeric parameters are treated as IDs.
     if (/^\d+$/.test(req.params.id)) {
         return courseController.getCourseById(req, res);
     }
-    // 不是纯数字，放行到下一个匹配的路由
+    // Non-numeric parameters are handled by the course-code route.
     next();
 });
-// GET /api/courses/:code - 用于获取单门课程详情
+
+// GET /api/courses/:code: return a course by code.
 router.get('/:code', courseController.getCourseByCode);
 
 module.exports = router;

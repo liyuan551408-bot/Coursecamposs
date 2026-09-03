@@ -1,5 +1,6 @@
 const { getCourses } = require('../controllers/courseController');
 const prisma = require('../lib/prisma');
+const { refreshCourseEmbedding } = require('./courseEmbeddingService');
 
 const courseSelect = {
     id: true,
@@ -77,7 +78,11 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         code: courseData.code,
         credits: courseData.credits,
         description: courseData.description,
-        workloadHours: courseData.workloadHours
+        workloadHours: courseData.workloadHours,
+        offeredSemesters: courseData.offeredSemesters,
+        level: courseData.level,
+        assessmentTypes: courseData.assessmentTypes,
+        officialLink: courseData.officialLink
     };
 
     // 如果传入了先决课程的 ID 数组，使用 connect 关联
@@ -87,13 +92,46 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         };
     }
 
-    return prisma.course.create({
+    const createdCourse = await prisma.course.create({
         data,
         // 这里为了能返回关联数据，我们直接包含前置课程字段
         include: {
             prerequisites: true 
         }
     });
+
+    try {
+        await refreshCourseEmbedding(createdCourse);
+    } catch (error) {
+        console.error(`Course embedding generation failed for ${createdCourse.code}:`, error);
+    }
+
+    return createdCourse;
+};
+
+const updateCourse = async (id, courseData) => {
+    const allowedFields = [
+        'name', 'code', 'credits', 'description', 'workloadHours',
+        'offeredSemesters', 'level', 'assessmentTypes', 'officialLink', 'isActive'
+    ];
+    const data = Object.fromEntries(
+        allowedFields
+            .filter((field) => courseData[field] !== undefined)
+            .map((field) => [field, courseData[field]])
+    );
+
+    const updatedCourse = await prisma.course.update({
+        where: { id: Number(id) },
+        data
+    });
+
+    try {
+        await refreshCourseEmbedding(updatedCourse);
+    } catch (error) {
+        console.error(`Course embedding generation failed for ${updatedCourse.code}:`, error);
+    }
+
+    return updatedCourse;
 };
 
 // 2. 根据 ID 获取单门课程详情（带出它需要的前置课程）
@@ -272,6 +310,7 @@ const searchCourses = async (queryFilters) => {
 module.exports = {
     getAllCourses,
     createCourse,
+    updateCourse,
     getCourseById,
     getCoursesByIds,
     getCourseByCode,
