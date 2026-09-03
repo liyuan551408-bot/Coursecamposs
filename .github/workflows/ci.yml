@@ -44,10 +44,6 @@ jobs:
   backend:
     name: Backend validation
     runs-on: ubuntu-latest
-    env:
-      # Prisma requires the variable during schema validation and client generation.
-      # These steps do not connect to a database.
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/coursecompass_ci
 
     steps:
       - name: Check out repository
@@ -64,13 +60,27 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Check DATABASE_URL secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::GitHub repository secret DATABASE_URL is not configured."
+            exit 1
+          fi
+
       - name: Validate Prisma schema
         working-directory: backend
         run: npx prisma validate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Generate Prisma client
         working-directory: backend
         run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Check backend JavaScript syntax
         working-directory: backend
