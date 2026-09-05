@@ -3,11 +3,12 @@ name: CourseCompass CI
 on:
   push:
     branches:
-      - master
-      - YinchenGuo
+      - '**'
+
   pull_request:
     branches:
       - master
+
   workflow_dispatch:
 
 permissions:
