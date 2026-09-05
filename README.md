@@ -8,7 +8,7 @@ CourseCompass is a full-stack university course planning application. It helps s
 - Backend: Node.js, Express, Prisma, PostgreSQL
 - Authentication: JWT, bcrypt password hashing
 - Email: Nodemailer password reset emails
-- AI: Zhipu AI embeddings and chat completion APIs
+- AI: SiliconFlow embeddings and Zhipu AI chat completion APIs
 
 ## Repository Structure
 
@@ -28,7 +28,7 @@ courseCompass/
 - Course comparison views
 - AI course recommendations based on semantic search
 - AI-generated course review summaries
-- 512-dimensional pgvector embeddings for course search
+- 1024-dimensional pgvector embeddings for course search
 - Password reset email support
 - Prisma-backed PostgreSQL schema with seed data and smoke tests
 
@@ -37,7 +37,7 @@ courseCompass/
 - Node.js 18 or newer
 - npm
 - PostgreSQL database
-- Zhipu AI API key for AI features
+- SiliconFlow API key for embeddings and Zhipu AI API key for chat features
 - SMTP credentials for password reset emails
 
 ## Environment Variables
@@ -48,6 +48,8 @@ Create `backend/.env`:
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
 JWT_SECRET="replace-with-a-secure-secret"
 ZHIPU_API_KEY="replace-with-your-zhipu-api-key"
+SILICONFLOW_API_KEY="replace-with-your-siliconflow-api-key"
+SILICONFLOW_EMBEDDING_MODEL="BAAI/bge-m3"
 SMTP_HOST="smtp.example.com"
 SMTP_PORT="465"
 SMTP_USER="your-email@example.com"
@@ -95,7 +97,7 @@ cd backend
 npm run embeddings:generate -- --force
 ```
 
-Embeddings are stored in `Course.embedding` as `vector(512)` values. The AI search uses cosine similarity, returns only active courses with a similarity of at least `0.35`, and accepts a result limit from `1` to `10`.
+Embeddings are generated through SiliconFlow using `BAAI/bge-m3` and stored in `Course.embedding` as `vector(1024)` values. The AI search uses cosine similarity, returns only active courses with a similarity of at least `0.35`, and accepts a result limit from `1` to `10`. When migrating from another embedding model, deploy the database migration and regenerate all vectors with `npm run embeddings:generate -- --force` before using semantic search.
 
 Development seed accounts:
 
@@ -197,6 +199,6 @@ npm test
 ## Notes
 
 - Do not commit real `.env` files or secrets.
-- AI features require `ZHIPU_API_KEY`.
+- Embeddings require `SILICONFLOW_API_KEY`; AI chat features require `ZHIPU_API_KEY`.
 - Password reset emails require valid SMTP settings.
 - Additional database details are documented in `backend/docs/database/README.md` and the related files in `backend/docs/database/`.

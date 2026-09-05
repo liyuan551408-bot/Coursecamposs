@@ -1,44 +1,79 @@
-const EMBEDDING_DIMENSIONS = 512;
+const EMBEDDING_DIMENSIONS = 1024;
+
+const SILICONFLOW_EMBEDDING_URL =
+  process.env.SILICONFLOW_EMBEDDING_URL ||
+  'https://api.siliconflow.cn/v1/embeddings';
+
+const SILICONFLOW_EMBEDDING_MODEL =
+  process.env.SILICONFLOW_EMBEDDING_MODEL ||
+  'BAAI/bge-m3';
 
 const generateEmbedding = async (text) => {
   if (typeof text !== 'string' || text.trim() === '') {
     throw new TypeError('Embedding input must be a non-empty string');
   }
 
+  const apiKey = process.env.SILICONFLOW_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('SILICONFLOW_API_KEY is not configured');
+  }
+
   try {
-    const response = await fetch("https://open.bigmodel.cn/api/paas/v4/embeddings", {
-      method: "POST",
+    const response = await fetch(SILICONFLOW_EMBEDDING_URL, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.ZHIPU_API_KEY}`
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "embedding-3",
+        model: SILICONFLOW_EMBEDDING_MODEL,
         input: text,
-        dimensions: EMBEDDING_DIMENSIONS
+        encoding_format: 'float'
       })
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
+
+    let data;
+
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      throw new Error(
+        `SiliconFlow returned non-JSON response (${response.status}): ${responseText}`
+      );
+    }
 
     if (!response.ok) {
-      throw new Error(`Zhipu embedding request failed (${response.status}): ${JSON.stringify(data)}`);
-    }
-    
-    if (!data.data || !data.data[0] || !data.data[0].embedding) {
-      throw new Error("Zhipu API returned an unexpected format: " + JSON.stringify(data));
+      throw new Error(
+        `SiliconFlow embedding request failed (${response.status}): ${JSON.stringify(data)}`
+      );
     }
 
-    const vector = data.data[0].embedding;
-    if (vector.length !== EMBEDDING_DIMENSIONS) {
-      throw new Error(`Expected an ${EMBEDDING_DIMENSIONS}-dimensional embedding, got ${vector.length}`);
+    const vector = data?.data?.[0]?.embedding;
+
+    if (!Array.isArray(vector)) {
+      throw new Error(
+        `SiliconFlow API returned an unexpected format: ${JSON.stringify(data)}`
+      );
     }
-    
-    console.log(`[AI Service] Embedding generated successfully. First 5 values: ${vector.slice(0, 5).join(', ')}`);
-    
+
+    if (vector.length !== EMBEDDING_DIMENSIONS) {
+      throw new Error(
+        `Expected a ${EMBEDDING_DIMENSIONS}-dimensional embedding, got ${vector.length}`
+      );
+    }
+
+    console.log(
+      `[AI Service] Embedding generated successfully: ` +
+      `${vector.length} dimensions, first 5 values: ${vector.slice(0, 5).join(', ')}`
+    );
+
     return vector;
+
   } catch (error) {
-    console.error("Failed to call Zhipu AI embedding API:", error);
+    console.error('Failed to call SiliconFlow embedding API:', error.message);
     throw error;
   }
 };
