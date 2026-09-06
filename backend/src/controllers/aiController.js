@@ -8,6 +8,7 @@ const MAX_EMBEDDING_TEXT_LENGTH = 2000;
 const VALID_SEMESTERS = new Set(['SEMESTER_1', 'SEMESTER_2', 'SUMMER']);
 const VALID_ASSESSMENTS = new Set(['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION']);
 
+/** Validate a required text field and enforce the API input length limit. */
 const validateText = (value, field, maxLength) => {
     if (typeof value !== 'string' || value.trim() === '') {
         return `${field} must be a non-empty string`;
@@ -18,6 +19,7 @@ const validateText = (value, field, maxLength) => {
     return null;
 };
 
+/** Normalize a requested result count to the safe API range of 1 to 10. */
 const normalizeLimit = (value, fallback) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
@@ -26,6 +28,7 @@ const normalizeLimit = (value, fallback) => {
     return Math.min(Math.max(Math.trunc(parsed), 1), MAX_RESULT_LIMIT);
 };
 
+/** Validate and normalize optional PostgreSQL course filters from the request body. */
 const normalizeFilters = body => {
     const filters = {};
     if (body.semester !== undefined) {
@@ -49,6 +52,7 @@ const normalizeFilters = body => {
     return { filters };
 };
 
+/** Parse the model's JSON, keeping only recommendations that match retrieved courses. */
 const parseRecommendationOutput = (raw, candidates) => {
     const candidateIds = new Set(candidates.map(course => course.id));
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -74,6 +78,7 @@ const parseRecommendationOutput = (raw, candidates) => {
     }
 };
 
+/** Admin-only health check for the SiliconFlow embedding connection. */
 const testEmbedding = async (req, res) => {
     try {
         const { text } = req.body || {};
@@ -99,6 +104,7 @@ const testEmbedding = async (req, res) => {
     }
 };
 
+/** Return semantically similar courses using the shared retrieval service. */
 const semanticSearch = async (req, res) => {
     try {
         const { query, limit = 5 } = req.body || {};
@@ -132,6 +138,7 @@ const semanticSearch = async (req, res) => {
     }
 };
 
+/** Retrieve candidates, ask GLM-4 for grounded reasons, and return structured recommendations. */
 const aiRecommendCourses = async (req, res) => {
     try {
         const { query, limit = 3 } = req.body || {};
@@ -194,6 +201,7 @@ courseId must be copied from the supplied candidate data.`;
     }
 };
 
+/** Summarize approved course reviews using ratings and written comments as evidence. */
 const getCourseSummary = async (req, res) => {
     try {
         const courseId = parseInt(req.params.id);
@@ -224,6 +232,7 @@ const getCourseSummary = async (req, res) => {
             });
         }
 
+        // Calculate an evidence-based average for each numeric review metric.
         const average = field => {
             const values = reviews.map(review => review[field]).filter(value => value !== null && value !== undefined);
             return values.length ? (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1) : 'Not available';

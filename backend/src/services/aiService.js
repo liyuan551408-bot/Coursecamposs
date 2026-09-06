@@ -10,6 +10,7 @@ const SILICONFLOW_EMBEDDING_MODEL =
 const EMBEDDING_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 2;
 
+/** Generate and validate a 1024-dimensional course/query vector with SiliconFlow. */
 const generateEmbedding = async (text) => {
   if (typeof text !== 'string' || text.trim() === '') {
     throw new TypeError('Embedding input must be a non-empty string');
@@ -21,6 +22,7 @@ const generateEmbedding = async (text) => {
     throw new Error('SILICONFLOW_API_KEY is not configured');
   }
 
+  // Retry timeouts and transient provider errors, but fail fast for validation/auth errors.
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS);
