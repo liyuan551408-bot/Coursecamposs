@@ -4,6 +4,7 @@ const { refreshCourseEmbedding } = require('../src/services/courseEmbeddingServi
 
 const prisma = new PrismaClient();
 
+/** Generate missing vectors by default, or rebuild every course when --force is supplied. */
 async function main() {
     const force = process.argv.includes('--force');
     console.log(`Starting course embedding initialization (${force ? 'full rebuild' : 'missing vectors only'})...`);

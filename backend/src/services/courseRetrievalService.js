@@ -3,6 +3,7 @@ const aiService = require('./aiService');
 
 const DEFAULT_THRESHOLD = Number(process.env.AI_SIMILARITY_THRESHOLD) || 0.35;
 
+/** Embed a query, apply structured filters, and retrieve the closest active courses. */
 const semanticSearchCourses = async ({
     query,
     limit = 5,

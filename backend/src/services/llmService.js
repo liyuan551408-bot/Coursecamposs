@@ -1,6 +1,7 @@
 const ZHIPU_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const DEFAULT_TIMEOUT_MS = 15000;
 
+/** Send grounded chat messages to Zhipu GLM-4 and return its text response. */
 const chatCompletion = async ({ messages, temperature = 0.3 }) => {
     const apiKey = process.env.ZHIPU_API_KEY;
     if (!apiKey) throw new Error('ZHIPU_API_KEY is not configured');
