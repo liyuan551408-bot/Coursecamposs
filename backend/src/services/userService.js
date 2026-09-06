@@ -55,7 +55,7 @@ const findUserForAuthenticationByEmail = async (email) => {
 
 const findPublicUserById = async (id) => {
     return prisma.user.findUnique({
-        where: { id },
+        where: { id:Number(id) },
         select: publicUserSelect
     });
 }; //[cite: 2]
@@ -154,7 +154,7 @@ const updateUserProfile = async (id, data) => {
     if (data.goals !== undefined) updateData.goals = data.goals;
     if (data.planningPreferences !== undefined) updateData.planningPreferences = data.planningPreferences;
     return prisma.user.update({
-        where: { id },
+        where: { id:Number(id) },
         data: updateData,
         select: publicUserSelect // Reuse the safe response shape without password fields.
     });
