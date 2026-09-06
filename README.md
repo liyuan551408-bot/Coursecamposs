@@ -50,6 +50,8 @@ JWT_SECRET="replace-with-a-secure-secret"
 ZHIPU_API_KEY="replace-with-your-zhipu-api-key"
 SILICONFLOW_API_KEY="replace-with-your-siliconflow-api-key"
 SILICONFLOW_EMBEDDING_MODEL="BAAI/bge-m3"
+SILICONFLOW_EMBEDDING_URL="https://api.siliconflow.cn/v1/embeddings"
+AI_SIMILARITY_THRESHOLD="0.35"
 SMTP_HOST="smtp.example.com"
 SMTP_PORT="465"
 SMTP_USER="your-email@example.com"
@@ -90,12 +92,16 @@ npm run db:seed
 npm run embeddings:generate
 ```
 
-The embedding command generates vectors for courses whose `embedding` is missing. It uses the course code, name, description, level, offered semesters, assessment types, workload hours, and official link. To rebuild every course vector after changing this text format, run:
+The embedding command generates vectors for courses whose `embedding` is missing and uses the same shared course text as course create/update operations. It includes course code, name, description, level, credits, offered semesters, assessment types, and workload hours. To rebuild every course vector after changing this text format, run:
 
 ```powershell
 cd backend
 npm run embeddings:generate -- --force
 ```
+
+The recommendation and semantic-search endpoints share the same retrieval service. Review summaries provide approved numeric ratings and assessment-style counts alongside written comments to the language model. The batch generator continues processing remaining courses after an individual failure and reports a final success/failure count.
+
+Both retrieval endpoints accept optional structured filters alongside `query`: `semester` (`SEMESTER_1`, `SEMESTER_2`, or `SUMMER`), `assessmentType`, `minCredits`, `maxCredits`, and `level`. These filters are applied in PostgreSQL before the candidates are sent to the language model.
 
 Embeddings are generated through SiliconFlow using `BAAI/bge-m3` and stored in `Course.embedding` as `vector(1024)` values. The AI search uses cosine similarity, returns only active courses with a similarity of at least `0.35`, and accepts a result limit from `1` to `10`. When migrating from another embedding model, deploy the database migration and regenerate all vectors with `npm run embeddings:generate -- --force` before using semantic search.
 
