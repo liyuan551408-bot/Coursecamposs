@@ -16,10 +16,10 @@ const buildCourseEmbeddingText = (course) => {
         `Course name: ${course.name}`,
         `Course description: ${description}`,
         `Course level: ${course.level ?? 'Not specified'}`,
+        `Course credits: ${course.credits ?? 'Not specified'}`,
         `Offered semesters: ${formatList(course.offeredSemesters)}`,
         `Assessment types: ${formatList(course.assessmentTypes)}`,
-        `Workload hours: ${course.workloadHours ?? 'Not specified'}`,
-        `Official link: ${course.officialLink || 'Not specified'}`
+        `Workload hours: ${course.workloadHours ?? 'Not specified'}`
     ].join('. ');
 };
 

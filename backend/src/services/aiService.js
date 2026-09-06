@@ -7,6 +7,8 @@ const SILICONFLOW_EMBEDDING_URL =
 const SILICONFLOW_EMBEDDING_MODEL =
   process.env.SILICONFLOW_EMBEDDING_MODEL ||
   'BAAI/bge-m3';
+const EMBEDDING_TIMEOUT_MS = 15000;
+const MAX_RETRIES = 2;
 
 const generateEmbedding = async (text) => {
   if (typeof text !== 'string' || text.trim() === '') {
@@ -19,7 +21,10 @@ const generateEmbedding = async (text) => {
     throw new Error('SILICONFLOW_API_KEY is not configured');
   }
 
-  try {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS);
+    try {
     const response = await fetch(SILICONFLOW_EMBEDDING_URL, {
       method: 'POST',
       headers: {
@@ -30,7 +35,8 @@ const generateEmbedding = async (text) => {
         model: SILICONFLOW_EMBEDDING_MODEL,
         input: text,
         encoding_format: 'float'
-      })
+      }),
+      signal: controller.signal
     });
 
     const responseText = await response.text();
@@ -65,16 +71,19 @@ const generateEmbedding = async (text) => {
       );
     }
 
-    console.log(
-      `[AI Service] Embedding generated successfully: ` +
-      `${vector.length} dimensions, first 5 values: ${vector.slice(0, 5).join(', ')}`
-    );
+    console.log(`[Embedding] Generated ${vector.length}-dimensional vector`);
 
     return vector;
-
-  } catch (error) {
-    console.error('Failed to call SiliconFlow embedding API:', error.message);
-    throw error;
+    } catch (error) {
+      const retryable = error.name === 'AbortError' || error.message.includes('(429)') || error.message.includes('(5');
+      if (!retryable || attempt === MAX_RETRIES) {
+        console.error('Failed to call SiliconFlow embedding API:', error.message);
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 };
 

@@ -1,33 +1,42 @@
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
-const aiService = require('../src/services/aiService'); 
+const { refreshCourseEmbedding } = require('../src/services/courseEmbeddingService');
 
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('开始批量生成 CourseCompass 课程语义向量...');
+    const force = process.argv.includes('--force');
+    console.log(`Starting course embedding initialization (${force ? 'full rebuild' : 'missing vectors only'})...`);
+    let succeeded = 0;
+    let failed = 0;
     try {
-        const courses = await prisma.course.findMany();
-        console.log(`共在数据库中找到 ${courses.length} 门课程，准备处理...`);
+        const courses = force
+            ? await prisma.course.findMany()
+            : await prisma.$queryRawUnsafe(`
+                SELECT id, code, name, description, credits, level,
+                       "offeredSemesters", "assessmentTypes", "workloadHours", "officialLink"
+                FROM "Course"
+                WHERE embedding IS NULL
+                ORDER BY id;
+            `);
+        console.log(`Found ${courses.length} course(s) to process.`);
         if (courses.length === 0) {
             console.log('数据库里还没有课程数据，请先通过前端或数据库面板添加一些测试课程！');
             return;
         }
         for (const course of courses) {
-            const descriptionText = course.description ? course.description : '暂无详细描述';
-            const textToEmbed = `课程代码：${course.code}。课程名称：${course.name}。课程描述：${descriptionText}`;
-            console.log(`正在调用智谱 AI 处理: [${course.code}] ${course.name}...`);
-            const embeddingVector = await aiService.generateEmbedding(textToEmbed);
-            const vectorString = `[${embeddingVector.join(',')}]`;
-            await prisma.$executeRawUnsafe(
-                `UPDATE "Course" SET embedding = $1::vector WHERE id = $2`,
-                vectorString,
-                course.id
-            );
-
-            console.log(`成功更新课程向量: ${course.code}`);
+            try {
+                console.log(`Generating embedding for ${course.code}...`);
+                await refreshCourseEmbedding(course);
+                succeeded += 1;
+                console.log(`Embedding updated: ${course.code}`);
+            } catch (error) {
+                failed += 1;
+                console.error(`Failed to generate embedding for ${course.code}: ${error.message}`);
+            }
         }
-        console.log('所有课程的向量生成与更新已全部完成！');
+        console.log(`Embedding initialization finished. Succeeded: ${succeeded}; failed: ${failed}.`);
+        if (failed > 0) process.exitCode = 1;
 
     } catch (error) {
         console.error('脚本运行出错:', error);
