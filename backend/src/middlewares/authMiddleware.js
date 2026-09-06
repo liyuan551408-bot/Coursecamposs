@@ -30,7 +30,9 @@ const verifyToken = (req, res, next) => {
     } catch (error) {
         // 解密失败（比如 Token 是伪造的，或者已经过了你设置的 24h 有效期）
         console.error('Token Verification Error:', error.message);
-        return res.status(403).json({
+        // Treat an invalid or expired credential as unauthenticated. Returning
+        // 401 lets the frontend clear its stale session and request a fresh login.
+        return res.status(401).json({
             success: false,
             message: 'Invalid or expired token.'
         });

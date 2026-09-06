@@ -26,7 +26,7 @@ const routes = [
   { path: '/courses', name: 'CourseList', component: CourseList },
   { path: '/courses/:id', name: 'CourseDetail', component: CourseDetail },
   { path: '/compare', name: 'CompareCourses', component: CompareCourses },
-  { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation },
+  { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation, meta: { requiresAuth: true } },
   { path: '/planner', name: 'Planner', component: Planner, meta: { requiresAuth: true } },
   { path: '/saved', name: 'SavedCourses', component: SavedCourses, meta: { requiresAuth: true } },
   {

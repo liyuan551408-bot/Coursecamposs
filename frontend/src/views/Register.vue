@@ -12,7 +12,6 @@ const authStore = useAuthStore()
 
 const loading = ref(false)
 const formRef = ref(null)
-const isMockMode = import.meta.env.VITE_USE_MOCK === 'true'
 const majors = [
   'Computer Science',
   'Data Science',
@@ -143,9 +142,6 @@ async function handleRegister() {
         <router-link to="/login">Log in</router-link>
       </p>
 
-      <p v-if="isMockMode" class="mock-hint">
-        Development mode: complete the form to register, then you will be signed in automatically.
-      </p>
     </el-card>
   </div>
 </template>
@@ -197,10 +193,4 @@ async function handleRegister() {
   text-decoration: none;
 }
 
-.mock-hint {
-  margin-top: 12px;
-  font-size: 13px;
-  color: var(--text);
-  line-height: 1.5;
-}
 </style>

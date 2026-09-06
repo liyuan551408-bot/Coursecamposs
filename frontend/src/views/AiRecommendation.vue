@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { getCourseRecommendations } from '../api/ai'
 
 const query = ref(''), loading = ref(false), result = ref(null), error = ref('')
-const prompts = ['I want to study machine learning and have average maths confidence', 'I need a manageable course for a software development pathway', 'Help me plan a data science pathway starting with COMP101']
+const prompts = ['I want to study machine learning and have average maths confidence', 'I need a manageable course for a software development pathway', 'Help me plan a data science pathway from an introductory programming course']
 async function recommend() {
   if (!query.value.trim()) return
   loading.value = true; error.value = ''; result.value = null

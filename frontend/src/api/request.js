@@ -23,7 +23,7 @@ request.interceptors.request.use((config) => {
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    if (error.response?.status === 401) {
+    if ([401, 403].includes(error.response?.status)) {
       clearAuthStorage()
       router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
     }

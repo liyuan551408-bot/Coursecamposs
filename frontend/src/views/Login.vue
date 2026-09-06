@@ -30,8 +30,6 @@ const rules = {
 }
 
 const formRef = ref(null)
-const isMockMode = import.meta.env.VITE_USE_MOCK === 'true'
-
 async function handleLogin() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
@@ -89,9 +87,6 @@ async function handleLogin() {
         <router-link to="/register">Create an account</router-link>
       </p>
 
-      <p v-if="isMockMode" class="mock-hint">
-        Development mode: any email and a password of at least 6 characters will work; emails containing “admin” open an admin account.
-      </p>
     </el-card>
   </div>
 </template>
@@ -139,10 +134,4 @@ async function handleLogin() {
   text-decoration: none;
 }
 
-.mock-hint {
-  margin-top: 12px;
-  font-size: 13px;
-  color: var(--text);
-  line-height: 1.5;
-}
 </style>

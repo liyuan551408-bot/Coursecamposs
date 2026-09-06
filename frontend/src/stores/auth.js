@@ -3,7 +3,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { loginApi, registerApi, mockLogin, mockRegister } from '../api/auth'
+import { loginApi, registerApi } from '../api/auth'
 import {
   getToken,
   setToken,
@@ -33,22 +33,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Log in: call the API, save the token/user, then update the store. */
   async function login(credentials) {
-    const useMock = import.meta.env.VITE_USE_MOCK === 'true'
-    const data = useMock ? await mockLogin(credentials) : await loginApi(credentials)
+    const data = await loginApi(credentials)
     applyAuthData(data)
     return data
   }
 
   /** Register an account, then sign in with the newly created credentials. */
   async function register(formData) {
-    const useMock = import.meta.env.VITE_USE_MOCK === 'true'
-    if (!useMock) {
-      await registerApi(formData)
-      return login({ email: formData.email, password: formData.password })
-    }
-    const data = await mockRegister(formData)
-    applyAuthData(data)
-    return data
+    await registerApi(formData)
+    return login({ email: formData.email, password: formData.password })
   }
 
   /** Log out: clear the store and localStorage. */
