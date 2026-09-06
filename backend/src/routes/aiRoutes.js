@@ -9,6 +9,6 @@ router.use(aiRateLimit);
 router.post('/test-embedding', verifyToken, requireRole('ADMIN'), aiController.testEmbedding);
 router.post('/semantic-search', verifyToken, aiController.semanticSearch);
 router.post('/recommend', verifyToken, aiController.aiRecommendCourses);
-router.get('/courses/:id/summary', aiController.getCourseSummary);
+router.get('/courses/:id/summary', verifyToken, aiController.getCourseSummary);
 
 module.exports = router;
