@@ -7,6 +7,7 @@ const getCourses = async (req, res) => {
         const courses = await courseService.getAllCourses();
         res.status(200).json({ success: true, data: courses });
     } catch (error) {
+        console.error('Course list query failed:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
