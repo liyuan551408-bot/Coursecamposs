@@ -1,6 +1,6 @@
 import request from './request'
 
-export async function getCourseRecommendations(query) {
+export async function getCourseRecommendations(query, filters = {}) {
   if (import.meta.env.VITE_USE_MOCK === 'true') {
     const isAiRelated = /ai|artificial intelligence|machine learning|deep learning/i.test(query)
     return {
@@ -14,6 +14,6 @@ export async function getCourseRecommendations(query) {
       ],
     }
   }
-  const response = await request.post('/ai/recommend', { query })
+  const response = await request.post('/ai/recommend', { query, ...filters })
   return response.data
 }

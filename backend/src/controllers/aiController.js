@@ -1,10 +1,12 @@
 const aiService = require('../services/aiService');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const SIMILARITY_THRESHOLD = 0.35;
+const courseRetrievalService = require('../services/courseRetrievalService');
+const llmService = require('../services/llmService');
+const prisma = require('../lib/prisma');
 const MAX_RESULT_LIMIT = 10;
 const MAX_QUERY_LENGTH = 500;
 const MAX_EMBEDDING_TEXT_LENGTH = 2000;
+const VALID_SEMESTERS = new Set(['SEMESTER_1', 'SEMESTER_2', 'SUMMER']);
+const VALID_ASSESSMENTS = new Set(['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION']);
 
 const validateText = (value, field, maxLength) => {
     if (typeof value !== 'string' || value.trim() === '') {
@@ -24,6 +26,54 @@ const normalizeLimit = (value, fallback) => {
     return Math.min(Math.max(Math.trunc(parsed), 1), MAX_RESULT_LIMIT);
 };
 
+const normalizeFilters = body => {
+    const filters = {};
+    if (body.semester !== undefined) {
+        if (!VALID_SEMESTERS.has(body.semester)) return { error: 'Invalid semester filter' };
+        filters.semester = body.semester;
+    }
+    if (body.assessmentType !== undefined) {
+        if (!VALID_ASSESSMENTS.has(body.assessmentType)) return { error: 'Invalid assessmentType filter' };
+        filters.assessmentType = body.assessmentType;
+    }
+    for (const field of ['minCredits', 'maxCredits', 'level']) {
+        if (body[field] !== undefined) {
+            const value = Number(body[field]);
+            if (!Number.isInteger(value) || value < 0) return { error: `Invalid ${field} filter` };
+            filters[field] = value;
+        }
+    }
+    if (filters.minCredits !== undefined && filters.maxCredits !== undefined && filters.minCredits > filters.maxCredits) {
+        return { error: 'minCredits cannot exceed maxCredits' };
+    }
+    return { filters };
+};
+
+const parseRecommendationOutput = (raw, candidates) => {
+    const candidateIds = new Set(candidates.map(course => course.id));
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    try {
+        const parsed = JSON.parse(cleaned);
+        if (!parsed || !Array.isArray(parsed.recommendations)) throw new Error('Missing recommendations');
+        const recommendations = parsed.recommendations
+            .filter(item => candidateIds.has(Number(item.courseId)))
+            .map(item => ({
+                courseId: Number(item.courseId),
+                reasons: Array.isArray(item.reasons) ? item.reasons.filter(reason => typeof reason === 'string').slice(0, 5) : [],
+                cautions: Array.isArray(item.cautions) ? item.cautions.filter(caution => typeof caution === 'string').slice(0, 5) : []
+            }));
+        return {
+            recommendations,
+            summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 2000) : ''
+        };
+    } catch {
+        return {
+            recommendations: candidates.map(course => ({ courseId: course.id, reasons: [], cautions: [] })),
+            summary: raw.slice(0, 2000)
+        };
+    }
+};
+
 const testEmbedding = async (req, res) => {
     try {
         const { text } = req.body || {};
@@ -36,7 +86,13 @@ const testEmbedding = async (req, res) => {
         console.log(`Received embedding generation request (${normalizedText.length} chars)`);
         const embeddingVector = await aiService.generateEmbedding(normalizedText);
         
-        res.json({ success: true, data: embeddingVector });
+        res.json({
+            success: true,
+            data: {
+                dimension: embeddingVector.length,
+                preview: embeddingVector.slice(0, 5)
+            }
+        });
     } catch (error) {
         console.error("Embedding generation failed:", error);
         res.status(500).json({ success: false, error: "Embedding generation service is temporarily unavailable" });
@@ -46,6 +102,8 @@ const testEmbedding = async (req, res) => {
 const semanticSearch = async (req, res) => {
     try {
         const { query, limit = 5 } = req.body || {};
+        const filterResult = normalizeFilters(req.body || {});
+        if (filterResult.error) return res.status(400).json({ success: false, error: filterResult.error });
         const safeLimit = normalizeLimit(limit, 5);
         const queryError = validateText(query, 'query', MAX_QUERY_LENGTH);
 
@@ -56,31 +114,11 @@ const semanticSearch = async (req, res) => {
         const normalizedQuery = query.trim();
         console.log(`Received semantic search request (${normalizedQuery.length} chars)`);
 
-        const queryVector = await aiService.generateEmbedding(normalizedQuery);
-        const vectorString = `[${queryVector.join(',')}]`;
-        const courses = await prisma.$queryRawUnsafe(`
-            SELECT id, code, name, description, level, "offeredSemesters",
-                   "assessmentTypes", "workloadHours", "officialLink",
-                   CAST(1 - (embedding <=> $1::vector) AS TEXT) AS similarity_text
-            FROM "Course"
-            WHERE embedding IS NOT NULL
-              AND "isActive" = true
-              AND 1 - (embedding <=> $1::vector) >= $2::float
-            ORDER BY embedding <=> $1::vector
-            LIMIT $3::int;
-        `, vectorString, SIMILARITY_THRESHOLD, safeLimit);
-        const formattedCourses = courses.map(course => ({
-            id: course.id,
-            code: course.code,
-            name: course.name,
-            description: course.description,
-            level: course.level,
-            offeredSemesters: course.offeredSemesters,
-            assessmentTypes: course.assessmentTypes,
-            workloadHours: course.workloadHours,
-            officialLink: course.officialLink,
-            similarity: course.similarity_text ? parseFloat(course.similarity_text) : 0
-        }));
+        const formattedCourses = await courseRetrievalService.semanticSearchCourses({
+            query: normalizedQuery,
+            limit: safeLimit,
+            ...filterResult.filters
+        });
 
         res.json({
             success: true,
@@ -97,6 +135,8 @@ const semanticSearch = async (req, res) => {
 const aiRecommendCourses = async (req, res) => {
     try {
         const { query, limit = 3 } = req.body || {};
+        const filterResult = normalizeFilters(req.body || {});
+        if (filterResult.error) return res.status(400).json({ success: false, error: filterResult.error });
         const safeLimit = normalizeLimit(limit, 3);
         const queryError = validateText(query, 'query', MAX_QUERY_LENGTH);
 
@@ -107,33 +147,11 @@ const aiRecommendCourses = async (req, res) => {
         const normalizedQuery = query.trim();
         console.log(`Received AI recommendation request (${normalizedQuery.length} chars)`);
 
-        const queryVector = await aiService.generateEmbedding(normalizedQuery);
-        const vectorString = `[${queryVector.join(',')}]`;
-
-        const courses = await prisma.$queryRawUnsafe(`
-            SELECT id, code, name, description, level, "offeredSemesters",
-                   "assessmentTypes", "workloadHours", "officialLink",
-                   CAST(1 - (embedding <=> $1::vector) AS TEXT) AS similarity_text
-            FROM "Course"
-            WHERE embedding IS NOT NULL
-              AND "isActive" = true
-              AND 1 - (embedding <=> $1::vector) >= $2::float
-            ORDER BY embedding <=> $1::vector
-            LIMIT $3::int;
-        `, vectorString, SIMILARITY_THRESHOLD, safeLimit);
-
-        const candidates = courses.map(c => ({
-            id: c.id,
-            code: c.code,
-            name: c.name,
-            description: c.description,
-            level: c.level,
-            offeredSemesters: c.offeredSemesters,
-            assessmentTypes: c.assessmentTypes,
-            workloadHours: c.workloadHours,
-            officialLink: c.officialLink,
-            similarity: c.similarity_text ? parseFloat(c.similarity_text) : 0
-        }));
+        const candidates = await courseRetrievalService.semanticSearchCourses({
+            query: normalizedQuery,
+            limit: safeLimit,
+            ...filterResult.filters
+        });
 
         if (candidates.length === 0) {
             return res.json({
@@ -143,38 +161,30 @@ const aiRecommendCourses = async (req, res) => {
             });
         }
 
-        const systemPrompt = "You are CourseCompass's intelligent course selection assistant. Based on the student's requirements and the provided candidate course list, analyze why each course fits the student and generate a professional recommendation analysis with clear reasons in English. Stay objective, encouraging, and rigorous.";
+        const systemPrompt = `You are CourseCompass's intelligent course selection assistant.
+Use only the course information supplied by the application.
+Do not invent course facts or recommend courses outside the candidate list.
+Base every recommendation on supplied evidence. If a requirement cannot be verified, say so clearly.
+Distinguish semantic relevance from confirmed course facts. Keep the analysis concise and objective.
+Return JSON only in this exact shape: {"summary":"...","recommendations":[{"courseId":1,"reasons":["..."],"cautions":["..."]}]}.
+courseId must be copied from the supplied candidate data.`;
         
         const userContent = `Student requirements: "${normalizedQuery}"\n\nCandidate course data:\n` + JSON.stringify(candidates, null, 2);
 
-        const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.ZHIPU_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "glm-4",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userContent }
-                ],
-                temperature: 0.7
-            })
+        const aiAnalysis = await llmService.chatCompletion({
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
+            temperature: 0.7
         });
-
-        const aiData = await response.json();
-        if (!response.ok) {
-            throw new Error(`Zhipu chat completion failed (${response.status}): ${JSON.stringify(aiData)}`);
-        }
-        const aiAnalysis = aiData.choices?.[0]?.message?.content || "AI analysis generation failed";
+        const structuredResult = parseRecommendationOutput(aiAnalysis, candidates);
 
         res.json({
             success: true,
             message: "AI recommendations and course analysis generated successfully",
             data: {
                 candidateCourses: candidates,
-                aiRationale: aiAnalysis
+                aiRationale: structuredResult.summary || aiAnalysis,
+                recommendations: structuredResult.recommendations,
+                summary: structuredResult.summary
             }
         });
 
@@ -193,10 +203,17 @@ const getCourseSummary = async (req, res) => {
         const reviews = await prisma.review.findMany({
             where: { 
                 courseId: courseId,
-                status: 'APPROVED', 
-                comment: { not: null } 
+                status: 'APPROVED'
             },
-            select: { comment: true },
+            select: {
+                comment: true,
+                overallRating: true,
+                difficultyRating: true,
+                workloadRating: true,
+                teachingRating: true,
+                usefulnessRating: true,
+                assessmentStyle: true
+            },
             take: 20
         });
 
@@ -207,32 +224,34 @@ const getCourseSummary = async (req, res) => {
             });
         }
 
-        const combinedComments = reviews.map((r, index) => `Review ${index + 1}: ${r.comment}`).join('\n');
+        const average = field => {
+            const values = reviews.map(review => review[field]).filter(value => value !== null && value !== undefined);
+            return values.length ? (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1) : 'Not available';
+        };
+        const styleCounts = reviews.reduce((counts, review) => {
+            if (review.assessmentStyle) counts[review.assessmentStyle] = (counts[review.assessmentStyle] || 0) + 1;
+            return counts;
+        }, {});
+        const assessmentSummary = Object.entries(styleCounts).map(([style, count]) => `${style}: ${count}`).join(', ') || 'Not available';
+        const comments = reviews
+            .filter(review => review.comment)
+            .map((review, index) => `Comment ${index + 1}: ${review.comment}`)
+            .join('\n') || 'No written comments provided.';
+        const systemPrompt = `You are a university course selection guide. Generate a grounded, structured summary in English using only the supplied ratings and comments.
+Use numerical ratings as the primary source for workload and difficulty. Use comments to explain recurring themes. Do not infer facts unsupported by the evidence. Keep it within 250 words and include Pros, Cons, and Workload & Difficulty.`;
+        const userContent = `Review count: ${reviews.length}
+Overall rating average: ${average('overallRating')}/5
+Difficulty rating average: ${average('difficultyRating')}/5
+Workload rating average: ${average('workloadRating')}/5
+Teaching rating average: ${average('teachingRating')}/5
+Usefulness rating average: ${average('usefulnessRating')}/5
+Assessment styles: ${assessmentSummary}
 
-        const systemPrompt = "You are a university course selection guide. Based on the following real student reviews for a course, generate a structured summary report in English. Requirements: 1. Extract the course's key strengths (Pros). 2. Extract the main drawbacks or cautions (Cons). 3. Summarize the general workload and exam difficulty (Workload & Difficulty). Keep the tone objective and authentic, use clear formatting, and keep it within 250 words.";
-        const userContent = `Here are the student reviews:\n${combinedComments}`;
-
-        const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.ZHIPU_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "glm-4",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userContent }
-                ],
-                temperature: 0.5
-            })
+${comments}`;
+        const aiAnalysis = await llmService.chatCompletion({
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
+            temperature: 0.5
         });
-
-        const aiData = await response.json();
-        if (!response.ok) {
-            throw new Error(`Zhipu chat completion failed (${response.status}): ${JSON.stringify(aiData)}`);
-        }
-        const aiAnalysis = aiData.choices?.[0]?.message?.content || "AI analysis generation failed";
 
         res.json({ success: true, summary: aiAnalysis });
 
