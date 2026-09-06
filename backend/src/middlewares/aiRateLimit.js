@@ -1,3 +1,4 @@
+/** @file Applies the ai rate limit cross-cutting policy to Express requests. */
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 const requestWindows = new Map();

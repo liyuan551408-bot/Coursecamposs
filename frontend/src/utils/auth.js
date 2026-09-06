@@ -1,3 +1,4 @@
+/** @file Provides shared auth helpers for frontend modules. */
 /**
  * Token storage utilities
  */

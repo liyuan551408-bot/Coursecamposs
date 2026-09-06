@@ -1,3 +1,4 @@
+<!-- @file Renders the shared application shell, navigation, authentication controls, and route outlet. -->
 <script setup>
 /**
  * Application shell shared by all pages.

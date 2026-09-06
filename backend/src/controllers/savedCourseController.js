@@ -1,6 +1,7 @@
+/** @file Translates saved course HTTP requests into service calls and API responses. */
 const savedCourseService = require('../services/savedCourseService');
 
-// 添加收藏
+// Save a course for the verified user.
 const addCourse = async (req, res) => {
     try {
         const userId = req.user.id;

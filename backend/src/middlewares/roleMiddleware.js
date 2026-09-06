@@ -1,3 +1,4 @@
+/** @file Applies the role cross-cutting policy to Express requests. */
 const requireRole = (...allowedRoles) => (req, res, next) => {
     if (!req.user) {
         return res.status(401).json({

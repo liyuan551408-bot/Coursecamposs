@@ -1,3 +1,4 @@
+/** @file Implements course embedding business rules and persistence operations. */
 const prisma = require('../lib/prisma');
 const aiService = require('./aiService');
 

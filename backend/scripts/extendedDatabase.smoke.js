@@ -1,3 +1,4 @@
+/** @file Exercises extended database.smoke behavior as a repeatable command-line smoke check. */
 const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
 
@@ -198,7 +199,7 @@ const run = async () => {
         completionDate
     );
 
-    // 再执行一次，验证 upsert 不会产生重复记录
+    // Run the operation twice to prove that upsert remains idempotent.
     await completedCourseService.markCourseCompleted(
         user.id,
         secondCourse.id,

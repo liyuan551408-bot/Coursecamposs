@@ -1,3 +1,4 @@
+<!-- @file Implements the reusable ai course assistant Vue component. -->
 <template>
   <div class="ai-assistant-container">
     <h2>AI Course Selection Assistant</h2>

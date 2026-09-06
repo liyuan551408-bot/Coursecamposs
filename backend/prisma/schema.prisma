@@ -1,3 +1,4 @@
+// @file Defines the relational data model, constraints, indexes, and generated Prisma client.
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"] 

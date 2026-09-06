@@ -1,3 +1,4 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the login page. -->
 <script setup>
 /**
  * Login page

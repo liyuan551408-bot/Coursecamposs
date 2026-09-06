@@ -1,3 +1,4 @@
+/** @file Exercises generate embeddings behavior as a repeatable command-line smoke check. */
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const { refreshCourseEmbedding } = require('../src/services/courseEmbeddingService');

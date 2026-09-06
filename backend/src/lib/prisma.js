@@ -1,3 +1,4 @@
+/** @file Creates the shared Prisma client and PostgreSQL adapter used by backend services. */
 require('dotenv').config();
 
 const { PrismaClient } = require('@prisma/client');

@@ -1,11 +1,12 @@
+/** @file Applies the auth cross-cutting policy to Express requests. */
 const jwt = require('jsonwebtoken');
 
-// 这是一个 Express 中间件函数，注意它有第三个参数 'next'
+// Authenticate the request before allowing the Express middleware chain to continue.
 const verifyToken = (req, res, next) => {
-    // 1. 从前端发来的请求头 (Headers) 中获取 Authorization 字段
+    // Read the bearer credential supplied by the frontend.
     const authHeader = req.headers.authorization;
 
-    // 2. 检查有没有传 Token。标准的格式是 "Bearer <token_string>"
+    // Reject missing or malformed credentials before attempting verification.
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
             success: false,
@@ -13,22 +14,22 @@ const verifyToken = (req, res, next) => {
         });
     }
 
-    // 3. 把 "Bearer " 截取掉，只保留真正的 token 字符串
+    // Strip the scheme so jwt.verify receives only the encoded token.
     const token = authHeader.split(' ')[1];
 
     try {
-        // 4. 使用和登录签发时一模一样的密钥来解密 Token
+        // Verify with the same secret used when authentication tokens are issued.
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // 5. 关键步骤：把解密出来的用户信息（id, email, role）挂载到 req 对象上
-        // 这样后续的 Controller 就能直接通过 req.user 知道是谁在发请求了
+        // Attach the verified identity so downstream authorization can use it.
+        // Controllers intentionally read this normalized identity from req.user.
         req.user = decoded;
 
-        // 6. 验证通过，放行！让请求继续走到下一个中间件或最终的 Controller
+        // Continue only after the request identity has been established.
         next();
         
     } catch (error) {
-        // 解密失败（比如 Token 是伪造的，或者已经过了你设置的 24h 有效期）
+        // Invalid, forged, or expired tokens all produce the same safe response.
         console.error('Token Verification Error:', error.message);
         // Treat an invalid or expired credential as unauthenticated. Returning
         // 401 lets the frontend clear its stale session and request a fresh login.

@@ -1,3 +1,4 @@
+/** @file Wraps backend request endpoints behind a small frontend API client. */
 /**
  * Axios request wrapper
  */

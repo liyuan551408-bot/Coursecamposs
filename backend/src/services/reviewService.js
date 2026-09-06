@@ -1,7 +1,9 @@
+/** @file Implements review business rules and persistence operations. */
 const prisma = require('../lib/prisma');
 
 const VALID_STATUSES = new Set(['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN']);
 
+// Centralized projections prevent moderation-only fields from leaking through public APIs.
 const reviewSelect = {
     id: true,
     userId: true,
@@ -144,6 +146,7 @@ const updateReview = async (userId, courseId, data) => {
             updateData[field] = data[field];
         }
     }
+    // Any student edit requires moderation again, even if the review was approved before.
     updateData.status = 'PENDING';
 
     return prisma.review.update({
@@ -154,6 +157,7 @@ const updateReview = async (userId, courseId, data) => {
 };
 
 const getApprovedReviewsByCourse = async (courseId) => {
+    // Public course pages must never expose pending, rejected, or hidden reviews.
     return prisma.review.findMany({
         where: {
             courseId: Number(courseId),
@@ -210,6 +214,7 @@ const reportReview = async (reviewId, reporterId, reason) => {
         throw error;
     }
 
+    // The database uniqueness constraint prevents one user from repeatedly reporting a review.
     return prisma.reviewReport.create({
         data: {
             reviewId,
@@ -246,6 +251,7 @@ const getCourseRatingSummary = async (courseId) => {
         _count: { _all: true }
     });
 
+    // Return a stable object shape when no approved ratings exist.
     if (groups.length === 0) {
         return {
             courseId: numericCourseId,

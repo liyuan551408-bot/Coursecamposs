@@ -1,3 +1,4 @@
+<!-- @file Implements the reusable hello world Vue component. -->
 <script setup>
 import { ref } from 'vue'
 import viteLogo from '../assets/vite.svg'

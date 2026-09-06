@@ -1,3 +1,4 @@
+/** @file Maps saved course API endpoints to middleware and controller handlers. */
 const express = require('express');
 const router = express.Router();
 const savedCourseController = require('../controllers/savedCourseController');

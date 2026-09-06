@@ -1,3 +1,4 @@
+/** @file Translates ai HTTP requests into service calls and API responses. */
 const aiService = require('../services/aiService');
 const courseRetrievalService = require('../services/courseRetrievalService');
 const llmService = require('../services/llmService');

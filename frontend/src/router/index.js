@@ -1,3 +1,4 @@
+/** @file Defines application routes and enforces authentication and role metadata. */
 import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '../utils/auth'
 import Home from '../views/Home.vue'

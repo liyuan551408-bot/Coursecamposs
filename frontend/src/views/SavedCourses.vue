@@ -1,6 +1,7 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the saved courses page. -->
 <script setup>
 /**
- * 收藏课程页面
+ * Saved courses page.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -111,7 +112,7 @@ onMounted(loadSavedCourses)
       </div>
     </div>
 
-    <!-- 统计信息 -->
+    <!-- Saved-course statistics. -->
     <div v-if="hasCourses" class="stats-bar">
       <div class="stat-item">
         <span class="stat-number">{{ savedCourses.length }}</span>
@@ -127,7 +128,7 @@ onMounted(loadSavedCourses)
       </div>
     </div>
 
-    <!-- 课程列表 -->
+    <!-- Saved-course cards. -->
     <div v-loading="loading" class="course-list">
       <el-card
         v-for="course in savedCourses"
@@ -165,7 +166,7 @@ onMounted(loadSavedCourses)
         </div>
       </el-card>
 
-      <!-- 空状态 -->
+      <!-- Empty state shown before enough courses are selected. -->
       <el-empty
         v-if="!loading && !hasCourses"
         description="You haven't saved any courses yet"

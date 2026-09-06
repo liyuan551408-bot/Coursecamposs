@@ -1,3 +1,4 @@
+/** @file Bootstraps the Express API, installs shared middleware, mounts routes, and starts the server. */
 require('dotenv').config();
 
 const express = require('express');

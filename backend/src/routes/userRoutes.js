@@ -1,3 +1,4 @@
+/** @file Maps user API endpoints to middleware and controller handlers. */
 const express = require('express');
 const router = express.Router();
 

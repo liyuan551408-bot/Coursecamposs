@@ -1,3 +1,4 @@
+/** @file Wraps backend ai endpoints behind a small frontend API client. */
 import request from './request'
 
 /** Call the authenticated backend recommendation endpoint with the student's query. */

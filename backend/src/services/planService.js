@@ -1,6 +1,7 @@
+/** @file Implements plan business rules and persistence operations. */
 const prisma = require('../lib/prisma');
 
-// 创建一个新的学期计划
+// Create a semester plan owned by one user.
 const createPlan = async (userId, data) => {
     return prisma.semesterPlan.create({
         data: {
@@ -12,12 +13,12 @@ const createPlan = async (userId, data) => {
     });
 };
 
-// 获取某用户所有的学期计划（连带查出计划里包含了哪些课）
+// Load all plans for a user together with their course details.
 const getUserPlans = async (userId) => {
     return prisma.semesterPlan.findMany({
         where: { userId: Number(userId) },
         include: {
-            // 先查出关联表 planCourses，再查出关联表里的 course 详情
+            // Traverse the join records to include each referenced course.
             planCourses: {
                 include: {
                     course: true 
@@ -31,9 +32,9 @@ const getUserPlans = async (userId) => {
     });
 };
 
-// 往指定的计划里添加一门课,并检测先觉条件
+// Add a course to a plan and report unmet prerequisites.
 const addCourseToPlan = async (userId, planId, courseId) => {
-    // 获取这门课以及它的先决条件
+    // Load prerequisite ids before changing the plan.
     const course = await prisma.course.findUnique({
         where: { id: Number(courseId) },
         include: { prerequisites: true }
@@ -43,21 +44,21 @@ const addCourseToPlan = async (userId, planId, courseId) => {
 
     let warnings = [];
 
-    // 有先决条件
+    // Only perform completion checks when prerequisites exist.
     if (course.prerequisites.length > 0) {
-        // 取用户【已经修完】的课程 ID 列表
+        // Collect courses the user has already completed.
         const completed = await prisma.completedCourse.findMany({
             where: { userId: Number(userId) }
         });
         const completedIds = completed.map(c => c.courseId);
 
-        // 获取用户在【所有计划】中已添加的课程 ID 列表
+        // Treat courses already present in any plan as planned prerequisites.
         const planned = await prisma.planCourse.findMany({
             where: { plan: { userId: Number(userId) } }
         });
         const plannedIds = planned.map(p => p.courseId);
 
-        // 滤出那些既没有完成，也没有在计划中的先决条件
+        // Warn only for prerequisites that are neither completed nor planned.
         const missingPrereqs = course.prerequisites.filter(p => 
             !completedIds.includes(p.id) && !plannedIds.includes(p.id)
         );
@@ -68,25 +69,25 @@ const addCourseToPlan = async (userId, planId, courseId) => {
         }
     }
 
-    // 把课正常加进计划
+    // Persist the requested course even when non-blocking warnings exist.
     const addedCourse = await prisma.planCourse.create({
         data: {
             planId: Number(planId),
             courseId: Number(courseId)
         },
         include: {
-            course: true // 返回课程详细信息
+            course: true // Include details required to update the frontend immediately.
         }
     });
 
-    // 把警告信息打包和数据一起返回给 Controller
+    // Return warnings alongside data so the controller can preserve both.
     return {
         ...addedCourse,
         warnings 
     };
 };
 
-// 从计划里移除一门课
+// Remove one course from a plan owned by the user.
 const removeCourseFromPlan = async (planId, courseId) => {
     return prisma.planCourse.delete({
         where: {

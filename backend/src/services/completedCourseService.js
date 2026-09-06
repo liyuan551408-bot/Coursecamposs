@@ -1,3 +1,4 @@
+/** @file Implements completed course business rules and persistence operations. */
 const prisma = require('../lib/prisma');
 
 const completedCourseSelect = {
@@ -50,6 +51,7 @@ const markCourseCompleted = async (
     const normalizedDate =
         normalizeCompletedAt(completedAt);
 
+    // Upsert makes repeated completion requests idempotent while allowing date corrections.
     return prisma.completedCourse.upsert({
         where: {
             userId_courseId: {
@@ -76,6 +78,7 @@ const unmarkCourseCompleted = async (
     validatePositiveInteger('userId', userId);
     validatePositiveInteger('courseId', courseId);
 
+    // deleteMany turns an already-absent record into a harmless false result instead of an exception.
     const result =
         await prisma.completedCourse.deleteMany({
             where: {

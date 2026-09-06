@@ -1,3 +1,4 @@
+/** @file Wraps backend auth endpoints behind a small frontend API client. */
 /**
  * Authentication API
  */

@@ -1,3 +1,4 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the register page. -->
 <script setup>
 /**
  * Registration page

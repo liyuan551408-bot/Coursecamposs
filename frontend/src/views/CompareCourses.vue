@@ -1,6 +1,7 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the compare courses page. -->
 <script setup>
 /**
- * 课程对比页面
+ * Course comparison page.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -109,7 +110,7 @@ onMounted(loadCourses)
       <el-button v-if="compareCourses.length" plain @click="clearAll">Clear all</el-button>
     </div>
 
-    <!-- 课程选择区 -->
+    <!-- Course selection controls. -->
     <el-card class="selector-card" shadow="never">
       <div class="selector-header">
         <h2>Select courses to compare</h2>
@@ -146,7 +147,7 @@ onMounted(loadCourses)
       </div>
     </el-card>
 
-    <!-- 对比结果区 -->
+    <!-- Side-by-side comparison results. -->
     <div v-if="compareCourses.length" class="compare-result">
       <h2>Comparison result</h2>
       <div class="compare-table-wrapper">
@@ -231,7 +232,7 @@ onMounted(loadCourses)
       </div>
     </div>
 
-    <!-- 空状态 -->
+    <!-- Empty state shown before enough courses are selected. -->
     <el-empty
       v-else
       description="Select courses above to start comparing"

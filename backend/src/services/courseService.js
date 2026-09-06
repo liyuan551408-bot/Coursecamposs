@@ -1,3 +1,4 @@
+/** @file Implements course business rules and persistence operations. */
 const { getCourses } = require('../controllers/courseController');
 const prisma = require('../lib/prisma');
 const { refreshCourseEmbedding } = require('./courseEmbeddingService');
@@ -71,7 +72,7 @@ const getAllCourses = async ({ skip = 0, take = 50 } = {}) => {
 };
 
 
-// 1. 创建课程（支持绑定先决条件）
+// Create a course and optionally connect its prerequisites.
 const createCourse = async (courseData, prerequisiteIds = []) => {
     const data = {
         name: courseData.name,
@@ -85,7 +86,7 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         officialLink: courseData.officialLink
     };
 
-    // 如果传入了先决课程的 ID 数组，使用 connect 关联
+    // Connect existing prerequisite rows only when ids were supplied.
     if (prerequisiteIds && prerequisiteIds.length > 0) {
         data.prerequisites = {
             connect: prerequisiteIds.map(id => ({ id: Number(id) }))
@@ -94,7 +95,7 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
 
     const createdCourse = await prisma.course.create({
         data,
-        // 这里为了能返回关联数据，我们直接包含前置课程字段
+        // Return prerequisite details so callers do not need a follow-up query.
         include: {
             prerequisites: true 
         }
@@ -134,29 +135,29 @@ const updateCourse = async (id, courseData) => {
     return updatedCourse;
 };
 
-// 2. 根据 ID 获取单门课程详情（带出它需要的前置课程）
+// Fetch one course together with both directions of its prerequisite graph.
 const getCourseById = async (id) => {
     return prisma.course.findUnique({
         where: { id: Number(id) },
         include: {
-            prerequisites: true,     // 查出学这门课前必须要修的课
-            prerequisiteFor: true    // 查出这门课是哪些高级课的先决条件
+            prerequisites: true,     // Courses that should be completed first.
+            prerequisiteFor: true    // Follow-on courses unlocked by this course.
         }
     });
 };
 
-// 3. 根据多个 ID 批量获取课程（用于横向对比）
+// Fetch several active courses for side-by-side comparison.
 const getCoursesByIds = async (courseIds) => {
     return prisma.course.findMany({
         where: {
-            // 使用 in 操作符，匹配数组中的任何一个 ID
+            // Match any requested id in a single database query.
             id: { 
                 in: courseIds.map(id => Number(id)) 
             },
-            isActive: true // 只对比还在开设的课程
+            isActive: true // Exclude courses that are no longer offered.
         },
         include: {
-            prerequisites: true // 把先决条件也带上，方便学生对比
+            prerequisites: true // Include prerequisite context in comparisons.
         }
     });
 };
@@ -264,12 +265,12 @@ const getCoursesForComparison = async (codes) => {
     }));
 };
 
-// 多条件高级搜索课程
+// Search active courses using optional text and structured filters.
 const searchCourses = async (queryFilters) => {
     const { keyword, level, semester, assessmentType, minCredits, maxCredits } = queryFilters;
-    const whereClause = { isActive: true }; // 默认只搜还在开设的课
+    const whereClause = { isActive: true }; // Inactive courses are excluded by default.
 
-    // 1. 课程代码、名称或描述中查找
+    // Apply case-insensitive text matching across code, name, and description.
     if (keyword) {
         whereClause.OR = [
             { code: { contains: keyword, mode: 'insensitive' } },
@@ -278,22 +279,22 @@ const searchCourses = async (queryFilters) => {
         ];
     }
 
-    // 2. 课程级别 
+    // Narrow results to the requested course level.
     if (level) {
         whereClause.level = Number(level);
     }
 
-    // 3. 学期 
+    // Narrow results to a teaching semester.
     if (semester) {
         whereClause.offeredSemesters = { has: semester };
     }
 
-    // 4. 考核方式 
+    // Narrow results to an assessment type.
     if (assessmentType) {
         whereClause.assessmentTypes = { has: assessmentType };
     }
 
-    // 5. 学分范围过滤
+    // Apply inclusive lower and upper credit bounds.
     if (minCredits || maxCredits) {
         whereClause.credits = {};
         if (minCredits) whereClause.credits.gte = Number(minCredits); 

@@ -1,3 +1,4 @@
+/** @file Implements llm business rules and persistence operations. */
 const ZHIPU_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const DEFAULT_TIMEOUT_MS = 15000;
 

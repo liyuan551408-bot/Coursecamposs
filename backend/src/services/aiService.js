@@ -1,3 +1,4 @@
+/** @file Implements ai business rules and persistence operations. */
 const EMBEDDING_DIMENSIONS = 1024;
 
 const SILICONFLOW_EMBEDDING_URL =
