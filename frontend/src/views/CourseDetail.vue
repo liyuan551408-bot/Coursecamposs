@@ -6,10 +6,12 @@ import { getCourse } from '../api/courses'
 import { getCourseReviews, submitReview } from '../api/reviews'
 import request from '../api/request'
 import { useAuthStore } from '../stores/auth'
+import { useSavedStore } from '../stores/saved'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const savedStore = useSavedStore()
 const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
@@ -91,7 +93,19 @@ onMounted(loadPage)
           <h1>{{ course.name }}</h1>
           <p>{{ course.description || 'No course description is available.' }}</p>
         </div>
-        <div class="rating-box"><b>{{ average }}</b><span>Course rating · {{ reviews.length }} reviews</span></div>
+        <div class="rating-box">
+          <b>{{ average }}</b>
+          <span>Course rating · {{ reviews.length }} reviews</span>
+          <el-button
+            :type="savedStore.isSaved(course.id) ? 'warning' : 'primary'"
+            plain
+            size="small"
+            class="save-btn"
+            @click="savedStore.toggleSave(course.id); ElMessage.success(savedStore.isSaved(course.id) ? 'Added to saved courses' : 'Removed from saved courses')"
+          >
+            {{ savedStore.isSaved(course.id) ? '★ Saved' : '☆ Save' }}
+          </el-button>
+        </div>
       </div>
 
       <el-card class="ai-summary-card">
@@ -157,6 +171,7 @@ onMounted(loadPage)
 .rating-box { min-width: 145px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
 .rating-box b { display: block; font-size: 38px; color: var(--text-h); }
 .rating-box span, .muted { color: var(--text); font-size: 14px; }
+.save-btn { margin-top: 12px; }
 .summary-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
 .summary-text { white-space: pre-wrap; line-height: 1.6; }
 .detail-grid, .review-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin: 20px 0 40px; }
