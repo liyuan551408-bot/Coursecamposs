@@ -1,3 +1,4 @@
+/** @file Seeds deterministic demonstration users, courses, reviews, plans, and relationships. */
 const bcrypt = require('bcryptjs');
 const prisma = require('../src/lib/prisma');
 

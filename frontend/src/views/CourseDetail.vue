@@ -1,3 +1,4 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the course detail page. -->
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

@@ -1,3 +1,4 @@
+/** @file Translates auth HTTP requests into service calls and API responses. */
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');

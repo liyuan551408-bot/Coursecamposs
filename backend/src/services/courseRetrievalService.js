@@ -1,3 +1,4 @@
+/** @file Implements course retrieval business rules and persistence operations. */
 const prisma = require('../lib/prisma');
 const aiService = require('./aiService');
 

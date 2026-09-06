@@ -1,3 +1,4 @@
+/** @file Creates the Vue application and installs Pinia, routing, and Element Plus. */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'

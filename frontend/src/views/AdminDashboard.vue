@@ -1,3 +1,4 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the admin dashboard page. -->
 <script setup>
 import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'

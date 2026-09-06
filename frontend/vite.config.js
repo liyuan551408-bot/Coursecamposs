@@ -1,3 +1,4 @@
+/** @file Configures Vite to compile Vue single-file components. */
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 

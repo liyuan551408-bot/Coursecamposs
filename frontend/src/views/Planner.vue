@@ -1,6 +1,7 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the planner page. -->
 <script setup>
 /**
- * 学期规划器页面
+ * Semester planner page.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -64,7 +65,7 @@ async function addCourseToSemester(course) {
     return
   }
 
-  // 检查先修课
+  // Warn about missing prerequisites without blocking exploratory planning.
   try {
     const courseDetail = await getCourse(course.id)
     if (courseDetail.prerequisites?.length) {
@@ -192,7 +193,7 @@ onMounted(loadCourses)
       </div>
     </div>
 
-    <!-- 总览统计 -->
+    <!-- Aggregate plan statistics. -->
     <div class="overview-bar">
       <div class="overview-item">
         <span class="overview-number">{{ plannerStore.semesters.length }}</span>
@@ -210,7 +211,7 @@ onMounted(loadCourses)
       </div>
     </div>
 
-    <!-- 学期列表 -->
+    <!-- Editable semester list. -->
     <div class="semesters-container">
       <div
         v-for="sem in semesterStats"
@@ -273,14 +274,14 @@ onMounted(loadCourses)
         </el-button>
       </div>
 
-      <!-- 添加学期按钮 -->
+      <!-- Add-semester action. -->
       <div class="add-semester-card" @click="addSemester">
         <div class="add-icon">+</div>
         <span>Add semester</span>
       </div>
     </div>
 
-    <!-- 添加课程弹窗 -->
+    <!-- Course selection dialog. -->
     <el-dialog
       v-model="addDialogVisible"
       title="Add course to semester"

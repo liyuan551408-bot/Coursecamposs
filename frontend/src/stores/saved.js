@@ -1,5 +1,6 @@
+/** @file Owns reactive saved state and its persistence or API synchronization rules. */
 /**
- * 收藏课程状态管理
+ * Saved-course state management.
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
@@ -11,6 +12,7 @@ function loadSaved() {
     const raw = localStorage.getItem(SAVED_KEY)
     return raw ? JSON.parse(raw) : []
   } catch {
+    // Treat malformed or inaccessible browser storage as an empty collection.
     return []
   }
 }
@@ -25,6 +27,7 @@ export const useSavedStore = defineStore('saved', () => {
   }
 
   function toggleSave(courseId) {
+    // Normalize route and API string ids so membership checks remain stable.
     const id = Number(courseId)
     const index = savedIds.value.indexOf(id)
     if (index > -1) {

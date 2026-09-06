@@ -1,3 +1,4 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the dashboard page. -->
 <script setup>
 import { useAuthStore } from '../stores/auth'
 

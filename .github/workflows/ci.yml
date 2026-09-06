@@ -1,3 +1,4 @@
+# @file Runs continuous integration checks for every branch push and pull request.
 name: CourseCompass CI
 
 on:

@@ -1,3 +1,4 @@
+/** @file Implements saved course business rules and persistence operations. */
 const prisma = require('../lib/prisma');
 
 // 1. addSavedCourse

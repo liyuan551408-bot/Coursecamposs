@@ -1,5 +1,6 @@
+/** @file Owns reactive planner state and its persistence or API synchronization rules. */
 /**
- * 学期规划器状态管理
+ * Semester planner state management.
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
@@ -16,7 +17,7 @@ function loadPlanner() {
     const raw = localStorage.getItem(PLANNER_KEY)
     if (raw) return JSON.parse(raw)
   } catch {
-    // ignore
+    // Corrupt browser state should fall back to a usable empty plan.
   }
   return defaultSemesters
 }
@@ -45,6 +46,7 @@ export const usePlannerStore = defineStore('planner', () => {
     const sem = semesters.value.find((s) => s.id === semesterId)
     if (!sem) return false
     if (sem.courses.some((c) => c.id === course.id)) return false
+    // A course may appear only once across the complete multi-semester plan.
     if (isInPlanner(course.id)) return false
     sem.courses.push({ ...course })
     persist()

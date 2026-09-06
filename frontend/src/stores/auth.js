@@ -1,3 +1,4 @@
+/** @file Owns reactive auth state and its persistence or API synchronization rules. */
 /**
  * Authentication state management
  */

@@ -1,3 +1,4 @@
+<!-- @file Coordinates data loading, user actions, and presentation for the ai recommendation page. -->
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'

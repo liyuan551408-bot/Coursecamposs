@@ -1,3 +1,4 @@
+/** @file Provides a minimal command-line database connectivity diagnostic. */
 // backend/test-db.js
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');

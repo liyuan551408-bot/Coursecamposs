@@ -1,3 +1,4 @@
+/** @file Implements user business rules and persistence operations. */
 const bcrypt = require('bcryptjs'); // Import bcrypt.
 const crypto = require('crypto');
 const prisma = require('../lib/prisma'); //[cite: 2]

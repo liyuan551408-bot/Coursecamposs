@@ -1,3 +1,4 @@
+/** @file Implements email business rules and persistence operations. */
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({

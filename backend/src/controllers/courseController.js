@@ -1,3 +1,4 @@
+/** @file Translates course HTTP requests into service calls and API responses. */
 // Import methods provided by the service layer.
 const courseService = require('../services/courseService');
 

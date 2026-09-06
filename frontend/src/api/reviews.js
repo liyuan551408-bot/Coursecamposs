@@ -1,3 +1,4 @@
+/** @file Wraps backend reviews endpoints behind a small frontend API client. */
 import request from './request'
 
 export async function getCourseReviews(courseId) {

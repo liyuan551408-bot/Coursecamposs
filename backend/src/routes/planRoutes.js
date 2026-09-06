@@ -1,9 +1,10 @@
+/** @file Maps plan API endpoints to middleware and controller handlers. */
 const express = require('express');
 const router = express.Router();
 const planController = require('../controllers/planController');
 const { verifyToken } = require('../middlewares/authMiddleware');
 
-// 排课计划属于极其隐私的个人数据，全部必须拦截校验 Token
+// Every planner endpoint requires authentication because schedules are private user data.
 router.post('/', verifyToken, planController.createPlan);
 router.get('/', verifyToken, planController.getMyPlans);
 router.post('/:planId/courses', verifyToken, planController.addCourse);

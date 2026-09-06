@@ -1,11 +1,12 @@
+/** @file Translates user HTTP requests into service calls and API responses. */
 const userService = require('../services/userService');
 
-// 获取当前登录用户的资料
+// Return the profile associated with the verified request identity.
 const getMe = async (req, res) => {
     try {
         const userId = req.user.id; 
         
-        // 调用底层查库
+        // Delegate persistence and public-field selection to the service layer.
         const user = await userService.findPublicUserById(userId);
 
         if (!user) {
@@ -19,11 +20,11 @@ const getMe = async (req, res) => {
     }
 };
 
-// 更新当前登录用户的资料
+// Update only profile fields owned by the verified user.
 const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { name, major, studyYear, interests, goals, planningPreferences } = req.body; // 前端传过来的新数据
+        const { name, major, studyYear, interests, goals, planningPreferences } = req.body; // Accept only supported profile fields from the frontend.
 
         const updatedUser = await userService.updateUserProfile(userId, { name, major, studyYear, interests, goals, planningPreferences });
 
