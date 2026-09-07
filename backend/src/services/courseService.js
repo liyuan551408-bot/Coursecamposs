@@ -1,5 +1,4 @@
 /** @file Implements course business rules and persistence operations. */
-const { getCourses } = require('../controllers/courseController');
 const prisma = require('../lib/prisma');
 const { refreshCourseEmbedding } = require('./courseEmbeddingService');
 
@@ -86,10 +85,40 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         officialLink: courseData.officialLink
     };
 
-    // Connect existing prerequisite rows only when ids were supplied.
+    // Resolve either numeric course IDs or course codes before connecting.
     if (prerequisiteIds && prerequisiteIds.length > 0) {
+        const references = [...new Set(prerequisiteIds.map((value) => String(value).trim()).filter(Boolean))];
+        const numericIds = references.filter((value) => /^\d+$/.test(value)).map(Number);
+        // Course codes such as 159.101 are often entered as 159101.
+        const codeAlias = (value) => /^\d{6}$/.test(value)
+            ? `${value.slice(0, 3)}.${value.slice(3)}`
+            : value.toUpperCase();
+        const courseCodes = references
+            .filter((value) => !/^\d+$/.test(value) || /^\d{6}$/.test(value))
+            .flatMap((value) => [value.toUpperCase(), codeAlias(value)])
+            .filter((value, index, values) => values.indexOf(value) === index);
+        const lookup = [];
+        if (numericIds.length > 0) lookup.push({ id: { in: numericIds } });
+        if (courseCodes.length > 0) lookup.push({ code: { in: courseCodes } });
+        const prerequisiteCourses = await prisma.course.findMany({
+            where: { OR: lookup },
+            select: { id: true, code: true }
+        });
+        const foundReferences = new Set(prerequisiteCourses.flatMap((course) => [String(course.id), course.code.toUpperCase()]));
+        const missing = references.filter((reference) => {
+            const normalized = reference.toUpperCase();
+            return !foundReferences.has(reference)
+                && !foundReferences.has(normalized)
+                && !foundReferences.has(codeAlias(reference));
+        });
+        if (missing.length > 0) {
+            const error = new Error('One or more prerequisite courses do not exist');
+            error.code = 'PREREQUISITE_NOT_FOUND';
+            error.meta = { missing };
+            throw error;
+        }
         data.prerequisites = {
-            connect: prerequisiteIds.map(id => ({ id: Number(id) }))
+            connect: prerequisiteCourses.map((course) => ({ id: course.id }))
         };
     }
 
@@ -159,6 +188,92 @@ const getCoursesByIds = async (courseIds) => {
         include: {
             prerequisites: true // Include prerequisite context in comparisons.
         }
+    });
+};
+
+// Fetch the complete, evidence-based context needed for an AI comparison.
+// Reviews are limited to recent approved entries so the prompt stays focused.
+const getCoursesForComparisonAnalysis = async (courseIds) => {
+    const normalizedIds = [...new Set(courseIds.map(id => Number(id)))];
+    const courses = await prisma.course.findMany({
+        where: {
+            id: { in: normalizedIds },
+            isActive: true
+        },
+        select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            credits: true,
+            workloadHours: true,
+            level: true,
+            offeredSemesters: true,
+            assessmentTypes: true,
+            prerequisites: {
+                select: { id: true, code: true, name: true },
+                orderBy: { code: 'asc' }
+            },
+            prerequisiteFor: {
+                select: { id: true, code: true, name: true },
+                orderBy: { code: 'asc' }
+            },
+            reviews: {
+                where: { status: 'APPROVED' },
+                select: {
+                    overallRating: true,
+                    difficultyRating: true,
+                    workloadRating: true,
+                    teachingRating: true,
+                    usefulnessRating: true,
+                    assessmentStyle: true,
+                    comment: true
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10
+            }
+        }
+    });
+
+    return courses.map(course => {
+        const reviews = course.reviews;
+        const average = field => {
+            const values = reviews
+                .map(review => review[field])
+                .filter(value => value !== null && value !== undefined);
+            return values.length
+                ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1))
+                : null;
+        };
+
+        return {
+            id: course.id,
+            code: course.code,
+            name: course.name,
+            // Keep the provider prompt bounded even when database text is long.
+            description: course.description ? course.description.slice(0, 2000) : null,
+            credits: course.credits,
+            workloadHours: course.workloadHours,
+            level: course.level,
+            offeredSemesters: course.offeredSemesters,
+            assessmentTypes: course.assessmentTypes,
+            prerequisites: course.prerequisites,
+            prerequisiteFor: course.prerequisiteFor,
+            reviewSummary: {
+                reviewCount: reviews.length,
+                overallRating: average('overallRating'),
+                difficultyRating: average('difficultyRating'),
+                workloadRating: average('workloadRating'),
+                teachingRating: average('teachingRating'),
+                usefulnessRating: average('usefulnessRating'),
+                assessmentStyles: [...new Set(reviews.map(review => review.assessmentStyle).filter(Boolean))],
+                comments: reviews
+                    .map(review => review.comment)
+                    .filter(Boolean)
+                    .slice(0, 5)
+                    .map(comment => comment.slice(0, 500))
+            }
+        };
     });
 };
 
@@ -314,6 +429,7 @@ module.exports = {
     updateCourse,
     getCourseById,
     getCoursesByIds,
+    getCoursesForComparisonAnalysis,
     getCourseByCode,
     getCoursesForComparison,
     searchCourses
