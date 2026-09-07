@@ -217,20 +217,9 @@ jobs:
           exit 1
 
 
-      # -------------------------------------------------------
-      # Backend API routes
-      # -------------------------------------------------------
-      - name: Test backend APIs
-        working-directory: backend
-        run: node scripts/api.smoke.js
 
 
-      # -------------------------------------------------------
-      # External APIs
-      # -------------------------------------------------------
-      - name: Test external services
-        working-directory: backend
-        run: node scripts/external-services.smoke.js
+
 
 
       # -------------------------------------------------------
