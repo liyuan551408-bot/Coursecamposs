@@ -1,6 +1,7 @@
 /** @file Translates ai HTTP requests into service calls and API responses. */
 const aiService = require('../services/aiService');
 const courseRetrievalService = require('../services/courseRetrievalService');
+const courseService = require('../services/courseService');
 const llmService = require('../services/llmService');
 const prisma = require('../lib/prisma');
 const MAX_RESULT_LIMIT = 10;
@@ -76,6 +77,98 @@ const parseRecommendationOutput = (raw, candidates) => {
             recommendations: candidates.map(course => ({ courseId: course.id, reasons: [], cautions: [] })),
             summary: raw.slice(0, 2000)
         };
+    }
+};
+
+/** Parse and constrain the structured response returned for course comparison. */
+const parseComparisonOutput = (raw, courses) => {
+    const selectedIds = new Set(courses.map(course => course.id));
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    try {
+        const parsed = JSON.parse(cleaned);
+        const relationships = Array.isArray(parsed.relationships)
+            ? parsed.relationships.slice(0, 10).map(item => ({
+                type: typeof item.type === 'string' ? item.type.slice(0, 60) : 'relationship',
+                courseIds: Array.isArray(item.courseIds)
+                    ? item.courseIds.map(Number).filter(id => selectedIds.has(id)).slice(0, 4)
+                    : [],
+                description: typeof item.description === 'string' ? item.description.slice(0, 500) : ''
+            })).filter(item => item.courseIds.length >= 2 && item.description) : [];
+        const learningPath = Array.isArray(parsed.learningPath)
+            ? parsed.learningPath.slice(0, courses.length).map(item => ({
+                courseId: Number(item.courseId),
+                position: Number(item.position),
+                reason: typeof item.reason === 'string' ? item.reason.slice(0, 500) : ''
+            })).filter(item => selectedIds.has(item.courseId) && item.reason) : [];
+
+        return {
+            summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 2000) : '',
+            relationships,
+            learningPath,
+            strengths: Array.isArray(parsed.strengths) ? parsed.strengths.filter(value => typeof value === 'string').slice(0, 8) : [],
+            tradeoffs: Array.isArray(parsed.tradeoffs) ? parsed.tradeoffs.filter(value => typeof value === 'string').slice(0, 8) : [],
+            recommendation: typeof parsed.recommendation === 'string' ? parsed.recommendation.slice(0, 1000) : '',
+            limitations: typeof parsed.limitations === 'string' ? parsed.limitations.slice(0, 1000) : ''
+        };
+    } catch {
+        return {
+            summary: raw.slice(0, 2000),
+            relationships: [],
+            learningPath: [],
+            strengths: [],
+            tradeoffs: [],
+            recommendation: '',
+            limitations: 'The AI response could not be parsed into structured sections.'
+        };
+    }
+};
+
+/** Generate a grounded relationship and trade-off analysis for selected courses. */
+const compareCoursesWithAi = async (req, res) => {
+    try {
+        const { courseIds } = req.body || {};
+        if (!Array.isArray(courseIds) || courseIds.length < 2 || courseIds.length > 4) {
+            return res.status(400).json({ success: false, error: 'Select between 2 and 4 courses to compare' });
+        }
+
+        const normalizedIds = [...new Set(courseIds.map(Number))];
+        if (normalizedIds.length !== courseIds.length || normalizedIds.some(id => !Number.isInteger(id) || id <= 0)) {
+            return res.status(400).json({ success: false, error: 'courseIds must contain unique positive integers' });
+        }
+
+        const courses = await courseService.getCoursesForComparisonAnalysis(normalizedIds);
+        if (courses.length !== normalizedIds.length) {
+            return res.status(404).json({ success: false, error: 'One or more selected courses were not found' });
+        }
+
+        const systemPrompt = `You are CourseCompass's course comparison assistant.
+Use only the supplied course data, prerequisite relationships, and approved student review evidence.
+Compare the selected courses as a group, not as isolated table rows.
+Discuss prerequisite paths, shared or complementary topics, possible content overlap, workload balance, assessment differences, and a sensible learning order when evidence supports it.
+Do not invent facts. If evidence is missing, state that clearly. Distinguish database facts from reasonable interpretation.
+Return JSON only in this exact shape:
+{"summary":"...","relationships":[{"type":"prerequisite|complementary|overlap|workload|other","courseIds":[1,2],"description":"..."}],"learningPath":[{"courseId":1,"position":1,"reason":"..."}],"strengths":["..."],"tradeoffs":["..."],"recommendation":"...","limitations":"..."}`;
+        const userContent = `Selected course data:\n${JSON.stringify(courses, null, 2)}`;
+        const rawAnalysis = await llmService.chatCompletion({
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
+            temperature: 0.4
+        });
+        const analysis = parseComparisonOutput(rawAnalysis, courses);
+
+        return res.json({
+            success: true,
+            message: 'AI course comparison generated successfully',
+            data: { courseIds: normalizedIds, ...analysis }
+        });
+    } catch (error) {
+        console.error('AI course comparison failed:', error);
+        if (error.code === 'LLM_TIMEOUT') {
+            return res.status(504).json({ success: false, error: 'The AI provider timed out. Please try again.' });
+        }
+        if (error.statusCode === 429) {
+            return res.status(503).json({ success: false, error: 'The AI provider is busy. Please try again shortly.' });
+        }
+        return res.status(500).json({ success: false, error: 'AI comparison service is temporarily unavailable' });
     }
 };
 
@@ -275,5 +368,6 @@ module.exports = {
     testEmbedding,
     semanticSearch,
     aiRecommendCourses,
+    compareCoursesWithAi,
     getCourseSummary
 };
