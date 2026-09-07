@@ -6,3 +6,10 @@ export async function getCourseRecommendations(query, filters = {}) {
   const response = await request.post('/ai/recommend', { query, ...filters })
   return response.data
 }
+
+/** Generate a grounded comparison analysis for the selected course IDs. */
+export async function getCourseComparisonAnalysis(courseIds) {
+  // Leave headroom for the backend's provider timeout and one retry.
+  const response = await request.post('/ai/compare', { courseIds }, { timeout: 90000 })
+  return response.data
+}
