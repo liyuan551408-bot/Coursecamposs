@@ -1,4 +1,5 @@
-# @file Runs continuous integration checks for every branch push and pull request.
+# @file Runs CI checks for frontend, backend, database and API connectivity.
+
 name: CourseCompass CI
 
 on:
@@ -19,16 +20,21 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+
 jobs:
+
+  # =========================================================
+  # 1. Frontend Build
+  # =========================================================
   frontend:
-    name: Frontend build
+    name: Frontend Build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -43,51 +49,187 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+
+  # =========================================================
+  # 2. Backend + Database + API
+  # =========================================================
   backend:
-    name: Backend validation
+    name: Backend / Database / API
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+      ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+      SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+
+      PORT: 3000
+      NODE_ENV: test
+
     steps:
-      - name: Check out repository
+
+      # -------------------------------------------------------
+      # Checkout
+      # -------------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+
+      # -------------------------------------------------------
+      # Node
+      # -------------------------------------------------------
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
+
+      # -------------------------------------------------------
+      # Backend dependencies
+      # -------------------------------------------------------
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
 
-      - name: Check DATABASE_URL secret
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # -------------------------------------------------------
+      # Required environment variables
+      # -------------------------------------------------------
+      - name: Check required secrets
         shell: bash
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "::error::GitHub repository secret DATABASE_URL is not configured."
+            echo "::error::DATABASE_URL is not configured"
             exit 1
           fi
 
+          if [ -z "$JWT_SECRET" ]; then
+            echo "::error::JWT_SECRET is not configured"
+            exit 1
+          fi
+
+
+      # -------------------------------------------------------
+      # Prisma validation
+      # -------------------------------------------------------
       - name: Validate Prisma schema
         working-directory: backend
         run: npx prisma validate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Generate Prisma client
+
+      - name: Generate Prisma Client
         working-directory: backend
         run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+
+      # -------------------------------------------------------
+      # Backend JavaScript syntax
+      # -------------------------------------------------------
       - name: Check backend JavaScript syntax
         working-directory: backend
         shell: bash
         run: |
           while IFS= read -r file; do
+            echo "Checking $file"
             node --check "$file"
           done < <(find src scripts -type f -name '*.js' -print)
+
+          node --check app.js
+
+
+      # -------------------------------------------------------
+      # Database connection
+      # -------------------------------------------------------
+      - name: Test Supabase database connection
+        working-directory: backend
+        run: |
+          node - <<'NODE'
+          const prisma = require('./src/lib/prisma');
+
+          async function testDatabase() {
+            try {
+              await prisma.$queryRaw`SELECT 1`;
+
+              console.log(
+                '✅ Supabase database connection successful'
+              );
+
+            } catch (error) {
+
+              console.error(
+                '❌ Supabase database connection failed'
+              );
+
+              console.error(error);
+
+              process.exit(1);
+
+            } finally {
+
+              await prisma.$disconnect();
+
+            }
+          }
+
+          testDatabase();
+          NODE
+
+
+      # -------------------------------------------------------
+      # Start backend
+      # -------------------------------------------------------
+      - name: Start backend server
+        working-directory: backend
+        shell: bash
+        run: |
+          node app.js > server.log 2>&1 &
+          echo $! > server.pid
+
+          echo "Backend started with PID $(cat server.pid)"
+
+
+      # -------------------------------------------------------
+      # Test API
+      # -------------------------------------------------------
+      - name: Test backend API connection
+        working-directory: backend
+        shell: bash
+        run: |
+          for i in {1..30}; do
+
+            if curl -fsS http://127.0.0.1:3000/api/health; then
+
+              echo ""
+              echo "✅ Backend API connection successful"
+
+              exit 0
+
+            fi
+
+            echo "Waiting for backend API..."
+            sleep 2
+
+          done
+
+          echo "❌ Backend API connection failed"
+
+          echo "========== Backend log =========="
+          cat server.log || true
+
+          exit 1
+
+
+      # -------------------------------------------------------
+      # Stop backend
+      # -------------------------------------------------------
+      - name: Stop backend server
+        if: always()
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) || true
+          fi
