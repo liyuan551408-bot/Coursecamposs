@@ -1,4 +1,3 @@
-/** @file Implements course embedding business rules and persistence operations. */
 const prisma = require('../lib/prisma');
 const aiService = require('./aiService');
 
@@ -26,7 +25,7 @@ const buildCourseEmbeddingText = (course) => {
     ].join('. ');
 };
 
-/** Generate a course vector and persist it in PostgreSQL/pgvector. */
+/** Generate a course vector and persist it in PostgreSQL */
 const refreshCourseEmbedding = async (course) => {
     const embedding = await aiService.generateEmbedding(buildCourseEmbeddingText(course));
     const vectorString = `[${embedding.join(',')}]`;
