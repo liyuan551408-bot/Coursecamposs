@@ -23,6 +23,14 @@ const createCourse = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Course name and code are required' });
         }
 
+        if (credits === undefined || credits === null || !Number.isInteger(Number(credits)) || Number(credits) <= 0) {
+            return res.status(400).json({ success: false, message: 'Credits must be a positive whole number' });
+        }
+
+        if (prerequisiteIds !== undefined && (!Array.isArray(prerequisiteIds) || prerequisiteIds.some((id) => typeof id !== 'string' && !Number.isInteger(id)))) {
+            return res.status(400).json({ success: false, message: 'Prerequisites must be entered as course IDs or course codes' });
+        }
+
         const newCourse = await courseService.createCourse(
             { name, code, credits, description, workloadHours, offeredSemesters,
                 level, assessmentTypes, officialLink },
@@ -31,6 +39,21 @@ const createCourse = async (req, res) => {
         res.status(201).json({ success: true, data: newCourse });
     } catch (error) {
         console.error('Course creation failed:', error);
+
+        // Return actionable client errors for the constraints most commonly
+        // encountered by the admin form instead of masking them as a 500.
+        if (error?.code === 'P2002') {
+            return res.status(409).json({ success: false, message: 'A course with this code already exists' });
+        }
+        if (error?.code === 'P2025') {
+            return res.status(400).json({ success: false, message: 'One or more prerequisite course IDs do not exist' });
+        }
+        if (error?.code === 'PREREQUISITE_NOT_FOUND') {
+            return res.status(400).json({
+                success: false,
+                message: `Prerequisite courses not found: ${error.meta?.missing?.join(', ')}`
+            });
+        }
         res.status(500).json({ success: false, message: 'Server Error during course creation' });
     }
 };
