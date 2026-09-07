@@ -200,7 +200,7 @@ jobs:
         run: |
           for i in {1..30}; do
 
-            if curl -fsS http://127.0.0.1:3000/api/health; then
+            if curl -fsS http://127.0.0.1:3000/api/courses; then
 
               echo ""
               echo "✅ Backend API connection successful"
