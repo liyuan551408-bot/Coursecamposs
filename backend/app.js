@@ -57,3 +57,9 @@ app.listen(PORT, () => {
     console.log('Your Express backend server has started successfully.');
     console.log(`Listening at: http://localhost:${PORT}`);
 });
+app.get('/api/health', async (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'CourseCompass API is running'
+    });
+});
