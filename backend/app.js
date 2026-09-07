@@ -6,13 +6,7 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
-
-
-// ================================
-// Middleware
-// ================================
 
 app.use(cors());
 app.use(express.json());
@@ -29,15 +23,6 @@ const authRoutes = require('./src/routes/authRoutes');
 const reviewRoutes = require('./src/routes/reviewRoutes');
 const planRoutes = require('./src/routes/planRoutes');
 const savedCourseRoutes = require('./src/routes/savedCourseRoutes');
-
-
-// Health check for CI
-app.get('/api/health', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'CourseCompass API is running'
-    });
-});
 
 
 app.use('/api/courses', courseRoutes);
