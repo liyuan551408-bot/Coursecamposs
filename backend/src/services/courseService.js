@@ -1,6 +1,9 @@
 /** @file Implements course business rules and persistence operations. */
 const prisma = require('../lib/prisma');
-const { refreshCourseEmbedding } = require('./courseEmbeddingService');
+const {
+    refreshCourseEmbedding,
+    enqueueCourseEmbedding
+} = require('./courseEmbeddingService');
 
 const courseSelect = {
     id: true,
@@ -130,11 +133,7 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         }
     });
 
-    try {
-        await refreshCourseEmbedding(createdCourse);
-    } catch (error) {
-        console.error(`Course embedding generation failed for ${createdCourse.code}:`, error);
-    }
+    enqueueCourseEmbedding(createdCourse);
 
     return createdCourse;
 };

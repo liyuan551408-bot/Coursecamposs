@@ -255,10 +255,17 @@ const aiRecommendCourses = async (req, res) => {
         });
 
         if (candidates.length === 0) {
+            const emptyMessage = "Sorry, there are no matching courses in the database yet.";
             return res.json({
                 success: true,
                 message: "No relevant candidate courses were found",
-                data: { recommendations: [], aiAnalysis: "Sorry, there are no matching courses in the database yet." }
+                data: {
+                    candidateCourses: [],
+                    aiRationale: emptyMessage,
+                    recommendations: [],
+                    summary: emptyMessage,
+                    mode: 'semantic'
+                }
             });
         }
 
@@ -272,25 +279,53 @@ courseId must be copied from the supplied candidate data.`;
         
         const userContent = `Student requirements: "${normalizedQuery}"\n\nCandidate course data:\n` + JSON.stringify(candidates, null, 2);
 
-        const aiAnalysis = await llmService.chatCompletion({
-            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
-            temperature: 0.7
-        });
-        const structuredResult = parseRecommendationOutput(aiAnalysis, candidates);
+        let structuredResult;
+        let warning;
+
+        try {
+            const aiAnalysis = await llmService.chatCompletion({
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
+                temperature: 0.7
+            });
+            structuredResult = parseRecommendationOutput(aiAnalysis, candidates);
+        } catch (llmError) {
+            console.error('AI recommendation explanation failed; returning semantic matches:', llmError);
+            warning = llmError.statusCode === 429
+                ? 'The AI explanation provider is currently rate limited. Courses are still ranked using semantic relevance.'
+                : 'The AI explanation provider is temporarily unavailable. Courses are still ranked using semantic relevance.';
+            structuredResult = {
+                recommendations: candidates.map(course => ({
+                    courseId: course.id,
+                    reasons: ['This course is a semantic match for your stated goals.'],
+                    cautions: ['A generated course-specific explanation is temporarily unavailable.']
+                })),
+                summary: 'These courses are ranked by semantic similarity to your goals. Personalized AI explanations will return when the language model is available.'
+            };
+        }
 
         res.json({
             success: true,
-            message: "AI recommendations and course analysis generated successfully",
+            message: warning
+                ? 'Course recommendations generated with semantic search fallback'
+                : 'AI recommendations and course analysis generated successfully',
             data: {
                 candidateCourses: candidates,
-                aiRationale: structuredResult.summary || aiAnalysis,
+                aiRationale: structuredResult.summary,
                 recommendations: structuredResult.recommendations,
-                summary: structuredResult.summary
+                summary: structuredResult.summary,
+                mode: warning ? 'semantic' : 'ai',
+                ...(warning ? { warning } : {})
             }
         });
 
     } catch (error) {
         console.error("AI recommendation failed:", error);
+        if (error.statusCode === 402 || error.providerCode === 30001) {
+            return res.status(402).json({
+                success: false,
+                error: 'SiliconFlow embedding access is unavailable because the account has insufficient balance or trial quota. Check the SiliconFlow API key and account status.'
+            });
+        }
         res.status(500).json({ success: false, error: "AI recommendation service is temporarily unavailable" });
     }
 };

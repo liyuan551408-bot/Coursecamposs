@@ -11,6 +11,7 @@ import CompareCourses from '../views/CompareCourses.vue'
 import Planner from '../views/Planner.vue'
 import SavedCourses from '../views/SavedCourses.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
+import ModerationDashboard from '../views/ModerationDashboard.vue'
 import Profile from '../views/Profile.vue'
 import AiRecommendation from '../views/AiRecommendation.vue'
 
@@ -36,6 +37,12 @@ const routes = [
     component: AdminDashboard,
     meta: { requiresAuth: true, roles: ['admin'] },
   },
+  {
+    path: '/moderation',
+    name: 'ModerationDashboard',
+    component: ModerationDashboard,
+    meta: { requiresAuth: true, roles: ['admin', 'moderator'] },
+  },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
 ]
 
@@ -56,7 +63,7 @@ router.beforeEach((to, _from, next) => {
     return
   }
 
-  if (to.meta.roles && user && !to.meta.roles.includes(user.role?.toLowerCase())) {
+  if (to.meta.roles && (!user || !to.meta.roles.includes(user.role?.toLowerCase()))) {
     next({ name: 'Home' })
     return
   }
