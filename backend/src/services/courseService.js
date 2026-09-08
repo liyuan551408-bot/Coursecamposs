@@ -73,6 +73,11 @@ const getAllCourses = async ({ skip = 0, take = 50 } = {}) => {
     });
 };
 
+const getAllCoursesForAdmin = async () => prisma.course.findMany({
+    select: courseSelect,
+    orderBy: { code: 'asc' }
+});
+
 
 // Create a course and optionally connect its prerequisites.
 const createCourse = async (courseData, prerequisiteIds = []) => {
@@ -149,9 +154,34 @@ const updateCourse = async (id, courseData) => {
             .map((field) => [field, courseData[field]])
     );
 
+    if (courseData.prerequisiteIds !== undefined) {
+        if (!Array.isArray(courseData.prerequisiteIds)) {
+            throw new TypeError('prerequisiteIds must be an array');
+        }
+        const references = [...new Set(courseData.prerequisiteIds.map(String).map((value) => value.trim()).filter(Boolean))];
+        const numericIds = references.filter((value) => /^\d+$/.test(value)).map(Number);
+        const codes = references.filter((value) => !/^\d+$/.test(value)).map((value) => value.toUpperCase());
+        const lookup = [];
+        if (numericIds.length) lookup.push({ id: { in: numericIds } });
+        if (codes.length) lookup.push({ code: { in: codes } });
+        const prerequisiteCourses = lookup.length
+            ? await prisma.course.findMany({ where: { OR: lookup }, select: { id: true, code: true } })
+            : [];
+        if (prerequisiteCourses.some((course) => course.id === Number(id))) {
+            throw new TypeError('A course cannot be its own prerequisite');
+        }
+        if (prerequisiteCourses.length !== references.length) {
+            const error = new Error('One or more prerequisite courses do not exist');
+            error.code = 'PREREQUISITE_NOT_FOUND';
+            throw error;
+        }
+        data.prerequisites = { set: prerequisiteCourses.map((course) => ({ id: course.id })) };
+    }
+
     const updatedCourse = await prisma.course.update({
         where: { id: Number(id) },
-        data
+        data,
+        include: { prerequisites: true }
     });
 
     try {
@@ -383,6 +413,24 @@ const getCoursesForComparison = async (codes) => {
 const searchCourses = async (queryFilters) => {
     const { keyword, level, semester, assessmentType, minCredits, maxCredits } = queryFilters;
     const whereClause = { isActive: true }; // Inactive courses are excluded by default.
+    const numericFilters = {};
+    for (const [field, value] of Object.entries({ level, minCredits, maxCredits })) {
+        if (value !== undefined && value !== '') {
+            const parsed = Number(value);
+            if (!Number.isInteger(parsed) || parsed < 0) throw new TypeError(`${field} must be a non-negative whole number`);
+            numericFilters[field] = parsed;
+        }
+    }
+    if (numericFilters.minCredits !== undefined && numericFilters.maxCredits !== undefined
+        && numericFilters.minCredits > numericFilters.maxCredits) {
+        throw new TypeError('minCredits cannot exceed maxCredits');
+    }
+    if (semester && !['SEMESTER_1', 'SEMESTER_2', 'SUMMER'].includes(semester)) {
+        throw new TypeError('Invalid semester filter');
+    }
+    if (assessmentType && !['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION'].includes(assessmentType)) {
+        throw new TypeError('Invalid assessment type filter');
+    }
 
     // Apply case-insensitive text matching across code, name, and description.
     if (keyword) {
@@ -394,8 +442,8 @@ const searchCourses = async (queryFilters) => {
     }
 
     // Narrow results to the requested course level.
-    if (level) {
-        whereClause.level = Number(level);
+    if (numericFilters.level !== undefined) {
+        whereClause.level = numericFilters.level;
     }
 
     // Narrow results to a teaching semester.
@@ -409,10 +457,10 @@ const searchCourses = async (queryFilters) => {
     }
 
     // Apply inclusive lower and upper credit bounds.
-    if (minCredits || maxCredits) {
+    if (numericFilters.minCredits !== undefined || numericFilters.maxCredits !== undefined) {
         whereClause.credits = {};
-        if (minCredits) whereClause.credits.gte = Number(minCredits); 
-        if (maxCredits) whereClause.credits.lte = Number(maxCredits); 
+        if (numericFilters.minCredits !== undefined) whereClause.credits.gte = numericFilters.minCredits;
+        if (numericFilters.maxCredits !== undefined) whereClause.credits.lte = numericFilters.maxCredits;
     }
 
     return prisma.course.findMany({
@@ -424,6 +472,7 @@ const searchCourses = async (queryFilters) => {
 
 module.exports = {
     getAllCourses,
+    getAllCoursesForAdmin,
     createCourse,
     updateCourse,
     getCourseById,

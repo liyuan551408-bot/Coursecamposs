@@ -8,5 +8,7 @@ const { verifyToken } = require('../middlewares/authMiddleware');
 router.post('/', verifyToken, planController.createPlan);
 router.get('/', verifyToken, planController.getMyPlans);
 router.post('/:planId/courses', verifyToken, planController.addCourse);
+router.delete('/:planId/courses/:courseId', verifyToken, planController.removeCourse);
+router.delete('/:planId', verifyToken, planController.deletePlan);
 
 module.exports = router;

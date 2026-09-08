@@ -7,7 +7,7 @@ const emailService = require('../services/emailService');
 const register = async (req, res) => {
     try {
         // 1. Extract data from the request body sent by the frontend.
-        const { email, password, name, major } = req.body;
+        const { email, password, name, major, studyYear } = req.body;
 
         // 2. Basic validation for required fields.
         if (!email || !password || !name) {
@@ -22,7 +22,8 @@ const register = async (req, res) => {
             email,
             password,
             name,
-            major
+            major,
+            studyYear
         });
 
         // 4. Return JSON data to the frontend after success.
@@ -35,6 +36,9 @@ const register = async (req, res) => {
     } catch (error) {
         console.error('Registration Error:', error);
         
+        if (error instanceof TypeError) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         // Handle duplicate email errors (Prisma error code P2002).
         if (error.code === 'P2002') {
             return res.status(409).json({
@@ -171,6 +175,10 @@ const resetPassword = async (req, res) => {
                 success: false,
                 message: 'Email, reset code, and new password are required'
             });
+        }
+
+        if (typeof newPassword !== 'string' || newPassword.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
         }
 
         // 2. Call the service layer to reset the password.

@@ -49,7 +49,11 @@ const findUserForAuthenticationByEmail = async (email) => {
             passwordHash: true,
             name: true,
             role: true,
-            major: true
+            major: true,
+            studyYear: true,
+            interests: true,
+            goals: true,
+            planningPreferences: true
         }
     });
 }; //[cite: 2]
@@ -62,12 +66,19 @@ const findPublicUserById = async (id) => {
 }; //[cite: 2]
 
 // Standardization: receive plaintext password and hash it here.
-const createUser = async ({ email, password, name, major = null }) => {
+const createUser = async ({ email, password, name, major = null, studyYear = null }) => {
     if (typeof password !== 'string' || password === '') {
         throw new TypeError('A password is required');
     }
     if (typeof name !== 'string' || name.trim() === '') {
         throw new TypeError('A user name is required');
+    }
+
+    const normalizedStudyYear = studyYear === null || studyYear === '' || studyYear === undefined
+        ? null
+        : Number(studyYear);
+    if (normalizedStudyYear !== null && (!Number.isInteger(normalizedStudyYear) || normalizedStudyYear < 1)) {
+        throw new TypeError('Study year must be a positive whole number');
     }
 
     // Hash in the service layer to keep business logic cohesive.
@@ -78,7 +89,8 @@ const createUser = async ({ email, password, name, major = null }) => {
             email: normalizeEmail(email),
             passwordHash, // Store the hashed password.
             name: name.trim(),
-            major: typeof major === 'string' && major.trim() !== '' ? major.trim() : null
+            major: typeof major === 'string' && major.trim() !== '' ? major.trim() : null,
+            studyYear: normalizedStudyYear
         },
         select: publicUserSelect
     });
@@ -94,8 +106,8 @@ const generateResetCode = async (email) => {
     // 2. generate 6-digit random code (like 295638)
     const resetCode = crypto.randomInt(100000,1000000).toString();
 
-    // 3. setup the expiration time (60s)
-    const resetCodeExpires = new Date(Date.now() + 60 * 1000);
+    // Give email delivery and form completion enough time while keeping the code short-lived.
+    const resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
     // 4. update reset code and expiration time to database
     await prisma.user.update({
         where: {id: user.id},
@@ -148,12 +160,34 @@ const resetPassword = async (email, resetCode, newPassword) => {
 const updateUserProfile = async (id, data) => {
     // Ignore undefined values so existing fields are not overwritten accidentally.
     const updateData = {};
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.major !== undefined) updateData.major = data.major;
-    if (data.studyYear !== undefined) updateData.studyYear = data.studyYear;
-    if (data.interests !== undefined) updateData.interests = data.interests;
-    if (data.goals !== undefined) updateData.goals = data.goals;
-    if (data.planningPreferences !== undefined) updateData.planningPreferences = data.planningPreferences;
+    if (data.name !== undefined) {
+        if (typeof data.name !== 'string' || !data.name.trim()) throw new TypeError('Name is required');
+        updateData.name = data.name.trim();
+    }
+    if (data.major !== undefined) {
+        updateData.major = typeof data.major === 'string' && data.major.trim() ? data.major.trim() : null;
+    }
+    if (data.studyYear !== undefined) {
+        const value = data.studyYear === null || data.studyYear === '' ? null : Number(data.studyYear);
+        if (value !== null && (!Number.isInteger(value) || value < 1)) {
+            throw new TypeError('Study year must be a positive whole number');
+        }
+        updateData.studyYear = value;
+    }
+    for (const field of ['interests', 'goals']) {
+        if (data[field] !== undefined) {
+            if (!Array.isArray(data[field]) || data[field].some((value) => typeof value !== 'string')) {
+                throw new TypeError(`${field} must be an array of text values`);
+            }
+            updateData[field] = data[field].map((value) => value.trim()).filter(Boolean);
+        }
+    }
+    if (data.planningPreferences !== undefined) {
+        if (data.planningPreferences !== null && (typeof data.planningPreferences !== 'object' || Array.isArray(data.planningPreferences))) {
+            throw new TypeError('planningPreferences must be an object');
+        }
+        updateData.planningPreferences = data.planningPreferences;
+    }
     return prisma.user.update({
         where: { id:Number(id) },
         data: updateData,

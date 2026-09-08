@@ -6,7 +6,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getCourse } from '../api/courses'
 import { getCourseReviews } from '../api/reviews'
 import { useSavedStore } from '../stores/saved'
 
@@ -19,20 +18,13 @@ const savedCourses = ref([])
 const hasCourses = computed(() => savedCourses.value.length > 0)
 
 async function loadSavedCourses() {
-  if (savedStore.savedIds.length === 0) {
-    savedCourses.value = []
-    return
-  }
-
   loading.value = true
   try {
+    await savedStore.loadSaved({ force: true })
     const results = await Promise.all(
-      savedStore.savedIds.map(async (id) => {
+      savedStore.courses.map(async (course) => {
         try {
-          const [course, reviews] = await Promise.all([
-            getCourse(id),
-            getCourseReviews(id),
-          ])
+          const reviews = await getCourseReviews(course.id)
           const avgRating = reviews.length
             ? (reviews.reduce((sum, r) => sum + r.overallRating, 0) / reviews.length).toFixed(1)
             : '—'
@@ -50,7 +42,7 @@ async function loadSavedCourses() {
   }
 }
 
-function handleRemove(courseId, courseName) {
+async function handleRemove(courseId, courseName) {
   ElMessageBox.confirm(
     `Remove "${courseName}" from your saved list?`,
     'Remove course',
@@ -60,14 +52,12 @@ function handleRemove(courseId, courseName) {
       type: 'warning',
     }
   )
-    .then(() => {
-      savedStore.removeSaved(courseId)
+    .then(async () => {
+      await savedStore.removeSaved(courseId)
       savedCourses.value = savedCourses.value.filter((c) => c.id !== Number(courseId))
       ElMessage.success('Course removed from saved list')
     })
-    .catch(() => {
-      // user cancelled
-    })
+    .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to remove course') })
 }
 
 function handleClearAll() {
@@ -81,14 +71,12 @@ function handleClearAll() {
       type: 'warning',
     }
   )
-    .then(() => {
-      savedStore.clearAll()
+    .then(async () => {
+      await savedStore.clearAll()
       savedCourses.value = []
       ElMessage.success('All saved courses removed')
     })
-    .catch(() => {
-      // user cancelled
-    })
+    .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to clear saved courses') })
 }
 
 function goToDetail(courseId) {

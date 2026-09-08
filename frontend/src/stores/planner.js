@@ -1,106 +1,73 @@
-/** @file Owns reactive planner state and its persistence or API synchronization rules. */
-/**
- * Semester planner state management.
- */
+/** @file Owns account-scoped semester plans synchronized with the backend. */
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { addPlanCourse, createPlan, deletePlan, getPlans, removePlanCourse } from '../api/plans'
 
-const PLANNER_KEY = 'course_compass_planner'
-
-const defaultSemesters = [
-  { id: 1, name: 'Semester 1', courses: [] },
-  { id: 2, name: 'Semester 2', courses: [] },
-]
-
-function loadPlanner() {
-  try {
-    const raw = localStorage.getItem(PLANNER_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    // Corrupt browser state should fall back to a usable empty plan.
-  }
-  return defaultSemesters
-}
+const normalizePlan = (plan) => ({
+  ...plan,
+  courses: (plan.planCourses || []).map((item) => item.course),
+})
 
 export const usePlannerStore = defineStore('planner', () => {
-  const semesters = ref(loadPlanner())
+  const semesters = ref([])
+  const loading = ref(false)
+  const loaded = ref(false)
+  const totalCredits = computed(() => semesters.value.reduce(
+    (total, semester) => total + semester.courses.reduce((sum, course) => sum + (course.credits || 0), 0), 0,
+  ))
 
-  const totalCredits = computed(() => {
-    return semesters.value.reduce((total, sem) => {
-      return total + sem.courses.reduce((sum, c) => sum + (c.credits || 0), 0)
-    }, 0)
-  })
+  const getSemesterCourses = (semesterId) => semesters.value.find((item) => item.id === Number(semesterId))?.courses || []
+  const isInPlanner = (courseId) => semesters.value.some(
+    (semester) => semester.courses.some((course) => course.id === Number(courseId)),
+  )
 
-  function getSemesterCourses(semesterId) {
-    const sem = semesters.value.find((s) => s.id === semesterId)
-    return sem ? sem.courses : []
+  async function loadPlans({ force = false } = {}) {
+    if (loaded.value && !force) return semesters.value
+    loading.value = true
+    try {
+      semesters.value = (await getPlans()).map(normalizePlan)
+      loaded.value = true
+      return semesters.value
+    } finally {
+      loading.value = false
+    }
   }
 
-  function isInPlanner(courseId) {
-    return semesters.value.some((sem) =>
-      sem.courses.some((c) => c.id === Number(courseId))
-    )
+  async function addCourse(semesterId, course) {
+    if (isInPlanner(course.id)) return { added: false, warnings: [] }
+    const semester = semesters.value.find((item) => item.id === Number(semesterId))
+    if (!semester) return { added: false, warnings: [] }
+    const result = await addPlanCourse(semester.id, course.id)
+    semester.courses.push(result.course || course)
+    return { added: true, warnings: result.warnings }
   }
 
-  function addCourse(semesterId, course) {
-    const sem = semesters.value.find((s) => s.id === semesterId)
-    if (!sem) return false
-    if (sem.courses.some((c) => c.id === course.id)) return false
-    // A course may appear only once across the complete multi-semester plan.
-    if (isInPlanner(course.id)) return false
-    sem.courses.push({ ...course })
-    persist()
-    return true
+  async function removeCourse(semesterId, courseId) {
+    await removePlanCourse(semesterId, courseId)
+    const semester = semesters.value.find((item) => item.id === Number(semesterId))
+    if (semester) semester.courses = semester.courses.filter((course) => course.id !== Number(courseId))
   }
 
-  function removeCourse(semesterId, courseId) {
-    const sem = semesters.value.find((s) => s.id === semesterId)
-    if (!sem) return
-    sem.courses = sem.courses.filter((c) => c.id !== Number(courseId))
-    persist()
+  async function addSemester(payload) {
+    const plan = await createPlan(payload)
+    semesters.value.push(normalizePlan(plan))
+    return plan
   }
 
-  function moveCourse(courseId, fromSemesterId, toSemesterId) {
-    const fromSem = semesters.value.find((s) => s.id === fromSemesterId)
-    const toSem = semesters.value.find((s) => s.id === toSemesterId)
-    if (!fromSem || !toSem) return
-    const courseIndex = fromSem.courses.findIndex((c) => c.id === Number(courseId))
-    if (courseIndex === -1) return
-    const [course] = fromSem.courses.splice(courseIndex, 1)
-    toSem.courses.push(course)
-    persist()
+  async function removeSemester(semesterId) {
+    await deletePlan(semesterId)
+    semesters.value = semesters.value.filter((item) => item.id !== Number(semesterId))
   }
 
-  function addSemester(name) {
-    const newId = Math.max(...semesters.value.map((s) => s.id), 0) + 1
-    semesters.value.push({ id: newId, name: name || `Semester ${newId}`, courses: [] })
-    persist()
+  async function clearAll() {
+    await Promise.all(semesters.value.map((semester) => deletePlan(semester.id)))
+    semesters.value = []
   }
 
-  function removeSemester(semesterId) {
-    semesters.value = semesters.value.filter((s) => s.id !== semesterId)
-    persist()
+  function reset() {
+    semesters.value = []
+    loaded.value = false
   }
 
-  function clearAll() {
-    semesters.value = defaultSemesters.map((s) => ({ ...s, courses: [] }))
-    persist()
-  }
-
-  function persist() {
-    localStorage.setItem(PLANNER_KEY, JSON.stringify(semesters.value))
-  }
-
-  return {
-    semesters,
-    totalCredits,
-    getSemesterCourses,
-    isInPlanner,
-    addCourse,
-    removeCourse,
-    moveCourse,
-    addSemester,
-    removeSemester,
-    clearAll,
-  }
+  return { semesters, loading, loaded, totalCredits, getSemesterCourses, isInPlanner, loadPlans, addCourse, removeCourse, addSemester, removeSemester, clearAll, reset }
 })

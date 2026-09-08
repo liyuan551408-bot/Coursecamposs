@@ -44,7 +44,7 @@ async function handleLogin() {
     const redirect = route.query.redirect || '/dashboard'
     router.push(typeof redirect === 'string' ? redirect : '/dashboard')
   } catch (err) {
-    ElMessage.error(err.message || 'Sign-in failed. Check your email and password.')
+    ElMessage.error(err.response?.data?.message || err.message || 'Sign-in failed. Check your email and password.')
   } finally {
     loading.value = false
   }
@@ -77,6 +77,8 @@ async function handleLogin() {
             @keyup.enter="handleLogin"
           />
         </el-form-item>
+
+        <div class="forgot-link"><router-link to="/forgot-password">Forgot password?</router-link></div>
 
         <el-button type="primary" class="login-btn" :loading="loading" @click="handleLogin">
           Log in
@@ -123,6 +125,8 @@ async function handleLogin() {
   width: 100%;
   margin-top: 8px;
 }
+.forgot-link { margin-top: -10px; margin-bottom: 12px; text-align: right; font-size: 13px; }
+.forgot-link a { color: var(--accent); text-decoration: none; }
 
 .footer-link {
   margin-top: 16px;
