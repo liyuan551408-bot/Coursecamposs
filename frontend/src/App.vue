@@ -28,6 +28,7 @@ function handleLogout() {
         <router-link to="/compare">Compare</router-link>
         <!-- Add AI recommendations to the top navigation -->
         <router-link to="/ai-recommend">AI Recommendations</router-link>
+        <router-link v-if="authStore.isAdmin || authStore.isModerator" to="/moderation">Moderation</router-link>
         <router-link v-if="authStore.isAdmin" to="/admin">Admin</router-link>
       </nav>
 

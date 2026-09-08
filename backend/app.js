@@ -1,6 +1,10 @@
 /** @file Bootstraps the Express API, installs shared middleware, mounts routes, and starts the server. */
 
-require('dotenv').config();
+// Prefer the project's local .env during development so stale variables inherited
+// from the terminal or IDE cannot silently override the configured credentials.
+require('dotenv').config({
+    override: process.env.NODE_ENV !== 'production'
+});
 
 const express = require('express');
 const cors = require('cors');
