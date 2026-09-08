@@ -13,6 +13,9 @@ router.get('/course/:courseId', reviewController.getCourseReviews);
 // Public: rating summary for a course
 router.get('/course/:courseId/summary', reviewController.getCourseRatingSummary);
 
+// Student: own review for a course, including non-public moderation states
+router.get('/mine/course/:courseId', verifyToken, reviewController.getMyCourseReview);
+
 // Student: submit a review
 router.post('/', verifyToken, reviewController.addReview);
 
@@ -24,6 +27,7 @@ router.get('/pending', ...moderatorOrAdmin, reviewController.getPendingReviews);
 
 // Moderator/Admin: pending report queue
 router.get('/reports/pending', ...moderatorOrAdmin, reviewController.getPendingReports);
+router.patch('/reports/:id/status', ...moderatorOrAdmin, reviewController.updateReportStatus);
 
 // Student: report a review
 router.post('/:id/report', verifyToken, reviewController.reportReview);

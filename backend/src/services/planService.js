@@ -32,8 +32,37 @@ const getUserPlans = async (userId) => {
     });
 };
 
+const requireOwnedPlan = async (userId, planId) => {
+    const plan = await prisma.semesterPlan.findUnique({ where: { id: Number(planId) } });
+    if (!plan) {
+        const error = new Error('Plan not found');
+        error.statusCode = 404;
+        throw error;
+    }
+    if (plan.userId !== Number(userId)) {
+        const error = new Error('You do not have access to this plan');
+        error.statusCode = 403;
+        throw error;
+    }
+    return plan;
+};
+
 // Add a course to a plan and report unmet prerequisites.
 const addCourseToPlan = async (userId, planId, courseId) => {
+    await requireOwnedPlan(userId, planId);
+    const savedCourse = await prisma.savedCourse.findUnique({
+        where: {
+            userId_courseId: {
+                userId: Number(userId),
+                courseId: Number(courseId)
+            }
+        }
+    });
+    if (!savedCourse) {
+        const error = new Error('Save this course before adding it to a plan');
+        error.statusCode = 400;
+        throw error;
+    }
     // Load prerequisite ids before changing the plan.
     const course = await prisma.course.findUnique({
         where: { id: Number(courseId) },
@@ -88,7 +117,8 @@ const addCourseToPlan = async (userId, planId, courseId) => {
 };
 
 // Remove one course from a plan owned by the user.
-const removeCourseFromPlan = async (planId, courseId) => {
+const removeCourseFromPlan = async (userId, planId, courseId) => {
+    await requireOwnedPlan(userId, planId);
     return prisma.planCourse.delete({
         where: {
             planId_courseId: {
@@ -99,9 +129,15 @@ const removeCourseFromPlan = async (planId, courseId) => {
     });
 };
 
+const deletePlan = async (userId, planId) => {
+    await requireOwnedPlan(userId, planId);
+    return prisma.semesterPlan.delete({ where: { id: Number(planId) } });
+};
+
 module.exports = {
     createPlan,
     getUserPlans,
     addCourseToPlan,
-    removeCourseFromPlan
+    removeCourseFromPlan,
+    deletePlan
 };

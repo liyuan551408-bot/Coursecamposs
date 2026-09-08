@@ -1,64 +1,58 @@
-/** @file Owns reactive saved state and its persistence or API synchronization rules. */
-/**
- * Saved-course state management.
- */
+/** @file Owns account-scoped saved courses synchronized with the backend. */
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-
-const SAVED_KEY = 'course_compass_saved'
-
-function loadSaved() {
-  try {
-    const raw = localStorage.getItem(SAVED_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    // Treat malformed or inaccessible browser storage as an empty collection.
-    return []
-  }
-}
+import { getSavedCourses, removeSavedCourse, saveCourse } from '../api/savedCourses'
 
 export const useSavedStore = defineStore('saved', () => {
-  const savedIds = ref(loadSaved())
+  const records = ref([])
+  const loading = ref(false)
+  const loaded = ref(false)
+  const courses = computed(() => records.value.map((record) => record.course))
+  const savedIds = computed(() => courses.value.map((course) => Number(course.id)))
+  const savedCount = computed(() => records.value.length)
 
-  const savedCount = computed(() => savedIds.value.length)
+  const isSaved = (courseId) => savedIds.value.includes(Number(courseId))
 
-  function isSaved(courseId) {
-    return savedIds.value.includes(Number(courseId))
-  }
-
-  function toggleSave(courseId) {
-    // Normalize route and API string ids so membership checks remain stable.
-    const id = Number(courseId)
-    const index = savedIds.value.indexOf(id)
-    if (index > -1) {
-      savedIds.value.splice(index, 1)
-    } else {
-      savedIds.value.push(id)
+  async function loadSaved({ force = false } = {}) {
+    if (loaded.value && !force) return records.value
+    loading.value = true
+    try {
+      records.value = await getSavedCourses()
+      loaded.value = true
+      return records.value
+    } finally {
+      loading.value = false
     }
-    persist()
   }
 
-  function removeSaved(courseId) {
+  async function toggleSave(courseId) {
     const id = Number(courseId)
-    savedIds.value = savedIds.value.filter((item) => item !== id)
-    persist()
+    if (isSaved(id)) {
+      await removeSavedCourse(id)
+      records.value = records.value.filter((record) => Number(record.courseId) !== id)
+      return false
+    }
+    const record = await saveCourse(id)
+    records.value.unshift(record)
+    loaded.value = true
+    return true
   }
 
-  function clearAll() {
-    savedIds.value = []
-    persist()
+  async function removeSaved(courseId) {
+    const id = Number(courseId)
+    await removeSavedCourse(id)
+    records.value = records.value.filter((record) => Number(record.courseId) !== id)
   }
 
-  function persist() {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(savedIds.value))
+  async function clearAll() {
+    await Promise.all(savedIds.value.map((id) => removeSavedCourse(id)))
+    records.value = []
   }
 
-  return {
-    savedIds,
-    savedCount,
-    isSaved,
-    toggleSave,
-    removeSaved,
-    clearAll,
+  function reset() {
+    records.value = []
+    loaded.value = false
   }
+
+  return { records, courses, savedIds, savedCount, loading, loaded, isSaved, loadSaved, toggleSave, removeSaved, clearAll, reset }
 })

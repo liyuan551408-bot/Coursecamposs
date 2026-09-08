@@ -6,12 +6,18 @@
 */
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { useSavedStore } from './stores/saved'
+import { usePlannerStore } from './stores/planner'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const savedStore = useSavedStore()
+const plannerStore = usePlannerStore()
 
 function handleLogout() {
   authStore.logout()
+  savedStore.reset()
+  plannerStore.reset()
   router.push('/login')
 }
 </script>
@@ -22,6 +28,7 @@ function handleLogout() {
       <router-link to="/" class="logo"><span class="logo-mark">C</span>CourseCompass</router-link>
 
       <nav class="nav-links">
+        <router-link v-if="authStore.isLoggedIn" to="/dashboard">Dashboard</router-link>
         <router-link to="/courses">Courses</router-link>
         <router-link to="/saved">Saved</router-link>
         <router-link to="/planner">Planner</router-link>

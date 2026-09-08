@@ -9,6 +9,7 @@ const { requireRole } = require('../middlewares/roleMiddleware');
 
 // GET /api/courses: return all courses.
 router.get('/', courseController.getCourses);
+router.get('/admin/all', verifyToken, requireRole('ADMIN'), courseController.getAdminCourses);
 
 // POST /api/courses: create a course.
 router.post('/', verifyToken, requireRole('ADMIN'), courseController.createCourse);

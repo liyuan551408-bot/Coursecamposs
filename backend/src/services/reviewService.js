@@ -168,6 +168,15 @@ const getApprovedReviewsByCourse = async (courseId) => {
     });
 };
 
+const getUserReviewForCourse = async (userId, courseId) => {
+    validatePositiveInteger('userId', Number(userId));
+    validatePositiveInteger('courseId', Number(courseId));
+    return prisma.review.findUnique({
+        where: { userId_courseId: { userId: Number(userId), courseId: Number(courseId) } },
+        select: reviewSelect
+    });
+};
+
 const getPendingReviews = async () => {
     return prisma.review.findMany({
         where: { status: 'PENDING' },
@@ -213,6 +222,9 @@ const reportReview = async (reviewId, reporterId, reason) => {
         error.statusCode = 404;
         throw error;
     }
+    if (review.userId === reporterId) {
+        throw new TypeError('You cannot report your own review');
+    }
 
     // The database uniqueness constraint prevents one user from repeatedly reporting a review.
     return prisma.reviewReport.create({
@@ -230,6 +242,24 @@ const getPendingReports = async () => {
         where: { status: 'PENDING' },
         select: reportSelect,
         orderBy: { createdAt: 'asc' }
+    });
+};
+
+const updateReportStatus = async (reportId, newStatus) => {
+    const validStatuses = new Set(['RESOLVED', 'DISMISSED']);
+    if (!validStatuses.has(newStatus)) {
+        throw new TypeError('Report status must be RESOLVED or DISMISSED');
+    }
+    const existing = await prisma.reviewReport.findUnique({ where: { id: Number(reportId) } });
+    if (!existing) {
+        const error = new Error('Report not found');
+        error.statusCode = 404;
+        throw error;
+    }
+    return prisma.reviewReport.update({
+        where: { id: Number(reportId) },
+        data: { status: newStatus },
+        select: reportSelect
     });
 };
 
@@ -280,9 +310,11 @@ module.exports = {
     createReview,
     updateReview,
     getApprovedReviewsByCourse,
+    getUserReviewForCourse,
     getPendingReviews,
     updateReviewStatus,
     reportReview,
     getPendingReports,
+    updateReportStatus,
     getCourseRatingSummary
 };

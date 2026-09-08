@@ -99,6 +99,15 @@ const getCourseReviews = async (req, res) => {
     }
 };
 
+const getMyCourseReview = async (req, res) => {
+    try {
+        const review = await reviewService.getUserReviewForCourse(req.user.id, req.params.courseId);
+        return res.status(200).json({ success: true, data: review });
+    } catch (error) {
+        return handleReviewError(res, error, { label: 'Get Own Review', duplicateMessage: '' });
+    }
+};
+
 const getCourseRatingSummary = async (req, res) => {
     try {
         const summary = await reviewService.getCourseRatingSummary(req.params.courseId);
@@ -172,13 +181,24 @@ const getPendingReports = async (req, res) => {
     }
 };
 
+const updateReportStatus = async (req, res) => {
+    try {
+        const report = await reviewService.updateReportStatus(req.params.id, req.body.status);
+        return res.status(200).json({ success: true, data: report });
+    } catch (error) {
+        return handleReviewError(res, error, { label: 'Update Report', duplicateMessage: '' });
+    }
+};
+
 module.exports = {
     addReview,
     updateReview,
     getCourseReviews,
+    getMyCourseReview,
     getCourseRatingSummary,
     getPendingReviews,
     moderateReview,
     reportReview,
-    getPendingReports
+    getPendingReports,
+    updateReportStatus
 };
