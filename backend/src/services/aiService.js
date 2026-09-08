@@ -55,9 +55,12 @@ const generateEmbedding = async (text) => {
     }
 
     if (!response.ok) {
-      throw new Error(
+      const error = new Error(
         `SiliconFlow embedding request failed (${response.status}): ${JSON.stringify(data)}`
       );
+      error.statusCode = response.status;
+      error.providerCode = data?.code;
+      throw error;
     }
 
     const vector = data?.data?.[0]?.embedding;
@@ -74,7 +77,7 @@ const generateEmbedding = async (text) => {
       );
     }
 
-    console.log(`[Embedding] Generated ${vector.length}-dimensional vector`);
+    console.log(`[Embedding] Generated ${vector.length}-dimensional vector with ${data.model || SILICONFLOW_EMBEDDING_MODEL}`);
 
     return vector;
     } catch (error) {

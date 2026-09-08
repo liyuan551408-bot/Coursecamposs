@@ -11,6 +11,11 @@ export async function submitReview(payload) {
   return response.data
 }
 
+export async function getPendingReviews() {
+  const response = await request.get('/reviews/pending')
+  return response.data || []
+}
+
 export async function moderateReview(id, status) {
   const response = await request.patch(`/reviews/${id}/status`, { status })
   return response.data

@@ -37,7 +37,31 @@ const refreshCourseEmbedding = async (course) => {
     );
 };
 
+/** Execute one course embedding job without allowing provider failures to escape. */
+const runCourseEmbeddingJob = async (course, refresh = refreshCourseEmbedding) => {
+    try {
+        await refresh(course);
+        console.log(`[Embedding job] Stored vector for ${course.code}`);
+        return true;
+    } catch (error) {
+        console.error(`[Embedding job] Failed for ${course.code}:`, error.message);
+        return false;
+    }
+};
+
+/** Schedule one non-blocking embedding job after a course has been persisted. */
+const enqueueCourseEmbedding = (
+    course,
+    { schedule = setImmediate, runJob = runCourseEmbeddingJob } = {}
+) => {
+    schedule(() => Promise.resolve(runJob(course)).catch((error) => {
+        console.error(`[Embedding job] Unexpected failure for ${course.code}:`, error.message);
+    }));
+};
+
 module.exports = {
     buildCourseEmbeddingText,
-    refreshCourseEmbedding
+    refreshCourseEmbedding,
+    runCourseEmbeddingJob,
+    enqueueCourseEmbedding
 };
