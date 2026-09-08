@@ -31,8 +31,8 @@ const form = reactive({
   email: '',
   password: '',
   confirmPassword: '',
-  programme: '',
-  year: '',
+  major: '',
+  studyYear: null,
 })
 
 const rules = {
@@ -70,7 +70,7 @@ async function handleRegister() {
     ElMessage.success('Account created and signed in successfully')
     router.push('/dashboard')
   } catch (err) {
-    ElMessage.error(err.message || 'Account creation failed')
+    ElMessage.error(err.response?.data?.message || err.message || 'Account creation failed')
   } finally {
     loading.value = false
   }
@@ -118,18 +118,18 @@ async function handleRegister() {
           />
         </el-form-item>
 
-        <el-form-item label="Major (optional)" prop="programme">
-          <el-select v-model="form.programme" filterable clearable placeholder="Select your major" style="width: 100%">
+        <el-form-item label="Major (optional)" prop="major">
+          <el-select v-model="form.major" filterable clearable placeholder="Select your major" style="width: 100%">
             <el-option v-for="major in majors" :key="major" :label="major" :value="major" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="Year of study (optional)" prop="year">
-          <el-select v-model="form.year" placeholder="Select year" clearable style="width: 100%">
-            <el-option label="Year 1" value="1" />
-            <el-option label="Year 2" value="2" />
-            <el-option label="Year 3" value="3" />
-            <el-option label="Year 4+" value="4" />
+        <el-form-item label="Year of study (optional)" prop="studyYear">
+          <el-select v-model="form.studyYear" placeholder="Select year" clearable style="width: 100%">
+            <el-option label="Year 1" :value="1" />
+            <el-option label="Year 2" :value="2" />
+            <el-option label="Year 3" :value="3" />
+            <el-option label="Year 4+" :value="4" />
           </el-select>
         </el-form-item>
 

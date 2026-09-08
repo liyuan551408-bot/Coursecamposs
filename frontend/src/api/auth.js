@@ -19,3 +19,11 @@ export function getMeApi() {
   return request.get('/users/me')
 }
 
+export function forgotPasswordApi(email) {
+  return request.post('/auth/forgot-password', { email })
+}
+
+export function resetPasswordApi(payload) {
+  return request.post('/auth/reset-password', payload)
+}
+

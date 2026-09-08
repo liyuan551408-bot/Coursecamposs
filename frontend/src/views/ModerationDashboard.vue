@@ -2,14 +2,15 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPendingReviews, moderateReview } from '../api/reviews'
+import { getPendingReports, getPendingReviews, moderateReview, updateReportStatus } from '../api/reviews'
 
 const reviews = ref([])
+const reports = ref([])
 const loading = ref(false)
 const activeDecision = ref(null)
 const error = ref('')
 
-const queueLabel = computed(() => `${reviews.value.length} pending`)
+const queueLabel = computed(() => `${reviews.value.length + reports.value.length} pending`)
 
 const ratingFields = [
   ['Overall', 'overallRating'],
@@ -31,15 +32,29 @@ function formatAssessmentStyle(value) {
   return value ? value.toLowerCase().replaceAll('_', ' ') : 'Not specified'
 }
 
-async function loadPendingReviews() {
+async function loadQueues() {
   loading.value = true
   error.value = ''
   try {
-    reviews.value = await getPendingReviews()
+    ;[reviews.value, reports.value] = await Promise.all([getPendingReviews(), getPendingReports()])
   } catch (err) {
     error.value = err.response?.data?.message || 'Unable to load the moderation queue.'
   } finally {
     loading.value = false
+  }
+}
+
+async function decideReport(report, status, hideReview = false) {
+  activeDecision.value = `report:${report.id}:${status}`
+  try {
+    if (hideReview) await moderateReview(report.reviewId, 'HIDDEN')
+    await updateReportStatus(report.id, status)
+    reports.value = reports.value.filter((item) => item.id !== report.id)
+    ElMessage.success(hideReview ? 'Review hidden and report resolved.' : `Report ${status.toLowerCase()}.`)
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Unable to process this report.')
+  } finally {
+    activeDecision.value = null
   }
 }
 
@@ -68,7 +83,7 @@ async function decide(review, status) {
   }
 }
 
-onMounted(loadPendingReviews)
+onMounted(loadQueues)
 </script>
 
 <template>
@@ -77,7 +92,7 @@ onMounted(loadPendingReviews)
       <div>
         <p class="eyebrow">REVIEW DESK · QUALITY CONTROL</p>
         <h1>Publication queue</h1>
-        <p class="lede">Check student evidence, ratings and context before a review appears publicly.</p>
+        <p class="lede">Check submissions before publication and investigate reports from students.</p>
       </div>
       <div class="queue-stamp" aria-live="polite">
         <span>QUEUE</span>
@@ -86,8 +101,8 @@ onMounted(loadPendingReviews)
     </header>
 
     <div class="toolbar">
-      <p>Oldest submissions are shown first.</p>
-      <el-button :loading="loading" @click="loadPendingReviews">Refresh queue</el-button>
+      <p>Oldest submissions and reports are shown first.</p>
+      <el-button :loading="loading" @click="loadQueues">Refresh queue</el-button>
     </div>
 
     <el-alert
@@ -157,6 +172,24 @@ onMounted(loadPendingReviews)
         <h2>Queue cleared</h2>
         <p>There are no student reviews waiting for publication.</p>
       </div>
+    </div>
+
+    <div class="report-section">
+      <div class="section-heading"><div><p class="eyebrow">COMMUNITY REPORTS</p><h2>Reported reviews</h2></div><el-tag type="warning">{{ reports.length }} pending</el-tag></div>
+      <article v-for="report in reports" :key="report.id" class="report-card">
+        <div>
+          <span class="course-code">{{ report.review.course.code }}</span>
+          <h3>{{ report.review.course.name }}</h3>
+          <p class="reported-copy">{{ report.review.comment || 'This review has no written comment.' }}</p>
+          <p class="report-reason"><strong>Report from {{ report.reporter.name }}:</strong> {{ report.reason }}</p>
+        </div>
+        <div class="decision-actions">
+          <el-button :loading="activeDecision === `report:${report.id}:DISMISSED`" @click="decideReport(report, 'DISMISSED')">Dismiss</el-button>
+          <el-button type="success" plain :loading="activeDecision === `report:${report.id}:RESOLVED`" @click="decideReport(report, 'RESOLVED')">Keep review</el-button>
+          <el-button type="danger" :loading="activeDecision === `report:${report.id}:RESOLVED`" @click="decideReport(report, 'RESOLVED', true)">Hide review</el-button>
+        </div>
+      </article>
+      <el-empty v-if="!loading && reports.length === 0" description="No pending review reports" :image-size="70" />
     </div>
   </section>
 </template>
@@ -402,6 +435,14 @@ onMounted(loadPendingReviews)
   gap: 9px;
 }
 
+.report-section { margin-top: 34px; padding-top: 28px; border-top: 1px solid var(--moderation-line); }
+.section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
+.section-heading h2 { margin:5px 0 0; }
+.report-card { display:grid; grid-template-columns:1fr auto; gap:24px; align-items:center; margin-bottom:12px; padding:20px 22px; border:1px solid var(--moderation-line); border-radius:16px; background:var(--moderation-surface); }
+.report-card h3 { margin:4px 0 10px; color:var(--moderation-ink); }
+.reported-copy { color:var(--text-h); line-height:1.6; }
+.report-reason { margin-top:12px; padding:11px 13px; border-radius:10px; background:var(--moderation-soft); line-height:1.55; }
+
 .empty-queue {
   padding: 62px 20px;
   border: 1px dashed var(--accent-border);
@@ -459,6 +500,7 @@ onMounted(loadPendingReviews)
   .sheet-footer { align-items: stretch; flex-direction: column; }
   .decision-actions { width: 100%; }
   .decision-actions :deep(.el-button) { flex: 1; }
+  .report-card { grid-template-columns:1fr; }
 }
 
 @media (max-width: 420px) {

@@ -13,6 +13,16 @@ const getCourses = async (req, res) => {
     }
 };
 
+const getAdminCourses = async (_req, res) => {
+    try {
+        const courses = await courseService.getAllCoursesForAdmin();
+        return res.status(200).json({ success: true, data: courses });
+    } catch (error) {
+        console.error('Admin course list query failed:', error);
+        return res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
 // Handle course creation.
 const createCourse = async (req, res) => {
     try {
@@ -116,6 +126,9 @@ const searchCourses = async (req, res) => {
             data: courses
         });
     } catch (error) {
+        if (error instanceof TypeError) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         console.error('Advanced search failed:', error);
         res.status(500).json({ success: false, message: 'Server Error during search' });
     }
@@ -124,9 +137,21 @@ const searchCourses = async (req, res) => {
 // Handle course updates and refresh the course embedding.
 const updateCourse = async (req, res) => {
     try {
+        if (!/^\d+$/.test(req.params.id)) {
+            return res.status(400).json({ success: false, message: 'A valid course id is required' });
+        }
         const updatedCourse = await courseService.updateCourse(req.params.id, req.body);
         res.status(200).json({ success: true, data: updatedCourse });
     } catch (error) {
+        if (error instanceof TypeError || error.code === 'PREREQUISITE_NOT_FOUND') {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        if (error.code === 'P2002') {
+            return res.status(409).json({ success: false, message: 'A course with this code already exists' });
+        }
+        if (error.code === 'P2025') {
+            return res.status(404).json({ success: false, message: 'Course not found' });
+        }
         console.error('Course update failed:', error);
         res.status(500).json({ success: false, message: 'Server Error during course update' });
     }
@@ -134,6 +159,7 @@ const updateCourse = async (req, res) => {
 
 module.exports = {
     getCourses,
+    getAdminCourses,
     createCourse,
     updateCourse,
     getCourseById,

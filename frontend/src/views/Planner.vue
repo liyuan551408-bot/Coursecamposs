@@ -3,20 +3,24 @@
 /**
  * Semester planner page.
  */
-import { ref, computed, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getCourses, getCourse } from '../api/courses'
 import { usePlannerStore } from '../stores/planner'
+import { useSavedStore } from '../stores/saved'
 
 const router = useRouter()
 const plannerStore = usePlannerStore()
+const savedStore = useSavedStore()
 
 const loading = ref(false)
-const allCourses = ref([])
+const allCourses = computed(() => savedStore.courses)
 const addDialogVisible = ref(false)
+const planDialogVisible = ref(false)
+const savingPlan = ref(false)
 const selectedSemesterId = ref(null)
 const searchQuery = ref('')
+const planForm = reactive({ name: '', year: new Date().getFullYear(), semester: 'SEMESTER_1' })
 
 const filteredCourses = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase()
@@ -41,18 +45,29 @@ const semesterStats = computed(() => {
 async function loadCourses() {
   loading.value = true
   try {
-    allCourses.value = await getCourses()
+    await Promise.all([
+      savedStore.loadSaved({ force: true }),
+      plannerStore.loadPlans({ force: true }),
+    ])
   } catch (err) {
-    ElMessage.error('Failed to load courses')
+    ElMessage.error(err.response?.data?.message || 'Failed to load saved courses and plans')
   } finally {
     loading.value = false
   }
 }
 
-function openAddDialog(semesterId) {
+async function openAddDialog(semesterId) {
   selectedSemesterId.value = semesterId
   searchQuery.value = ''
-  addDialogVisible.value = true
+  loading.value = true
+  try {
+    await savedStore.loadSaved({ force: true })
+    addDialogVisible.value = true
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Unable to load your saved courses')
+  } finally {
+    loading.value = false
+  }
 }
 
 function isCourseInPlanner(courseId) {
@@ -65,40 +80,14 @@ async function addCourseToSemester(course) {
     return
   }
 
-  // Warn about missing prerequisites without blocking exploratory planning.
   try {
-    const courseDetail = await getCourse(course.id)
-    if (courseDetail.prerequisites?.length) {
-      const unmetPrereqs = courseDetail.prerequisites.filter(
-        (pre) => !isCourseInPlanner(pre.id)
-      )
-      if (unmetPrereqs.length) {
-        const prereqNames = unmetPrereqs.map((p) => p.code).join(', ')
-        try {
-          await ElMessageBox.confirm(
-            `This course has unmet prerequisites: ${prereqNames}. Add anyway?`,
-            'Prerequisite warning',
-            {
-              confirmButtonText: 'Add anyway',
-              cancelButtonText: 'Cancel',
-              type: 'warning',
-            }
-          )
-        } catch {
-          return
-        }
-      }
-    }
-  } catch {
-    // ignore detail load error, proceed with basic info
-  }
-
-  const success = plannerStore.addCourse(selectedSemesterId.value, course)
-  if (success) {
+    const result = await plannerStore.addCourse(selectedSemesterId.value, course)
+    if (!result.added) return ElMessage.warning('This course is already in your plan')
     ElMessage.success(`${course.code} added to ${getSemesterName(selectedSemesterId.value)}`)
+    if (result.warnings.length) ElMessage.warning(result.warnings.join(' '))
     addDialogVisible.value = false
-  } else {
-    ElMessage.error('Failed to add course')
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Failed to add course')
   }
 }
 
@@ -117,19 +106,30 @@ function removeCourse(semesterId, courseId, courseName) {
       type: 'warning',
     }
   )
-    .then(() => {
-      plannerStore.removeCourse(semesterId, courseId)
+    .then(async () => {
+      await plannerStore.removeCourse(semesterId, courseId)
       ElMessage.success('Course removed')
     })
-    .catch(() => {
-      // user cancelled
-    })
+    .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to remove course') })
 }
 
 function addSemester() {
-  const nextNum = plannerStore.semesters.length + 1
-  plannerStore.addSemester(`Semester ${nextNum}`)
-  ElMessage.success(`Semester ${nextNum} added`)
+  Object.assign(planForm, { name: `Plan ${plannerStore.semesters.length + 1}`, year: new Date().getFullYear(), semester: 'SEMESTER_1' })
+  planDialogVisible.value = true
+}
+
+async function createSemester() {
+  if (!planForm.name.trim()) return ElMessage.warning('Enter a plan name')
+  savingPlan.value = true
+  try {
+    await plannerStore.addSemester({ ...planForm, name: planForm.name.trim() })
+    planDialogVisible.value = false
+    ElMessage.success('Semester plan created')
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Unable to create plan')
+  } finally {
+    savingPlan.value = false
+  }
 }
 
 function removeSemester(semesterId, semesterName) {
@@ -144,14 +144,13 @@ function removeSemester(semesterId, semesterName) {
         type: 'warning',
       }
     )
-      .then(() => {
-        plannerStore.removeSemester(semesterId)
+      .then(async () => {
+        await plannerStore.removeSemester(semesterId)
         ElMessage.success('Semester removed')
       })
-      .catch(() => {})
+      .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to remove plan') })
   } else {
-    plannerStore.removeSemester(semesterId)
-    ElMessage.success('Semester removed')
+    plannerStore.removeSemester(semesterId).then(() => ElMessage.success('Semester removed')).catch((error) => ElMessage.error(error.response?.data?.message || 'Unable to remove plan'))
   }
 }
 
@@ -165,11 +164,11 @@ function clearPlan() {
       type: 'warning',
     }
   )
-    .then(() => {
-      plannerStore.clearAll()
+    .then(async () => {
+      await plannerStore.clearAll()
       ElMessage.success('Plan cleared')
     })
-    .catch(() => {})
+    .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to clear plans') })
 }
 
 function goToCourseDetail(courseId) {
@@ -221,10 +220,9 @@ onMounted(loadCourses)
         <div class="semester-header">
           <div class="semester-title">
             <h2>{{ sem.name }}</h2>
-            <span class="semester-stats">{{ sem.credits }} credits · {{ sem.workload }} hours</span>
+            <span class="semester-stats">{{ sem.year }} · {{ sem.semester.replaceAll('_', ' ') }} · {{ sem.credits }} credits · {{ sem.workload }} hours</span>
           </div>
           <el-button
-            v-if="plannerStore.semesters.length > 1"
             link
             type="danger"
             size="small"
@@ -319,8 +317,24 @@ onMounted(loadCourses)
           </el-button>
           <el-tag v-else type="info" size="small">In plan</el-tag>
         </div>
-        <el-empty v-if="!loading && !filteredCourses.length" description="No matching courses" />
+        <el-empty
+          v-if="!loading && !filteredCourses.length"
+          :description="allCourses.length ? 'No matching saved courses' : 'Save a course before adding it to a plan'"
+        >
+          <el-button v-if="!allCourses.length" type="primary" @click="addDialogVisible = false; router.push('/courses')">Browse and save courses</el-button>
+        </el-empty>
       </div>
+    </el-dialog>
+
+    <el-dialog v-model="planDialogVisible" title="Create semester plan" width="min(480px, 94vw)">
+      <el-form label-position="top">
+        <el-form-item label="Plan name"><el-input v-model="planForm.name" placeholder="e.g. Computer Science pathway" /></el-form-item>
+        <div class="plan-form-row">
+          <el-form-item label="Year"><el-input-number v-model="planForm.year" :min="2000" :max="2200" /></el-form-item>
+          <el-form-item label="Teaching period"><el-select v-model="planForm.semester"><el-option label="Semester 1" value="SEMESTER_1" /><el-option label="Semester 2" value="SEMESTER_2" /><el-option label="Summer" value="SUMMER" /></el-select></el-form-item>
+        </div>
+      </el-form>
+      <template #footer><el-button @click="planDialogVisible = false">Cancel</el-button><el-button type="primary" :loading="savingPlan" @click="createSemester">Create plan</el-button></template>
     </el-dialog>
   </section>
 </template>
@@ -512,6 +526,9 @@ onMounted(loadCourses)
 .dialog-search {
   margin-bottom: 16px;
 }
+
+.plan-form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.plan-form-row :deep(.el-input-number), .plan-form-row :deep(.el-select) { width:100%; }
 
 .course-picker {
   max-height: 400px;

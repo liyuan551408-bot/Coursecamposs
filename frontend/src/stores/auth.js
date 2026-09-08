@@ -32,6 +32,11 @@ export const useAuthStore = defineStore('auth', () => {
     setStoredUser(data.user)
   }
 
+  function updateUser(nextUser) {
+    user.value = nextUser
+    setStoredUser(nextUser)
+  }
+
   /** Log in: call the API, save the token/user, then update the store. */
   async function login(credentials) {
     const data = await loginApi(credentials)
@@ -65,6 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isModerator,
     userName,
+    updateUser,
     login,
     register,
     logout,

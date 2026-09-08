@@ -28,7 +28,11 @@ const getMySavedCourses = async (userId) => {
                     name: true, 
                     credits: true, 
                     level: true,
-                    offeredSemesters: true 
+                    offeredSemesters: true,
+                    assessmentTypes: true,
+                    description: true,
+                    workloadHours: true,
+                    officialLink: true
                 }
             }
         },

@@ -4,6 +4,8 @@ import { getToken } from '../utils/auth'
 import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
+import ForgotPassword from '../views/ForgotPassword.vue'
+import ResetPassword from '../views/ResetPassword.vue'
 import Dashboard from '../views/Dashboard.vue'
 import CourseList from '../views/CourseList.vue'
 import CourseDetail from '../views/CourseDetail.vue'
@@ -19,6 +21,8 @@ const routes = [
   { path: '/', name: 'Home', component: Home },
   { path: '/login', name: 'Login', component: Login, meta: { guestOnly: true } },
   { path: '/register', name: 'Register', component: Register, meta: { guestOnly: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword, meta: { guestOnly: true } },
+  { path: '/reset-password', name: 'ResetPassword', component: ResetPassword, meta: { guestOnly: true } },
   {
     path: '/dashboard',
     name: 'Dashboard',

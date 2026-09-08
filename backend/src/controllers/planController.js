@@ -59,13 +59,41 @@ const addCourse = async (req, res) => {
         if (error.code === 'P2002') {
             return res.status(409).json({ success: false, message: 'This course is already in the plan' });
         }
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({ success: false, message: error.message });
+        }
         console.error('Add Course Error:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+const removeCourse = async (req, res) => {
+    try {
+        await plannerService.removeCourseFromPlan(req.user.id, req.params.planId, req.params.courseId);
+        return res.status(200).json({ success: true, message: 'Course removed from plan' });
+    } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ success: false, message: 'Plan course not found' });
+        console.error('Remove Course Error:', error);
+        return res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+const deletePlan = async (req, res) => {
+    try {
+        await plannerService.deletePlan(req.user.id, req.params.planId);
+        return res.status(200).json({ success: true, message: 'Plan deleted' });
+    } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+        console.error('Delete Plan Error:', error);
+        return res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
 
 module.exports = {
     createPlan,
     getMyPlans,
-    addCourse
+    addCourse,
+    removeCourse,
+    deletePlan
 };

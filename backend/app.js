@@ -27,6 +27,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const reviewRoutes = require('./src/routes/reviewRoutes');
 const planRoutes = require('./src/routes/planRoutes');
 const savedCourseRoutes = require('./src/routes/savedCourseRoutes');
+const completedCourseRoutes = require('./src/routes/completedCourseRoutes');
 
 
 app.use('/api/courses', courseRoutes);
@@ -36,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/plans', planRoutes);
 app.use('/api/saved-courses', savedCourseRoutes);
+app.use('/api/completed-courses', completedCourseRoutes);
 
 
 // ================================

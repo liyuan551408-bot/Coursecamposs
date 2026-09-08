@@ -2,9 +2,9 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourse } from '../api/courses'
-import { getCourseReviews, submitReview } from '../api/reviews'
+import { getCourseReviews, getMyCourseReview, reportReview, submitReview, updateMyReview } from '../api/reviews'
 import request from '../api/request'
 import { useAuthStore } from '../stores/auth'
 import { useSavedStore } from '../stores/saved'
@@ -18,6 +18,7 @@ const submitting = ref(false)
 const error = ref('')
 const course = ref(null)
 const reviews = ref([])
+const ownReview = ref(null)
 const isGenerating = ref(false)
 const summaryData = ref('')
 const form = reactive({ overallRating: 0, difficultyRating: 0, workloadRating: 0, comment: '' })
@@ -29,10 +30,24 @@ async function loadPage() {
   loading.value = true
   error.value = ''
   try {
-    [course.value, reviews.value] = await Promise.all([
+    const requests = [
       getCourse(route.params.id),
       getCourseReviews(route.params.id),
-    ])
+      authStore.isLoggedIn ? getMyCourseReview(route.params.id) : Promise.resolve(null),
+      authStore.isLoggedIn ? savedStore.loadSaved().catch(() => undefined) : Promise.resolve(),
+    ]
+    const [courseResult, reviewResults, myReview] = await Promise.all(requests)
+    course.value = courseResult
+    reviews.value = reviewResults
+    ownReview.value = myReview
+    if (myReview) {
+      Object.assign(form, {
+        overallRating: myReview.overallRating,
+        difficultyRating: myReview.difficultyRating,
+        workloadRating: myReview.workloadRating,
+        comment: myReview.comment || '',
+      })
+    }
   } catch (err) {
     error.value = err.response?.data?.message || 'Course details cannot be loaded right now.'
   } finally {
@@ -68,13 +83,47 @@ async function handleReview() {
   }
   submitting.value = true
   try {
-    await submitReview({ courseId: Number(route.params.id), ...form })
-    ElMessage.success('Your review was submitted and will be visible after approval.')
-    Object.assign(form, { overallRating: 0, difficultyRating: 0, workloadRating: 0, comment: '' })
+    const wasEditing = Boolean(ownReview.value)
+    const updated = wasEditing
+      ? await updateMyReview(route.params.id, { ...form })
+      : await submitReview({ courseId: Number(route.params.id), ...form })
+    ownReview.value = updated
+    reviews.value = reviews.value.filter((review) => review.id !== updated.id)
+    ElMessage.success(`Your review was ${wasEditing ? 'saved' : 'submitted'} and is pending approval.`)
   } catch (err) {
     ElMessage.error(err.response?.data?.message || 'Submission failed. Please try again later.')
   } finally {
     submitting.value = false
+  }
+}
+
+async function toggleSaved() {
+  if (!authStore.isLoggedIn) {
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return
+  }
+  try {
+    const saved = await savedStore.toggleSave(course.value.id)
+    ElMessage.success(saved ? 'Added to saved courses' : 'Removed from saved courses')
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Unable to update saved courses')
+  }
+}
+
+async function handleReport(review) {
+  if (!authStore.isLoggedIn) {
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return
+  }
+  try {
+    const { value } = await ElMessageBox.prompt('Explain why this review should be checked by a moderator.', 'Report review', {
+      confirmButtonText: 'Submit report', cancelButtonText: 'Cancel', inputType: 'textarea',
+      inputValidator: (text) => Boolean(text?.trim()) || 'Please enter a reason',
+    })
+    await reportReview(review.id, value)
+    ElMessage.success('Report submitted to the moderation team.')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to report review')
   }
 }
 
@@ -102,7 +151,7 @@ onMounted(loadPage)
             plain
             size="small"
             class="save-btn"
-            @click="savedStore.toggleSave(course.id); ElMessage.success(savedStore.isSaved(course.id) ? 'Added to saved courses' : 'Removed from saved courses')"
+            @click="toggleSaved"
           >
             {{ savedStore.isSaved(course.id) ? '★ Saved' : '☆ Save' }}
           </el-button>
@@ -142,20 +191,20 @@ onMounted(loadPage)
           <h2>Student reviews</h2>
           <el-empty v-if="!reviews.length" description="There are no approved reviews yet" />
           <article v-for="review in reviews" :key="review.id" class="review">
-            <div><b>{{ review.user?.name || 'Anonymous student' }}</b><span class="muted"> · {{ review.user?.major || 'Student' }}</span></div>
+            <div class="review-heading"><div><b>{{ review.user?.name || 'Anonymous student' }}</b><span class="muted"> · {{ review.user?.major || 'Student' }}</span></div><el-button v-if="review.userId !== authStore.user?.id" link type="danger" @click="handleReport(review)">Report</el-button></div>
             <el-rate :model-value="review.overallRating" disabled />
             <p>{{ review.comment || 'This student did not leave a written review.' }}</p>
           </article>
         </div>
         <el-card class="review-form">
-          <h2>Write a review</h2>
-          <p class="muted">Your review will be published after approval.</p>
+          <h2>{{ ownReview ? 'Edit your review' : 'Write a review' }}</h2>
+          <p class="muted">{{ ownReview ? `Current status: ${ownReview.status}. Saving sends it back for approval.` : 'Your review will be published after approval.' }}</p>
           <el-form label-position="top">
             <el-form-item label="Overall recommendation"><el-rate v-model="form.overallRating" /></el-form-item>
             <el-form-item label="Course difficulty"><el-rate v-model="form.difficultyRating" /></el-form-item>
             <el-form-item label="Study workload"><el-rate v-model="form.workloadRating" /></el-form-item>
             <el-form-item label="Your review"><el-input v-model="form.comment" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="Share your learning experience (optional)" /></el-form-item>
-            <el-button type="primary" :loading="submitting" @click="handleReview">Submit review</el-button>
+            <el-button type="primary" :loading="submitting" @click="handleReview">{{ ownReview ? 'Save review changes' : 'Submit review' }}</el-button>
           </el-form>
         </el-card>
       </div>
@@ -185,6 +234,7 @@ dd { margin: 0; font-weight: 600; }
 h3 { font-size: 15px; margin: 20px 0 8px; }
 .review-layout { grid-template-columns: 1.4fr .8fr; }
 .review { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.review-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .review p { margin-top: 8px; line-height: 1.55; }
 .review-form { height: max-content; }
 @media (max-width: 700px) { .course-hero, .detail-grid, .review-layout { grid-template-columns: 1fr; display: grid; } .rating-box { border-left: 0; border-top: 1px solid var(--border); padding: 16px 0 0; text-align: left; } .course-hero h1 { font-size: 32px; } }
