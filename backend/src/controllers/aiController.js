@@ -4,6 +4,7 @@ const courseRetrievalService = require('../services/courseRetrievalService');
 const courseService = require('../services/courseService');
 const llmService = require('../services/llmService');
 const prisma = require('../lib/prisma');
+const { toPlainText } = require('../utils/plainText');
 const MAX_RESULT_LIMIT = 10;
 const MAX_QUERY_LENGTH = 500;
 const MAX_EMBEDDING_TEXT_LENGTH = 2000;
@@ -65,17 +66,17 @@ const parseRecommendationOutput = (raw, candidates) => {
             .filter(item => candidateIds.has(Number(item.courseId)))
             .map(item => ({
                 courseId: Number(item.courseId),
-                reasons: Array.isArray(item.reasons) ? item.reasons.filter(reason => typeof reason === 'string').slice(0, 5) : [],
-                cautions: Array.isArray(item.cautions) ? item.cautions.filter(caution => typeof caution === 'string').slice(0, 5) : []
+                reasons: Array.isArray(item.reasons) ? item.reasons.map(toPlainText).filter(Boolean).slice(0, 5) : [],
+                cautions: Array.isArray(item.cautions) ? item.cautions.map(toPlainText).filter(Boolean).slice(0, 5) : []
             }));
         return {
             recommendations,
-            summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 2000) : ''
+            summary: toPlainText(parsed.summary).slice(0, 2000)
         };
     } catch {
         return {
             recommendations: candidates.map(course => ({ courseId: course.id, reasons: [], cautions: [] })),
-            summary: raw.slice(0, 2000)
+            summary: toPlainText(raw).slice(0, 2000)
         };
     }
 };
@@ -88,31 +89,31 @@ const parseComparisonOutput = (raw, courses) => {
         const parsed = JSON.parse(cleaned);
         const relationships = Array.isArray(parsed.relationships)
             ? parsed.relationships.slice(0, 10).map(item => ({
-                type: typeof item.type === 'string' ? item.type.slice(0, 60) : 'relationship',
+                type: toPlainText(item.type).slice(0, 60) || 'relationship',
                 courseIds: Array.isArray(item.courseIds)
                     ? item.courseIds.map(Number).filter(id => selectedIds.has(id)).slice(0, 4)
                     : [],
-                description: typeof item.description === 'string' ? item.description.slice(0, 500) : ''
+                description: toPlainText(item.description).slice(0, 500)
             })).filter(item => item.courseIds.length >= 2 && item.description) : [];
         const learningPath = Array.isArray(parsed.learningPath)
             ? parsed.learningPath.slice(0, courses.length).map(item => ({
                 courseId: Number(item.courseId),
                 position: Number(item.position),
-                reason: typeof item.reason === 'string' ? item.reason.slice(0, 500) : ''
+                reason: toPlainText(item.reason).slice(0, 500)
             })).filter(item => selectedIds.has(item.courseId) && item.reason) : [];
 
         return {
-            summary: typeof parsed.summary === 'string' ? parsed.summary.slice(0, 2000) : '',
+            summary: toPlainText(parsed.summary).slice(0, 2000),
             relationships,
             learningPath,
-            strengths: Array.isArray(parsed.strengths) ? parsed.strengths.filter(value => typeof value === 'string').slice(0, 8) : [],
-            tradeoffs: Array.isArray(parsed.tradeoffs) ? parsed.tradeoffs.filter(value => typeof value === 'string').slice(0, 8) : [],
-            recommendation: typeof parsed.recommendation === 'string' ? parsed.recommendation.slice(0, 1000) : '',
-            limitations: typeof parsed.limitations === 'string' ? parsed.limitations.slice(0, 1000) : ''
+            strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(toPlainText).filter(Boolean).slice(0, 8) : [],
+            tradeoffs: Array.isArray(parsed.tradeoffs) ? parsed.tradeoffs.map(toPlainText).filter(Boolean).slice(0, 8) : [],
+            recommendation: toPlainText(parsed.recommendation).slice(0, 1000),
+            limitations: toPlainText(parsed.limitations).slice(0, 1000)
         };
     } catch {
         return {
-            summary: raw.slice(0, 2000),
+            summary: toPlainText(raw).slice(0, 2000),
             relationships: [],
             learningPath: [],
             strengths: [],
@@ -146,6 +147,7 @@ Use only the supplied course data, prerequisite relationships, and approved stud
 Compare the selected courses as a group, not as isolated table rows.
 Discuss prerequisite paths, shared or complementary topics, possible content overlap, workload balance, assessment differences, and a sensible learning order when evidence supports it.
 Do not invent facts. If evidence is missing, state that clearly. Distinguish database facts from reasonable interpretation.
+All text values must use plain text only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.
 Return JSON only in this exact shape:
 {"summary":"...","relationships":[{"type":"prerequisite|complementary|overlap|workload|other","courseIds":[1,2],"description":"..."}],"learningPath":[{"courseId":1,"position":1,"reason":"..."}],"strengths":["..."],"tradeoffs":["..."],"recommendation":"...","limitations":"..."}`;
         const userContent = `Selected course data:\n${JSON.stringify(courses, null, 2)}`;
@@ -274,6 +276,7 @@ Use only the course information supplied by the application.
 Do not invent course facts or recommend courses outside the candidate list.
 Base every recommendation on supplied evidence. If a requirement cannot be verified, say so clearly.
 Distinguish semantic relevance from confirmed course facts. Keep the analysis concise and objective.
+All text values must use plain text only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.
 Return JSON only in this exact shape: {"summary":"...","recommendations":[{"courseId":1,"reasons":["..."],"cautions":["..."]}]}.
 courseId must be copied from the supplied candidate data.`;
         
@@ -376,7 +379,8 @@ const getCourseSummary = async (req, res) => {
             .map((review, index) => `Comment ${index + 1}: ${review.comment}`)
             .join('\n') || 'No written comments provided.';
         const systemPrompt = `You are a university course selection guide. Generate a grounded, structured summary in English using only the supplied ratings and comments.
-Use numerical ratings as the primary source for workload and difficulty. Use comments to explain recurring themes. Do not infer facts unsupported by the evidence. Keep it within 250 words and include Pros, Cons, and Workload & Difficulty.`;
+Use numerical ratings as the primary source for workload and difficulty. Use comments to explain recurring themes. Do not infer facts unsupported by the evidence. Keep it within 250 words and include Pros, Cons, and Workload & Difficulty.
+Use plain text paragraphs only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.`;
         const userContent = `Review count: ${reviews.length}
 Overall rating average: ${average('overallRating')}/5
 Difficulty rating average: ${average('difficultyRating')}/5
@@ -391,7 +395,7 @@ ${comments}`;
             temperature: 0.5
         });
 
-        res.json({ success: true, summary: aiAnalysis });
+        res.json({ success: true, summary: toPlainText(aiAnalysis) });
 
     } catch (error) {
         console.error("AI summary generation failed:", error);

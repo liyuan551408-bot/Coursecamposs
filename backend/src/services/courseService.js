@@ -4,6 +4,7 @@ const {
     refreshCourseEmbedding,
     enqueueCourseEmbedding
 } = require('./courseEmbeddingService');
+const { rankFuzzyCourses } = require('../utils/fuzzySearch');
 
 const courseSelect = {
     id: true,
@@ -411,7 +412,7 @@ const getCoursesForComparison = async (codes) => {
 
 // Search active courses using optional text and structured filters.
 const searchCourses = async (queryFilters) => {
-    const { keyword, level, semester, assessmentType, minCredits, maxCredits } = queryFilters;
+    const { keyword, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits } = queryFilters;
     const whereClause = { isActive: true }; // Inactive courses are excluded by default.
     const numericFilters = {};
     for (const [field, value] of Object.entries({ level, minCredits, maxCredits })) {
@@ -431,9 +432,12 @@ const searchCourses = async (queryFilters) => {
     if (assessmentType && !['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION'].includes(assessmentType)) {
         throw new TypeError('Invalid assessment type filter');
     }
+    if (!['keyword', 'fuzzy'].includes(mode)) {
+        throw new TypeError('Invalid search mode');
+    }
 
     // Apply case-insensitive text matching across code, name, and description.
-    if (keyword) {
+    if (keyword && mode === 'keyword') {
         whereClause.OR = [
             { code: { contains: keyword, mode: 'insensitive' } },
             { name: { contains: keyword, mode: 'insensitive' } },
@@ -463,11 +467,13 @@ const searchCourses = async (queryFilters) => {
         if (numericFilters.maxCredits !== undefined) whereClause.credits.lte = numericFilters.maxCredits;
     }
 
-    return prisma.course.findMany({
+    const courses = await prisma.course.findMany({
         where: whereClause,
         select: courseSelect, 
         orderBy: { code: 'asc' }
     });
+
+    return keyword && mode === 'fuzzy' ? rankFuzzyCourses(courses, keyword) : courses;
 };
 
 module.exports = {

@@ -1,6 +1,6 @@
 <!-- @file Coordinates data loading, user actions, and presentation for the course detail page. -->
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourse } from '../api/courses'
@@ -21,10 +21,32 @@ const reviews = ref([])
 const ownReview = ref(null)
 const isGenerating = ref(false)
 const summaryData = ref('')
-const form = reactive({ overallRating: 0, difficultyRating: 0, workloadRating: 0, comment: '' })
+const emptyReviewForm = () => ({ overallRating: 0, difficultyRating: 0, workloadRating: 0, comment: '' })
+const form = reactive(emptyReviewForm())
 const average = computed(() => reviews.value.length
   ? (reviews.value.reduce((total, item) => total + item.overallRating, 0) / reviews.value.length).toFixed(1)
   : '-')
+
+function formatReviewDate(value) {
+  if (!value) return 'Unknown date'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown date'
+  return new Intl.DateTimeFormat('en-NZ', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function fillReviewForm(review) {
+  Object.assign(form, emptyReviewForm())
+  if (!review) return
+  Object.assign(form, {
+    overallRating: review.overallRating ?? 0,
+    difficultyRating: review.difficultyRating ?? 0,
+    workloadRating: review.workloadRating ?? 0,
+    comment: review.comment || '',
+  })
+}
 
 async function loadPage() {
   loading.value = true
@@ -40,14 +62,7 @@ async function loadPage() {
     course.value = courseResult
     reviews.value = reviewResults
     ownReview.value = myReview
-    if (myReview) {
-      Object.assign(form, {
-        overallRating: myReview.overallRating,
-        difficultyRating: myReview.difficultyRating,
-        workloadRating: myReview.workloadRating,
-        comment: myReview.comment || '',
-      })
-    }
+    fillReviewForm(myReview)
   } catch (err) {
     error.value = err.response?.data?.message || 'Course details cannot be loaded right now.'
   } finally {
@@ -128,6 +143,12 @@ async function handleReport(review) {
 }
 
 onMounted(loadPage)
+watch(() => route.params.id, () => {
+  summaryData.value = ''
+  ownReview.value = null
+  fillReviewForm(null)
+  loadPage()
+})
 </script>
 
 <template>
@@ -191,7 +212,7 @@ onMounted(loadPage)
           <h2>Student reviews</h2>
           <el-empty v-if="!reviews.length" description="There are no approved reviews yet" />
           <article v-for="review in reviews" :key="review.id" class="review">
-            <div class="review-heading"><div><b>{{ review.user?.name || 'Anonymous student' }}</b><span class="muted"> · {{ review.user?.major || 'Student' }}</span></div><el-button v-if="review.userId !== authStore.user?.id" link type="danger" @click="handleReport(review)">Report</el-button></div>
+            <div class="review-heading"><div class="review-author"><div><b>{{ review.user?.name || 'Anonymous student' }}</b><span class="muted"> · {{ review.user?.major || 'Student' }}</span></div><time :datetime="review.createdAt">Posted {{ formatReviewDate(review.createdAt) }}</time></div><el-button v-if="review.userId !== authStore.user?.id" link type="danger" @click="handleReport(review)">Report</el-button></div>
             <el-rate :model-value="review.overallRating" disabled />
             <p>{{ review.comment || 'This student did not leave a written review.' }}</p>
           </article>
@@ -235,6 +256,8 @@ h3 { font-size: 15px; margin: 20px 0 8px; }
 .review-layout { grid-template-columns: 1.4fr .8fr; }
 .review { padding: 16px 0; border-bottom: 1px solid var(--border); }
 .review-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.review-author { display:flex; flex-direction:column; gap:3px; }
+.review-author time { color:var(--text); font-size:12px; }
 .review p { margin-top: 8px; line-height: 1.55; }
 .review-form { height: max-content; }
 @media (max-width: 700px) { .course-hero, .detail-grid, .review-layout { grid-template-columns: 1fr; display: grid; } .rating-box { border-left: 0; border-top: 1px solid var(--border); padding: 16px 0 0; text-align: left; } .course-hero h1 { font-size: 32px; } }
