@@ -4,6 +4,26 @@ const aiService = require('./aiService');
 
 const DEFAULT_THRESHOLD = Number(process.env.AI_SIMILARITY_THRESHOLD) || 0.35;
 
+// Raw PostgreSQL enum arrays can be returned as either JavaScript arrays or
+// array-literal strings, depending on the database adapter. Keep the API shape
+// stable so frontend consumers never iterate over a string character by character.
+const normalizeEnumArray = (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== 'string') return [];
+
+    const arrayLiteral = value.trim();
+    if (!arrayLiteral || arrayLiteral === '{}') return [];
+
+    const content = arrayLiteral.startsWith('{') && arrayLiteral.endsWith('}')
+        ? arrayLiteral.slice(1, -1)
+        : arrayLiteral;
+
+    return content
+        .split(',')
+        .map(item => item.trim().replace(/^"|"$/g, ''))
+        .filter(Boolean);
+};
+
 /** Embed a query, apply structured filters, and retrieve the closest active courses. */
 const semanticSearchCourses = async ({
     query,
@@ -60,8 +80,8 @@ const semanticSearchCourses = async ({
         description: course.description,
         credits: course.credits,
         level: course.level,
-        offeredSemesters: course.offeredSemesters,
-        assessmentTypes: course.assessmentTypes,
+        offeredSemesters: normalizeEnumArray(course.offeredSemesters),
+        assessmentTypes: normalizeEnumArray(course.assessmentTypes),
         workloadHours: course.workloadHours,
         officialLink: course.officialLink,
         similarity: Number(course.similarity_text) || 0
