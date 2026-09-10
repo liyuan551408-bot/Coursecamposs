@@ -4,6 +4,7 @@
  * Application shell shared by all pages.
  * The header remains visible while router-view changes the page content.
 */
+import { onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useSavedStore } from './stores/saved'
@@ -20,36 +21,71 @@ function handleLogout() {
   plannerStore.reset()
   router.push('/login')
 }
+
+// Load saved courses count when user logs in
+watch(() => authStore.isLoggedIn, (isLoggedIn) => {
+  if (isLoggedIn) {
+    savedStore.loadSaved().catch(() => {})
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  if (authStore.isLoggedIn) {
+    savedStore.loadSaved().catch(() => {})
+  }
+})
 </script>
 
 <template>
   <div id="app-root">
     <header class="app-header">
-      <router-link to="/" class="logo"><span class="logo-mark">C</span>CourseCompass</router-link>
+      <router-link to="/" class="logo">
+        <span class="logo-mark">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+          </svg>
+        </span>
+        <span class="logo-text">CourseCompass</span>
+      </router-link>
 
       <nav class="nav-links">
-        <router-link v-if="authStore.isLoggedIn" to="/dashboard">Dashboard</router-link>
-        <router-link to="/courses">Courses</router-link>
-        <router-link to="/saved">Saved</router-link>
-        <router-link to="/planner">Planner</router-link>
-        <router-link to="/compare">Compare</router-link>
-        <!-- Add AI recommendations to the top navigation -->
-        <router-link to="/ai-recommend">AI Recommendations</router-link>
-        <router-link v-if="authStore.isAdmin || authStore.isModerator" to="/moderation">Moderation</router-link>
-        <router-link v-if="authStore.isAdmin" to="/admin">Admin</router-link>
+        <router-link v-if="authStore.isLoggedIn" to="/dashboard" class="nav-link">Dashboard</router-link>
+        <router-link to="/courses" class="nav-link">Courses</router-link>
+        <router-link to="/saved" class="nav-link nav-link--badge">
+          Saved
+          <span v-if="authStore.isLoggedIn && savedStore.savedCount > 0" class="nav-badge">
+            {{ savedStore.savedCount > 99 ? '99+' : savedStore.savedCount }}
+          </span>
+        </router-link>
+        <router-link to="/planner" class="nav-link">Planner</router-link>
+        <router-link to="/compare" class="nav-link">Compare</router-link>
+        <router-link to="/ai-recommend" class="nav-link">AI Recommendations</router-link>
+        <router-link v-if="authStore.isAdmin || authStore.isModerator" to="/moderation" class="nav-link">Moderation</router-link>
+        <router-link v-if="authStore.isAdmin" to="/admin" class="nav-link">Admin</router-link>
       </nav>
 
       <div class="auth-area">
         <template v-if="authStore.isLoggedIn">
-          <router-link to="/profile">{{ authStore.userName }}</router-link>
-          <el-button size="small" @click="handleLogout">Log out</el-button>
+          <router-link to="/profile" class="user-link">
+            <span class="user-avatar">{{ authStore.userName?.charAt(0)?.toUpperCase() || 'U' }}</span>
+            <span class="user-name">{{ authStore.userName }}</span>
+          </router-link>
+          <el-button size="small" @click="handleLogout" class="logout-btn">Log out</el-button>
         </template>
-        <router-link v-else to="/login">Log in</router-link>
+        <template v-else>
+          <router-link to="/login" class="auth-link">Log in</router-link>
+          <el-button type="primary" size="small" @click="router.push('/register')">Sign up</el-button>
+        </template>
       </div>
     </header>
 
     <main class="app-main">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="page-fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </main>
   </div>
 </template>
@@ -64,83 +100,261 @@ function handleLogout() {
 .app-header {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 14px 32px;
-  border-bottom: 1px solid rgba(91, 74, 130, 0.1);
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(18px);
+  gap: 20px;
+  padding: 12px 32px;
+  border-bottom: 1px solid rgba(114, 81, 232, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 100;
+  transition: box-shadow 0.3s ease;
 }
 
+.app-header:hover {
+  box-shadow: 0 2px 20px rgba(50, 37, 79, 0.06);
+}
+
+/* Logo */
 .logo {
   font-weight: 800;
   color: var(--text-h);
   text-decoration: none;
-  font-size: 18px;
-  letter-spacing: -0.6px;
+  font-size: 17px;
+  letter-spacing: -0.5px;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.logo:hover {
+  transform: scale(1.02);
 }
 
 .logo-mark {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   color: white;
   border-radius: 10px;
-  background: linear-gradient(135deg, #6d4aff, #c14bdb);
-  box-shadow: 0 7px 14px rgba(109, 74, 255, 0.25);
+  background: var(--accent-gradient);
+  box-shadow: 0 4px 12px rgba(114, 81, 232, 0.3);
 }
 
+.logo-text {
+  background: linear-gradient(135deg, var(--text-h) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Navigation */
 .nav-links {
   display: flex;
-  gap: 16px;
+  gap: 4px;
   flex: 1;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.nav-links a {
+.nav-links::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-link {
+  position: relative;
   color: var(--text);
   text-decoration: none;
-  padding: 7px 9px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
-  transition: .2s ease;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.nav-links a.router-link-active {
+.nav-link:hover {
   color: var(--accent);
   background: var(--accent-bg);
 }
 
+.nav-link.router-link-active {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.nav-link.router-link-active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* Badge */
+.nav-link--badge {
+  padding-right: 8px;
+}
+
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  background: var(--accent);
+  border-radius: 10px;
+  margin-left: 2px;
+  animation: badge-pop 0.3s ease;
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Auth area */
 .auth-area {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
-.auth-area a {
+.auth-link {
   color: var(--text-h);
   text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
 }
 
+.auth-link:hover {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.user-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--text-h);
+  padding: 4px 10px 4px 4px;
+  border-radius: 20px;
+  transition: background 0.2s ease;
+}
+
+.user-link:hover {
+  background: var(--accent-bg);
+}
+
+.user-avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  border-radius: 10px !important;
+}
+
+/* Main content */
 .app-main {
   flex: 1;
-  padding: 36px 24px 56px;
-  max-width: 1126px;
+  padding: 32px 24px 56px;
+  max-width: 1180px;
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
 }
 
-@media (max-width: 800px) {
-  .app-header { padding: 12px 16px; gap: 12px; flex-wrap: wrap; }
-  .nav-links { order: 3; flex-basis: 100%; overflow-x: auto; padding-bottom: 2px; }
-  .auth-area { margin-left: auto; }
-  .app-main { padding: 24px 16px 40px; }
+/* Page transition */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .app-header {
+    padding: 10px 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .nav-links {
+    order: 3;
+    flex-basis: 100%;
+    padding-bottom: 4px;
+    gap: 2px;
+  }
+
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .user-name {
+    display: none;
+  }
+
+  .app-main {
+    padding: 20px 16px 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-text {
+    display: none;
+  }
+
+  .auth-area .el-button {
+    padding: 8px 12px;
+  }
 }
 </style>

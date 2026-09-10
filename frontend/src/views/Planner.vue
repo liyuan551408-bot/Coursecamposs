@@ -20,7 +20,12 @@ const planDialogVisible = ref(false)
 const savingPlan = ref(false)
 const selectedSemesterId = ref(null)
 const searchQuery = ref('')
+const selectedCourseIds = ref(new Set())
+const batchAdding = ref(false)
 const planForm = reactive({ name: '', year: new Date().getFullYear(), semester: 'SEMESTER_1' })
+
+const CREDIT_WARNING_THRESHOLD = 60
+const WORKLOAD_WARNING_THRESHOLD = 480
 
 const filteredCourses = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase()
@@ -33,14 +38,21 @@ const filteredCourses = computed(() => {
 })
 
 const totalCredits = computed(() => plannerStore.totalCredits)
+const totalCourses = computed(() => plannerStore.semesters.reduce((sum, s) => sum + s.courses.length, 0))
+const totalWorkload = computed(() => plannerStore.semesters.reduce((sum, s) => sum + s.courses.reduce((c, course) => c + (course.workloadHours || 0), 0), 0))
 
 const semesterStats = computed(() => {
   return plannerStore.semesters.map((sem) => ({
     ...sem,
     credits: sem.courses.reduce((sum, c) => sum + (c.credits || 0), 0),
     workload: sem.courses.reduce((sum, c) => sum + (c.workloadHours || 0), 0),
+    overloaded: sem.courses.reduce((sum, c) => sum + (c.workloadHours || 0), 0) > WORKLOAD_WARNING_THRESHOLD,
+    creditHeavy: sem.courses.reduce((sum, c) => sum + (c.credits || 0), 0) > CREDIT_WARNING_THRESHOLD,
   }))
 })
+
+const availableToAdd = computed(() => filteredCourses.value.filter((c) => !plannerStore.isInPlanner(c.id)))
+const selectedCount = computed(() => selectedCourseIds.value.size)
 
 async function loadCourses() {
   loading.value = true
@@ -59,6 +71,7 @@ async function loadCourses() {
 async function openAddDialog(semesterId) {
   selectedSemesterId.value = semesterId
   searchQuery.value = ''
+  selectedCourseIds.value = new Set()
   loading.value = true
   try {
     await savedStore.loadSaved({ force: true })
@@ -70,25 +83,58 @@ async function openAddDialog(semesterId) {
   }
 }
 
-function isCourseInPlanner(courseId) {
-  return plannerStore.isInPlanner(courseId)
+function toggleCourseSelection(courseId) {
+  const id = Number(courseId)
+  const next = new Set(selectedCourseIds.value)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
+  selectedCourseIds.value = next
 }
 
-async function addCourseToSemester(course) {
-  if (isCourseInPlanner(course.id)) {
-    ElMessage.warning('This course is already in your plan')
+function isSelected(courseId) {
+  return selectedCourseIds.value.has(Number(courseId))
+}
+
+function selectAllAvailable() {
+  if (selectedCount.value === availableToAdd.value.length && availableToAdd.value.length > 0) {
+    selectedCourseIds.value = new Set()
+  } else {
+    selectedCourseIds.value = new Set(availableToAdd.value.map((c) => c.id))
+  }
+}
+
+async function confirmAddCourses() {
+  if (!selectedCount.value) {
+    ElMessage.warning('Select at least one course to add')
     return
   }
-
+  const semName = getSemesterName(selectedSemesterId.value)
+  const coursesToAdd = allCourses.value.filter((c) => selectedCourseIds.value.has(Number(c.id)))
+  batchAdding.value = true
   try {
-    const result = await plannerStore.addCourse(selectedSemesterId.value, course)
-    if (!result.added) return ElMessage.warning('This course is already in your plan')
-    ElMessage.success(`${course.code} added to ${getSemesterName(selectedSemesterId.value)}`)
-    if (result.warnings.length) ElMessage.warning(result.warnings.join(' '))
+    const result = await plannerStore.addCourses(selectedSemesterId.value, coursesToAdd)
+    if (result.added.length) {
+      ElMessage.success(`Added ${result.added.length} course(s) to ${semName}`)
+    }
+    if (result.skipped.length) {
+      ElMessage.info(`${result.skipped.length} course(s) already in plan, skipped`)
+    }
+    if (result.warnings.length) {
+      ElMessage.warning(result.warnings.join(' '))
+    }
     addDialogVisible.value = false
   } catch (err) {
-    ElMessage.error(err.response?.data?.message || 'Failed to add course')
+    ElMessage.error(err.response?.data?.message || 'Failed to add courses')
+  } finally {
+    batchAdding.value = false
   }
+}
+
+function isCourseInPlanner(courseId) {
+  return plannerStore.isInPlanner(courseId)
 }
 
 function getSemesterName(semesterId) {
@@ -181,46 +227,88 @@ onMounted(loadCourses)
 <template>
   <section class="planner-page">
     <div class="page-header">
-      <div>
+      <div class="header-text">
         <p class="eyebrow">SEMESTER PLANNER</p>
         <h1>Plan your degree pathway</h1>
-        <p>Arrange courses across semesters, track credits and check prerequisites.</p>
+        <p>Arrange courses across semesters, track credits and check workload balance.</p>
       </div>
       <div class="header-actions">
-        <el-button plain @click="clearPlan">Clear plan</el-button>
-        <el-button type="primary" @click="router.push('/courses')">Browse courses</el-button>
+        <el-button plain @click="clearPlan" :disabled="!totalCourses">Clear plan</el-button>
+        <el-button type="primary" @click="router.push('/saved')">
+          🔖 My saved courses
+        </el-button>
       </div>
     </div>
 
-    <!-- Aggregate plan statistics. -->
+    <!-- Aggregate plan statistics with progress -->
     <div class="overview-bar">
       <div class="overview-item">
-        <span class="overview-number">{{ plannerStore.semesters.length }}</span>
-        <span class="overview-label">Semesters</span>
+        <div class="overview-icon overview-icon--purple">📚</div>
+        <div class="overview-data">
+          <span class="overview-number">{{ plannerStore.semesters.length }}</span>
+          <span class="overview-label">Semesters</span>
+        </div>
       </div>
       <div class="overview-item">
-        <span class="overview-number">{{ totalCredits }}</span>
-        <span class="overview-label">Total credits</span>
+        <div class="overview-icon overview-icon--teal">🎓</div>
+        <div class="overview-data">
+          <span class="overview-number">{{ totalCredits }}</span>
+          <span class="overview-label">Total credits</span>
+        </div>
       </div>
       <div class="overview-item">
-        <span class="overview-number">
-          {{ plannerStore.semesters.reduce((sum, s) => sum + s.courses.length, 0) }}
-        </span>
-        <span class="overview-label">Planned courses</span>
+        <div class="overview-icon overview-icon--orange">📋</div>
+        <div class="overview-data">
+          <span class="overview-number">{{ totalCourses }}</span>
+          <span class="overview-label">Planned courses</span>
+        </div>
+      </div>
+      <div class="overview-item">
+        <div class="overview-icon overview-icon--pink">⏱️</div>
+        <div class="overview-data">
+          <span class="overview-number">{{ totalWorkload }}</span>
+          <span class="overview-label">Study hours</span>
+        </div>
       </div>
     </div>
 
-    <!-- Editable semester list. -->
+    <!-- Workload warning -->
+    <el-alert
+      v-if="plannerStore.semesters.some(s => s.courses.reduce((sum, c) => sum + (c.workloadHours || 0), 0) > WORKLOAD_WARNING_THRESHOLD)"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="workload-alert"
+      title="Workload warning"
+    >
+      One or more semesters exceed {{ WORKLOAD_WARNING_THRESHOLD }} study hours. Consider balancing your course load.
+    </el-alert>
+
+    <!-- Saved courses hint -->
+    <el-card v-if="savedStore.savedCount > 0 && !totalCourses" class="hint-card" shadow="never">
+      <div class="hint-content">
+        <span class="hint-icon">💡</span>
+        <div>
+          <strong>You have {{ savedStore.savedCount }} saved course(s).</strong>
+          <span> Add a semester below, then click "Add courses" to import them into your plan.</span>
+        </div>
+      </div>
+    </el-card>
+
+    <!-- Editable semester list -->
     <div class="semesters-container">
       <div
         v-for="sem in semesterStats"
         :key="sem.id"
         class="semester-card"
+        :class="{ 'semester-card--warning': sem.overloaded || sem.creditHeavy }"
       >
         <div class="semester-header">
           <div class="semester-title">
             <h2>{{ sem.name }}</h2>
-            <span class="semester-stats">{{ sem.year }} · {{ sem.semester.replaceAll('_', ' ') }} · {{ sem.credits }} credits · {{ sem.workload }} hours</span>
+            <span class="semester-stats">
+              {{ sem.year }} · {{ sem.semester.replaceAll('_', ' ') }}
+            </span>
           </div>
           <el-button
             link
@@ -230,6 +318,32 @@ onMounted(loadCourses)
           >
             Remove
           </el-button>
+        </div>
+
+        <!-- Semester progress -->
+        <div class="semester-progress">
+          <div class="progress-row">
+            <span class="progress-label">Credits</span>
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                :class="{ 'progress-fill--warning': sem.creditHeavy }"
+                :style="{ width: `${Math.min(100, (sem.credits / CREDIT_WARNING_THRESHOLD) * 100)}%` }"
+              ></div>
+            </div>
+            <span class="progress-value">{{ sem.credits }} pts</span>
+          </div>
+          <div class="progress-row">
+            <span class="progress-label">Workload</span>
+            <div class="progress-bar">
+              <div
+                class="progress-fill progress-fill--teal"
+                :class="{ 'progress-fill--warning': sem.overloaded }"
+                :style="{ width: `${Math.min(100, (sem.workload / WORKLOAD_WARNING_THRESHOLD) * 100)}%` }"
+              ></div>
+            </div>
+            <span class="progress-value">{{ sem.workload }}h</span>
+          </div>
         </div>
 
         <div class="semester-courses">
@@ -257,7 +371,7 @@ onMounted(loadCourses)
 
           <el-empty
             v-if="!sem.courses.length"
-            description="No courses planned"
+            description="No courses planned yet"
             :image-size="60"
           />
         </div>
@@ -268,55 +382,72 @@ onMounted(loadCourses)
           class="add-course-btn"
           @click="openAddDialog(sem.id)"
         >
-          + Add course
+          + Add courses
         </el-button>
       </div>
 
-      <!-- Add-semester action. -->
+      <!-- Add-semester action -->
       <div class="add-semester-card" @click="addSemester">
         <div class="add-icon">+</div>
         <span>Add semester</span>
       </div>
     </div>
 
-    <!-- Course selection dialog. -->
+    <!-- Multi-select course dialog -->
     <el-dialog
       v-model="addDialogVisible"
-      title="Add course to semester"
-      width="600px"
+      title="Add courses to semester"
+      width="min(640px, 94vw)"
       :close-on-click-modal="false"
     >
-      <el-input
-        v-model="searchQuery"
-        clearable
-        placeholder="Search by course code, name or keyword"
-        class="dialog-search"
-      >
-        <template #prefix>⌕</template>
-      </el-input>
+      <div class="dialog-header">
+        <el-input
+          v-model="searchQuery"
+          clearable
+          placeholder="Search by course code, name or keyword"
+          class="dialog-search"
+        >
+          <template #prefix>⌕</template>
+        </el-input>
+        <el-button
+          link
+          type="primary"
+          size="small"
+          @click="selectAllAvailable"
+          :disabled="!availableToAdd.length"
+        >
+          {{ selectedCount === availableToAdd.length && availableToAdd.length > 0 ? 'Deselect all' : 'Select all' }}
+        </el-button>
+      </div>
+
+      <div class="selected-info" v-if="selectedCount">
+        {{ selectedCount }} course(s) selected
+      </div>
 
       <div v-loading="loading" class="course-picker">
-        <div
+        <label
           v-for="course in filteredCourses"
           :key="course.id"
           class="picker-item"
-          :class="{ disabled: isCourseInPlanner(course.id) }"
+          :class="{
+            disabled: isCourseInPlanner(course.id),
+            selected: isSelected(course.id),
+          }"
         >
+          <input
+            type="checkbox"
+            class="picker-checkbox"
+            :checked="isSelected(course.id)"
+            :disabled="isCourseInPlanner(course.id)"
+            @change="toggleCourseSelection(course.id)"
+          />
           <div class="picker-info">
             <span class="course-code">{{ course.code }}</span>
             <span class="course-name">{{ course.name }}</span>
-            <span class="course-meta">{{ course.credits }} credits · {{ course.workloadHours }}h</span>
+            <span class="course-meta">{{ course.credits }} credits · {{ course.workloadHours || '—' }}h</span>
           </div>
-          <el-button
-            v-if="!isCourseInPlanner(course.id)"
-            type="primary"
-            size="small"
-            @click="addCourseToSemester(course)"
-          >
-            Add
-          </el-button>
-          <el-tag v-else type="info" size="small">In plan</el-tag>
-        </div>
+          <el-tag v-if="isCourseInPlanner(course.id)" type="info" size="small">In plan</el-tag>
+        </label>
         <el-empty
           v-if="!loading && !filteredCourses.length"
           :description="allCourses.length ? 'No matching saved courses' : 'Save a course before adding it to a plan'"
@@ -324,6 +455,20 @@ onMounted(loadCourses)
           <el-button v-if="!allCourses.length" type="primary" @click="addDialogVisible = false; router.push('/courses')">Browse and save courses</el-button>
         </el-empty>
       </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="addDialogVisible = false">Cancel</el-button>
+          <el-button
+            type="primary"
+            :loading="batchAdding"
+            :disabled="!selectedCount"
+            @click="confirmAddCourses"
+          >
+            Add {{ selectedCount ? `${selectedCount} course(s)` : '' }} to plan
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
 
     <el-dialog v-model="planDialogVisible" title="Create semester plan" width="min(480px, 94vw)">
@@ -353,91 +498,233 @@ onMounted(loadCourses)
   margin-bottom: 24px;
 }
 
+.header-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .eyebrow {
   color: var(--accent);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   margin: 0;
+  text-transform: uppercase;
 }
 
 .page-header h1 {
-  margin: 8px 0;
-  font-size: 36px;
+  margin: 6px 0;
+  font-size: clamp(26px, 3.5vw, 38px);
+  font-weight: 700;
 }
 
 .page-header p {
   color: var(--text);
   margin: 0;
+  font-size: 15px;
 }
 
 .header-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
+/* Overview */
 .overview-bar {
-  display: flex;
-  gap: 32px;
-  padding: 20px 24px;
-  background: var(--accent-bg);
-  border-radius: 12px;
-  margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .overview-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  border: 1px solid var(--border-light);
+  transition: all 0.25s ease;
+}
+
+.overview-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.overview-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.overview-icon--purple { background: rgba(114, 81, 232, 0.12); }
+.overview-icon--teal { background: rgba(62, 207, 176, 0.12); }
+.overview-icon--orange { background: rgba(245, 158, 11, 0.12); }
+.overview-icon--pink { background: rgba(239, 68, 68, 0.12); }
+
+.overview-data {
   display: flex;
   flex-direction: column;
 }
 
 .overview-number {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--text-h);
+  line-height: 1.2;
 }
 
 .overview-label {
-  font-size: 13px;
-  color: var(--text);
+  font-size: 12px;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
+/* Alert */
+.workload-alert {
+  margin-bottom: 20px;
+  border-radius: var(--radius) !important;
+}
+
+/* Hint card */
+.hint-card {
+  margin-bottom: 20px;
+  border-radius: var(--radius-lg) !important;
+  border: 1px dashed var(--accent-border) !important;
+  background: var(--accent-bg) !important;
+}
+
+.hint-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.hint-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.hint-content strong {
+  color: var(--text-h);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.hint-content span {
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Semesters */
 .semesters-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 20px;
 }
 
 .semester-card {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: var(--bg-card);
+  transition: all 0.25s ease;
+}
+
+.semester-card:hover {
+  box-shadow: var(--shadow);
+}
+
+.semester-card--warning {
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
 .semester-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .semester-title h2 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-size: 19px;
   color: var(--text-h);
+  font-weight: 600;
 }
 
 .semester-stats {
   font-size: 13px;
-  color: var(--text);
+  color: var(--text-muted);
 }
 
+/* Progress */
+.semester-progress {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  width: 60px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--border-light);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.progress-fill--teal {
+  background: var(--secondary);
+}
+
+.progress-fill--warning {
+  background: var(--warning);
+}
+
+.progress-value {
+  font-size: 12px;
+  color: var(--text-h);
+  font-weight: 600;
+  width: 50px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Courses */
 .semester-courses {
   flex: 1;
-  min-height: 120px;
+  min-height: 80px;
   margin-bottom: 16px;
 }
 
@@ -447,8 +734,13 @@ onMounted(loadCourses)
   align-items: center;
   padding: 10px 12px;
   background: var(--accent-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-bottom: 8px;
+  transition: background 0.2s;
+}
+
+.planned-course:hover {
+  background: rgba(114, 81, 232, 0.15);
 }
 
 .course-info {
@@ -489,7 +781,7 @@ onMounted(loadCourses)
 
 .course-credits {
   font-size: 12px;
-  color: var(--text);
+  color: var(--text-muted);
 }
 
 .add-course-btn {
@@ -498,7 +790,7 @@ onMounted(loadCourses)
 
 .add-semester-card {
   border: 2px dashed var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -508,7 +800,7 @@ onMounted(loadCourses)
   cursor: pointer;
   transition: all 0.2s;
   min-height: 200px;
-  color: var(--text);
+  color: var(--text-muted);
 }
 
 .add-semester-card:hover {
@@ -523,32 +815,70 @@ onMounted(loadCourses)
   line-height: 1;
 }
 
-.dialog-search {
-  margin-bottom: 16px;
+/* Dialog */
+.dialog-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.plan-form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-.plan-form-row :deep(.el-input-number), .plan-form-row :deep(.el-select) { width:100%; }
+.dialog-search {
+  flex: 1;
+}
+
+.selected-info {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
 
 .course-picker {
-  max-height: 400px;
+  max-height: 380px;
   overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .picker-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin: 0;
 }
 
 .picker-item:last-child {
   border-bottom: none;
 }
 
+.picker-item:hover:not(.disabled) {
+  background: var(--accent-bg);
+}
+
+.picker-item.selected {
+  background: var(--accent-bg);
+}
+
 .picker-item.disabled {
-  opacity: 0.6;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.picker-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.picker-checkbox:disabled {
+  cursor: not-allowed;
 }
 
 .picker-info {
@@ -565,8 +895,23 @@ onMounted(loadCourses)
 
 .course-meta {
   font-size: 12px;
-  color: var(--text);
+  color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.plan-form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.plan-form-row :deep(.el-input-number), .plan-form-row :deep(.el-select) { width:100%; }
+
+@media (max-width: 900px) {
+  .overview-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
@@ -575,17 +920,37 @@ onMounted(loadCourses)
     align-items: flex-start;
   }
 
-  .page-header h1 {
-    font-size: 28px;
+  .header-actions {
+    width: 100%;
   }
 
-  .overview-bar {
-    gap: 20px;
-    flex-wrap: wrap;
+  .header-actions .el-button {
+    flex: 1;
   }
 
   .semesters-container {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .overview-bar {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .overview-item {
+    padding: 14px;
+  }
+
+  .overview-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .overview-number {
+    font-size: 20px;
   }
 }
 </style>
