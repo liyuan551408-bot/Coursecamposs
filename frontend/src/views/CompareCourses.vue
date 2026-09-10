@@ -9,8 +9,12 @@ import { ElMessage } from 'element-plus'
 import { getCourses, getCourse } from '../api/courses'
 import { getCourseComparisonAnalysis } from '../api/ai'
 import { getToken } from '../utils/auth'
+import { useSavedStore } from '../stores/saved'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const savedStore = useSavedStore()
+const authStore = useAuthStore()
 const loading = ref(false)
 const allCourses = ref([])
 const compareIds = ref([])
@@ -18,6 +22,7 @@ const compareCourses = ref([])
 const searchQuery = ref('')
 const aiLoading = ref(false)
 const aiAnalysis = ref(null)
+const savingIds = ref(new Set())
 
 const MAX_COMPARE = 4
 
@@ -123,7 +128,31 @@ function courseCodes(courseIds) {
     .join(' and ')
 }
 
-onMounted(loadCourses)
+async function handleQuickSave(course, event) {
+  if (event) event.stopPropagation()
+  if (!authStore.isLoggedIn) {
+    router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
+    return
+  }
+  const id = Number(course.id)
+  if (savingIds.value.has(id)) return
+  savingIds.value.add(id)
+  try {
+    const saved = await savedStore.toggleSave(id)
+    ElMessage.success(saved ? `Saved "${course.code}"` : `Removed "${course.code}" from saved`)
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Unable to update saved courses')
+  } finally {
+    savingIds.value.delete(id)
+  }
+}
+
+onMounted(async () => {
+  loadCourses()
+  if (authStore.isLoggedIn) {
+    savedStore.loadSaved().catch(() => {})
+  }
+})
 </script>
 
 <template>
@@ -163,12 +192,23 @@ onMounted(loadCourses)
             <span class="course-code">{{ course.code }}</span>
             <span class="course-name">{{ course.name }}</span>
           </div>
-          <el-checkbox
-            :model-value="isInCompare(course.id)"
-            :disabled="!canAdd && !isInCompare(course.id)"
-            @change="isInCompare(course.id) ? removeFromCompare(course.id) : addToCompare(course.id)"
-            @click.stop
-          />
+          <div class="item-actions">
+            <button
+              class="quick-save-btn"
+              :class="{ 'quick-save-btn--saved': savedStore.isSaved(course.id) }"
+              :title="savedStore.isSaved(course.id) ? 'Remove from saved' : 'Quick save'"
+              @click="handleQuickSave(course, $event)"
+            >
+              <svg v-if="!savedStore.isSaved(course.id)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+            </button>
+            <el-checkbox
+              :model-value="isInCompare(course.id)"
+              :disabled="!canAdd && !isInCompare(course.id)"
+              @change="isInCompare(course.id) ? removeFromCompare(course.id) : addToCompare(course.id)"
+              @click.stop
+            />
+          </div>
         </div>
         <el-empty v-if="!loading && !filteredCourses.length" description="No matching courses" />
       </div>
@@ -186,6 +226,35 @@ onMounted(loadCourses)
         >
           ✨ Generate AI summary
         </el-button>
+      </div>
+
+      <!-- Selected courses overview with quick-save -->
+      <div class="selected-overview">
+        <div
+          v-for="course in compareCourses"
+          :key="course.id"
+          class="overview-card"
+        >
+          <div class="overview-header">
+            <span class="course-code">{{ course.code }}</span>
+            <button
+              class="quick-save-btn"
+              :class="{ 'quick-save-btn--saved': savedStore.isSaved(course.id) }"
+              :title="savedStore.isSaved(course.id) ? 'Remove from saved' : 'Quick save'"
+              @click="handleQuickSave(course)"
+            >
+              <svg v-if="!savedStore.isSaved(course.id)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+            </button>
+          </div>
+          <h3 class="overview-name text-clamp-2">{{ course.name }}</h3>
+          <div class="overview-meta">
+            <span>{{ course.credits }} credits</span>
+            <span>{{ course.workloadHours || '—' }}h</span>
+            <span v-if="course.level">Level {{ course.level }}</span>
+          </div>
+          <el-button link type="primary" size="small" @click="router.push(`/courses/${course.id}`)">View details →</el-button>
+        </div>
       </div>
 
       <!-- On-demand AI analysis of relationships and trade-offs between selected courses. -->
@@ -361,6 +430,95 @@ onMounted(loadCourses)
 .course-name {
   color: var(--text-h);
   font-size: 15px;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Quick save button */
+.quick-save-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.quick-save-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  transform: scale(1.1);
+}
+
+.quick-save-btn--saved {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.quick-save-btn--saved:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Selected courses overview */
+.selected-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.overview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 16px;
+  transition: all 0.25s ease;
+}
+
+.overview-card:hover {
+  box-shadow: var(--shadow);
+  border-color: var(--accent-border);
+  transform: translateY(-2px);
+}
+
+.overview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.overview-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0 0 10px;
+  line-height: 1.4;
+  min-height: 42px;
+}
+
+.overview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
 }
 
 .compare-result h2 {
