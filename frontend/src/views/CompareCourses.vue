@@ -213,21 +213,21 @@ onMounted(loadCourses)
 
         <div v-if="aiAnalysis.learningPath?.length" class="ai-section">
           <h4>Suggested learning order</h4>
-          <ol class="learning-path">
-            <li v-for="item in aiAnalysis.learningPath" :key="`${item.courseId}-${item.position}`">
+          <div class="plain-text-lines">
+            <p v-for="item in aiAnalysis.learningPath" :key="`${item.courseId}-${item.position}`">
               <strong>{{ courseCodes([item.courseId]) }}</strong> — {{ item.reason }}
-            </li>
-          </ol>
+            </p>
+          </div>
         </div>
 
         <div v-if="aiAnalysis.strengths?.length || aiAnalysis.tradeoffs?.length" class="ai-columns ai-section">
           <div v-if="aiAnalysis.strengths?.length">
             <h4>Strengths</h4>
-            <ul><li v-for="item in aiAnalysis.strengths" :key="item">{{ item }}</li></ul>
+            <div class="plain-text-lines"><p v-for="item in aiAnalysis.strengths" :key="item">{{ item }}</p></div>
           </div>
           <div v-if="aiAnalysis.tradeoffs?.length">
             <h4>Trade-offs</h4>
-            <ul><li v-for="item in aiAnalysis.tradeoffs" :key="item">{{ item }}</li></ul>
+            <div class="plain-text-lines"><p v-for="item in aiAnalysis.tradeoffs" :key="item">{{ item }}</p></div>
           </div>
         </div>
 
@@ -434,11 +434,13 @@ onMounted(loadCourses)
   margin: 6px 0 0;
 }
 
-.learning-path,
-.ai-columns ul {
+.plain-text-lines {
   margin: 0;
-  padding-left: 20px;
   line-height: 1.7;
+}
+
+.plain-text-lines p {
+  margin: 0 0 8px;
 }
 
 .ai-columns {
