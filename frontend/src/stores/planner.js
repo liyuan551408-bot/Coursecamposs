@@ -42,6 +42,28 @@ export const usePlannerStore = defineStore('planner', () => {
     return { added: true, warnings: result.warnings }
   }
 
+  async function addCourses(semesterId, courses) {
+    const results = { added: [], skipped: [], warnings: [] }
+    for (const course of courses) {
+      if (isInPlanner(course.id)) {
+        results.skipped.push(course)
+        continue
+      }
+      try {
+        const result = await addCourse(semesterId, course)
+        if (result.added) {
+          results.added.push(course)
+          if (result.warnings?.length) results.warnings.push(...result.warnings)
+        } else {
+          results.skipped.push(course)
+        }
+      } catch {
+        results.skipped.push(course)
+      }
+    }
+    return results
+  }
+
   async function removeCourse(semesterId, courseId) {
     await removePlanCourse(semesterId, courseId)
     const semester = semesters.value.find((item) => item.id === Number(semesterId))
@@ -69,5 +91,5 @@ export const usePlannerStore = defineStore('planner', () => {
     loaded.value = false
   }
 
-  return { semesters, loading, loaded, totalCredits, getSemesterCourses, isInPlanner, loadPlans, addCourse, removeCourse, addSemester, removeSemester, clearAll, reset }
+  return { semesters, loading, loaded, totalCredits, getSemesterCourses, isInPlanner, loadPlans, addCourse, addCourses, removeCourse, addSemester, removeSemester, clearAll, reset }
 })

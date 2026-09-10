@@ -15,6 +15,7 @@ const authStore = useAuthStore()
 const savedStore = useSavedStore()
 const loading = ref(true)
 const submitting = ref(false)
+const saving = ref(false)
 const error = ref('')
 const course = ref(null)
 const reviews = ref([])
@@ -27,6 +28,8 @@ const average = computed(() => reviews.value.length
   ? (reviews.value.reduce((total, item) => total + item.overallRating, 0) / reviews.value.length).toFixed(1)
   : '-')
 
+const isSaved = computed(() => course.value ? savedStore.isSaved(course.value.id) : false)
+
 function formatReviewDate(value) {
   if (!value) return 'Unknown date'
   const date = new Date(value)
@@ -35,6 +38,15 @@ function formatReviewDate(value) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
+}
+
+function normalizeSemesters(value) {
+  if (Array.isArray(value)) return value
+  if (typeof value !== 'string') return []
+  const content = value.trim().replace(/^\{/, '').replace(/\}$/, '')
+  return content
+    ? content.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
+    : []
 }
 
 function fillReviewForm(review) {
@@ -117,11 +129,15 @@ async function toggleSaved() {
     router.push({ name: 'Login', query: { redirect: route.fullPath } })
     return
   }
+  if (saving.value) return
+  saving.value = true
   try {
     const saved = await savedStore.toggleSave(course.value.id)
     ElMessage.success(saved ? 'Added to saved courses' : 'Removed from saved courses')
   } catch (err) {
     ElMessage.error(err.response?.data?.message || 'Unable to update saved courses')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -156,76 +172,232 @@ watch(() => route.params.id, () => {
     <el-result v-if="error" icon="warning" title="Course unavailable" :sub-title="error">
       <template #extra><el-button @click="loadPage">Try again</el-button></template>
     </el-result>
+
     <template v-else-if="course">
-      <el-button link @click="router.push('/courses')">Back to course catalogue</el-button>
+      <!-- Back link -->
+      <button class="back-link" @click="router.push('/courses')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        Back to course catalogue
+      </button>
+
+      <!-- Course Hero -->
       <div class="course-hero">
-        <div>
-          <span class="course-code">{{ course.code }}</span>
-          <h1>{{ course.name }}</h1>
-          <p>{{ course.description || 'No course description is available.' }}</p>
+        <div class="hero-info">
+          <div class="hero-tags">
+            <span class="course-code">{{ course.code }}</span>
+            <el-tag v-if="course.level" size="small" effect="plain" type="info">Level {{ course.level }}</el-tag>
+            <el-tag v-for="sem in normalizeSemesters(course.offeredSemesters)" :key="sem" size="small" effect="plain">
+              {{ sem.replaceAll('_', ' ') }}
+            </el-tag>
+          </div>
+          <h1 class="course-title">{{ course.name }}</h1>
+          <p class="course-desc">{{ course.description || 'No course description is available.' }}</p>
+
+          <!-- Action buttons -->
+          <div class="hero-actions">
+            <el-button
+              :type="isSaved ? 'warning' : 'primary'"
+              size="large"
+              :loading="saving"
+              class="save-action-btn"
+              @click="toggleSaved"
+            >
+              <template v-if="isSaved">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                </svg>
+                Saved
+              </template>
+              <template v-else>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                </svg>
+                Save course
+              </template>
+            </el-button>
+            <el-button size="large" plain @click="router.push('/compare')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+              Compare
+            </el-button>
+            <el-button size="large" plain @click="router.push('/planner')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Add to planner
+            </el-button>
+          </div>
         </div>
-        <div class="rating-box">
-          <b>{{ average }}</b>
-          <span>Course rating · {{ reviews.length }} reviews</span>
-          <el-button
-            :type="savedStore.isSaved(course.id) ? 'warning' : 'primary'"
-            plain
-            size="small"
-            class="save-btn"
-            @click="toggleSaved"
-          >
-            {{ savedStore.isSaved(course.id) ? '★ Saved' : '☆ Save' }}
-          </el-button>
+
+        <!-- Rating sidebar -->
+        <div class="rating-sidebar">
+          <div class="rating-card">
+            <div class="rating-score">
+              <span class="rating-number">{{ average }}</span>
+              <span class="rating-max">/ 5</span>
+            </div>
+            <el-rate :model-value="Number(average) || 0" disabled size="small" />
+            <div class="rating-count">{{ reviews.length }} review{{ reviews.length !== 1 ? 's' : '' }}</div>
+            <div class="rating-divider"></div>
+            <div class="rating-meta">
+              <div class="meta-row">
+                <span class="meta-label">Credits</span>
+                <span class="meta-value">{{ course.credits }}</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Workload</span>
+                <span class="meta-value">{{ course.workloadHours || '—' }} hrs</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <el-card class="ai-summary-card">
+      <!-- AI Summary -->
+      <el-card class="ai-summary-card" shadow="never">
         <template #header>
           <div class="summary-header">
-            <span>AI Course Review Summary</span>
+            <div class="summary-title">
+              <span class="summary-icon">🤖</span>
+              <span>AI Course Review Summary</span>
+            </div>
             <el-button type="primary" :loading="isGenerating" @click="fetchAiSummary">
               {{ summaryData ? 'Regenerate' : 'Generate Summary' }}
             </el-button>
           </div>
         </template>
-        <p v-if="summaryData" class="summary-text">{{ summaryData }}</p>
+        <div v-if="summaryData" class="summary-content">
+          <p class="summary-text">{{ summaryData }}</p>
+        </div>
         <el-empty v-else description="Generate an AI summary of approved student reviews." :image-size="80" />
       </el-card>
 
+      <!-- Course Info Grid -->
       <div class="detail-grid">
-        <el-card>
-          <h2>Course information</h2>
-          <dl><dt>Credits</dt><dd>{{ course.credits }}</dd><dt>Estimated study time</dt><dd>{{ course.workloadHours || 'Not provided' }} {{ course.workloadHours ? 'hours' : '' }}</dd></dl>
+        <el-card shadow="never" class="info-card">
+          <h2 class="card-heading">Course Information</h2>
+          <dl class="info-list">
+            <div class="info-item">
+              <dt>Credits</dt>
+              <dd>{{ course.credits }} points</dd>
+            </div>
+            <div class="info-item">
+              <dt>Estimated study time</dt>
+              <dd>{{ course.workloadHours ? `${course.workloadHours} hours per semester` : 'Not provided' }}</dd>
+            </div>
+            <div class="info-item">
+              <dt>Course level</dt>
+              <dd>{{ course.level ? `Level ${course.level}` : 'Not specified' }}</dd>
+            </div>
+            <div class="info-item">
+              <dt>Offered in</dt>
+              <dd>
+                <template v-if="normalizeSemesters(course.offeredSemesters).length">
+                  {{ normalizeSemesters(course.offeredSemesters).map(s => s.replaceAll('_', ' ')).join(', ') }}
+                </template>
+                <template v-else>Not specified</template>
+              </dd>
+            </div>
+          </dl>
         </el-card>
-        <el-card>
-          <h2>Prerequisites</h2>
-          <p v-if="!course.prerequisites?.length" class="muted">This course has no prerequisites.</p>
-          <div v-else class="tag-list"><el-tag v-for="item in course.prerequisites" :key="item.id" @click="router.push(`/courses/${item.id}`)">{{ item.code }} · {{ item.name }}</el-tag></div>
-          <h3>Unlocks next</h3>
-          <p v-if="!course.prerequisiteFor?.length" class="muted">No follow-on courses have been recorded.</p>
-          <div v-else class="tag-list"><el-tag v-for="item in course.prerequisiteFor" :key="item.id" type="success" @click="router.push(`/courses/${item.id}`)">{{ item.code }}</el-tag></div>
+
+        <el-card shadow="never" class="info-card">
+          <h2 class="card-heading">Prerequisites & Pathways</h2>
+          <div class="pathway-section">
+            <h3>Prerequisites</h3>
+            <p v-if="!course.prerequisites?.length" class="muted-text">This course has no prerequisites.</p>
+            <div v-else class="tag-list">
+              <el-tag
+                v-for="item in course.prerequisites"
+                :key="item.id"
+                class="clickable-tag"
+                @click="router.push(`/courses/${item.id}`)"
+              >
+                {{ item.code }} · {{ item.name }}
+              </el-tag>
+            </div>
+          </div>
+          <div class="pathway-section">
+            <h3>Unlocks next</h3>
+            <p v-if="!course.prerequisiteFor?.length" class="muted-text">No follow-on courses have been recorded.</p>
+            <div v-else class="tag-list">
+              <el-tag
+                v-for="item in course.prerequisiteFor"
+                :key="item.id"
+                type="success"
+                class="clickable-tag"
+                @click="router.push(`/courses/${item.id}`)"
+              >
+                {{ item.code }} · {{ item.name }}
+              </el-tag>
+            </div>
+          </div>
         </el-card>
       </div>
 
+      <!-- Reviews -->
       <div class="review-layout">
-        <div>
-          <h2>Student reviews</h2>
+        <div class="reviews-column">
+          <h2 class="section-heading">Student Reviews</h2>
           <el-empty v-if="!reviews.length" description="There are no approved reviews yet" />
-          <article v-for="review in reviews" :key="review.id" class="review">
-            <div class="review-heading"><div class="review-author"><div><b>{{ review.user?.name || 'Anonymous student' }}</b><span class="muted"> · {{ review.user?.major || 'Student' }}</span></div><time :datetime="review.createdAt">Posted {{ formatReviewDate(review.createdAt) }}</time></div><el-button v-if="review.userId !== authStore.user?.id" link type="danger" @click="handleReport(review)">Report</el-button></div>
-            <el-rate :model-value="review.overallRating" disabled />
-            <p>{{ review.comment || 'This student did not leave a written review.' }}</p>
+          <article v-for="review in reviews" :key="review.id" class="review-card">
+            <div class="review-heading">
+              <div class="review-author">
+                <div class="author-avatar">{{ (review.user?.name || 'A').charAt(0).toUpperCase() }}</div>
+                <div class="author-info">
+                  <b>{{ review.user?.name || 'Anonymous student' }}</b>
+                  <span class="muted-text">{{ review.user?.major || 'Student' }}</span>
+                </div>
+              </div>
+              <div class="review-meta">
+                <time :datetime="review.createdAt">{{ formatReviewDate(review.createdAt) }}</time>
+                <el-button v-if="review.userId !== authStore.user?.id" link type="danger" size="small" @click="handleReport(review)">
+                  Report
+                </el-button>
+              </div>
+            </div>
+            <el-rate :model-value="review.overallRating" disabled size="small" />
+            <p class="review-comment">{{ review.comment || 'This student did not leave a written review.' }}</p>
           </article>
         </div>
-        <el-card class="review-form">
-          <h2>{{ ownReview ? 'Edit your review' : 'Write a review' }}</h2>
-          <p class="muted">{{ ownReview ? `Current status: ${ownReview.status}. Saving sends it back for approval.` : 'Your review will be published after approval.' }}</p>
+
+        <el-card shadow="never" class="review-form-card">
+          <h2 class="card-heading">{{ ownReview ? 'Edit Your Review' : 'Write a Review' }}</h2>
+          <p class="muted-text review-status">
+            {{ ownReview ? `Current status: ${ownReview.status}. Saving sends it back for approval.` : 'Your review will be published after approval.' }}
+          </p>
           <el-form label-position="top">
-            <el-form-item label="Overall recommendation"><el-rate v-model="form.overallRating" /></el-form-item>
-            <el-form-item label="Course difficulty"><el-rate v-model="form.difficultyRating" /></el-form-item>
-            <el-form-item label="Study workload"><el-rate v-model="form.workloadRating" /></el-form-item>
-            <el-form-item label="Your review"><el-input v-model="form.comment" type="textarea" :rows="4" maxlength="500" show-word-limit placeholder="Share your learning experience (optional)" /></el-form-item>
-            <el-button type="primary" :loading="submitting" @click="handleReview">{{ ownReview ? 'Save review changes' : 'Submit review' }}</el-button>
+            <el-form-item label="Overall recommendation">
+              <el-rate v-model="form.overallRating" />
+            </el-form-item>
+            <el-form-item label="Course difficulty">
+              <el-rate v-model="form.difficultyRating" />
+            </el-form-item>
+            <el-form-item label="Study workload">
+              <el-rate v-model="form.workloadRating" />
+            </el-form-item>
+            <el-form-item label="Your review">
+              <el-input
+                v-model="form.comment"
+                type="textarea"
+                :rows="4"
+                maxlength="500"
+                show-word-limit
+                placeholder="Share your learning experience (optional)"
+              />
+            </el-form-item>
+            <el-button type="primary" :loading="submitting" @click="handleReview" class="submit-review-btn">
+              {{ ownReview ? 'Save review changes' : 'Submit review' }}
+            </el-button>
           </el-form>
         </el-card>
       </div>
@@ -234,31 +406,480 @@ watch(() => route.params.id, () => {
 </template>
 
 <style scoped>
-.detail-page { max-width: 1000px; margin: 0 auto; }
-.course-hero { display: flex; justify-content: space-between; gap: 32px; padding: 28px 0; }
-.course-hero h1 { margin: 8px 0; font-size: 40px; }
-.course-hero p { max-width: 670px; line-height: 1.65; }
-.course-code { color: var(--accent); font-weight: 700; }
-.rating-box { min-width: 145px; text-align: center; border-left: 1px solid var(--border); padding-left: 24px; }
-.rating-box b { display: block; font-size: 38px; color: var(--text-h); }
-.rating-box span, .muted { color: var(--text); font-size: 14px; }
-.save-btn { margin-top: 12px; }
-.summary-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
-.summary-text { white-space: pre-wrap; line-height: 1.6; }
-.detail-grid, .review-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin: 20px 0 40px; }
-.detail-grid h2, .review-layout h2 { margin-top: 0; }
-dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-dt { color: var(--text); }
-dd { margin: 0; font-weight: 600; }
-.tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.tag-list .el-tag { cursor: pointer; }
-h3 { font-size: 15px; margin: 20px 0 8px; }
-.review-layout { grid-template-columns: 1.4fr .8fr; }
-.review { padding: 16px 0; border-bottom: 1px solid var(--border); }
-.review-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.review-author { display:flex; flex-direction:column; gap:3px; }
-.review-author time { color:var(--text); font-size:12px; }
-.review p { margin-top: 8px; line-height: 1.55; }
-.review-form { height: max-content; }
-@media (max-width: 700px) { .course-hero, .detail-grid, .review-layout { grid-template-columns: 1fr; display: grid; } .rating-box { border-left: 0; border-top: 1px solid var(--border); padding: 16px 0 0; text-align: left; } .course-hero h1 { font-size: 32px; } }
+.detail-page {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+/* Back link */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.back-link:hover {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* Course Hero */
+.course-hero {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 32px;
+  padding: 24px 0 32px;
+  align-items: start;
+}
+
+.hero-info {
+  min-width: 0;
+}
+
+.hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.course-code {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 4px 12px;
+  border-radius: 8px;
+}
+
+.course-title {
+  font-size: clamp(26px, 3.5vw, 40px);
+  font-weight: 700;
+  margin: 0 0 14px;
+  color: var(--text-h);
+  line-height: 1.25;
+  word-wrap: break-word;
+}
+
+.course-desc {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text);
+  margin: 0 0 24px;
+  max-width: 680px;
+}
+
+/* Hero actions */
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.save-action-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+}
+
+.save-action-btn:not(.el-button--warning) {
+  background: var(--accent-gradient) !important;
+  border: none !important;
+}
+
+/* Rating sidebar */
+.rating-sidebar {
+  position: sticky;
+  top: 80px;
+}
+
+.rating-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.rating-score {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.rating-number {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--text-h);
+  line-height: 1;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.rating-max {
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.rating-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.rating-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 16px 0;
+}
+
+.rating-meta {
+  text-align: left;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.meta-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+/* AI Summary */
+.ai-summary-card {
+  margin-bottom: 24px;
+  border-radius: var(--radius-lg) !important;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summary-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.summary-icon {
+  font-size: 20px;
+}
+
+.summary-content {
+  background: var(--accent-bg);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  border-left: 3px solid var(--accent);
+}
+
+.summary-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  color: var(--text-h);
+  font-size: 15px;
+  margin: 0;
+}
+
+/* Detail grid */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.info-card {
+  border-radius: var(--radius-lg) !important;
+}
+
+.card-heading {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: var(--text-h);
+}
+
+.info-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.info-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.info-item dt {
+  font-size: 14px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.info-item dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  text-align: right;
+  word-wrap: break-word;
+  max-width: 60%;
+}
+
+/* Pathways */
+.pathway-section {
+  margin-bottom: 20px;
+}
+
+.pathway-section:last-child {
+  margin-bottom: 0;
+}
+
+.pathway-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.muted-text {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.clickable-tag {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clickable-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Reviews */
+.review-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.section-heading {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  color: var(--text-h);
+}
+
+.review-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-light);
+  transition: box-shadow 0.2s ease;
+}
+
+.review-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.review-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.review-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.author-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.author-info b {
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.author-info span {
+  font-size: 12px;
+}
+
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.review-meta time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.review-comment {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  word-wrap: break-word;
+}
+
+/* Review form */
+.review-form-card {
+  position: sticky;
+  top: 80px;
+  border-radius: var(--radius-lg) !important;
+}
+
+.review-status {
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.submit-review-btn {
+  width: 100%;
+  padding: 12px !important;
+}
+
+/* Responsive */
+@media (max-width: 860px) {
+  .course-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .rating-sidebar {
+    position: static;
+  }
+
+  .rating-card {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    text-align: left;
+  }
+
+  .rating-divider {
+    width: 1px;
+    height: 40px;
+    margin: 0;
+  }
+
+  .rating-meta {
+    flex: 1;
+  }
+
+  .detail-grid,
+  .review-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .review-form-card {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .rating-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .rating-divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .hero-actions .el-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .info-item dd {
+    max-width: 50%;
+  }
+}
 </style>
