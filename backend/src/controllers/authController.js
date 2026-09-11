@@ -182,10 +182,6 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        if (typeof newPassword !== 'string' || newPassword.length < 6) {
-            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
-        }
-
         // 2. Call the service layer to reset the password.
         await userService.resetPassword(email, resetCode, newPassword);
 
@@ -197,6 +193,10 @@ const resetPassword = async (req, res) => {
 
     } catch (error) {
         console.error('Reset Password Error:', error);
+
+        if (error instanceof TypeError) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         
         // Convert specific service-layer errors into friendly frontend messages.
         if (error.message === 'Invalid code') {

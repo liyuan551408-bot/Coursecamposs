@@ -2,6 +2,7 @@
 const bcrypt = require('bcryptjs'); // Import bcrypt.
 const crypto = require('crypto');
 const prisma = require('../lib/prisma'); //[cite: 2]
+const { validatePassword } = require('../utils/passwordPolicy');
 
 const publicUserSelect = {
     id: true,
@@ -67,9 +68,7 @@ const findPublicUserById = async (id) => {
 
 // Standardization: receive plaintext password and hash it here.
 const createUser = async ({ email, password, name, major = null, studyYear = null }) => {
-    if (typeof password !== 'string' || password === '') {
-        throw new TypeError('A password is required');
-    }
+    validatePassword(password);
     if (typeof name !== 'string' || name.trim() === '') {
         throw new TypeError('A user name is required');
     }
@@ -122,6 +121,7 @@ const generateResetCode = async (email) => {
 
 // Verify the code and reset the password.
 const resetPassword = async (email, resetCode, newPassword) => {
+    validatePassword(newPassword);
     // 1. Match both email and verification code in the database.
     const user = await prisma.user.findFirst({
         where: { 

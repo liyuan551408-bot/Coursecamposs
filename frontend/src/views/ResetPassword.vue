@@ -12,7 +12,9 @@ const form = reactive({ email: typeof route.query.email === 'string' ? route.que
 
 async function submit() {
   if (!form.email || !form.resetCode || !form.newPassword) return ElMessage.warning('Complete every field.')
-  if (form.newPassword.length < 6) return ElMessage.warning('Password must be at least 6 characters.')
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/.test(form.newPassword)) {
+    return ElMessage.warning('Use at least 8 characters with uppercase, lowercase, number, and special character.')
+  }
   if (form.newPassword !== form.confirmPassword) return ElMessage.warning('Passwords do not match.')
   loading.value = true
   try {
@@ -23,5 +25,5 @@ async function submit() {
   finally { loading.value = false }
 }
 </script>
-<template><div class="auth-page"><el-card class="auth-card"><h1>Choose a new password</h1><p>Enter the verification code from your email before it expires.</p><el-form label-position="top"><el-form-item label="Email"><el-input v-model="form.email" type="email" autocomplete="email" /></el-form-item><el-form-item label="6-digit reset code"><el-input v-model="form.resetCode" maxlength="6" inputmode="numeric" /></el-form-item><el-form-item label="New password"><el-input v-model="form.newPassword" type="password" show-password autocomplete="new-password" /></el-form-item><el-form-item label="Confirm new password"><el-input v-model="form.confirmPassword" type="password" show-password autocomplete="new-password" @keyup.enter="submit" /></el-form-item><el-button type="primary" class="submit" :loading="loading" @click="submit">Reset password</el-button><el-button link @click="router.push({ name: 'ForgotPassword' })">Request another code</el-button></el-form></el-card></div></template>
+<template><div class="auth-page"><el-card class="auth-card"><h1>Choose a new password</h1><p>Enter the verification code from your email before it expires.</p><el-form label-position="top"><el-form-item label="Email"><el-input v-model="form.email" type="email" autocomplete="email" /></el-form-item><el-form-item label="6-digit reset code"><el-input v-model="form.resetCode" maxlength="6" inputmode="numeric" /></el-form-item><el-form-item label="New password"><el-input v-model="form.newPassword" type="password" show-password autocomplete="new-password" placeholder="8+ chars, upper/lowercase, number and special character" /></el-form-item><el-form-item label="Confirm new password"><el-input v-model="form.confirmPassword" type="password" show-password autocomplete="new-password" @keyup.enter="submit" /></el-form-item><el-button type="primary" class="submit" :loading="loading" @click="submit">Reset password</el-button><el-button link @click="router.push({ name: 'ForgotPassword' })">Request another code</el-button></el-form></el-card></div></template>
 <style scoped>.auth-page{min-height:65vh;display:grid;place-items:center}.auth-card{width:min(430px,100%)}h1{margin:0 0 8px;font-size:30px}.auth-card>p{margin-bottom:22px;color:var(--text);line-height:1.6}.submit{width:100%;margin-bottom:10px}</style>

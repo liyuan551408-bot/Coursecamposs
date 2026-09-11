@@ -43,7 +43,11 @@ const rules = {
   ],
   password: [
     { required: true, message: 'Enter a password', trigger: 'blur' },
-    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
+    {
+      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/,
+      message: 'Use at least 8 characters with uppercase, lowercase, number, and special character',
+      trigger: 'blur',
+    },
   ],
   confirmPassword: [
     { required: true, message: 'Enter your password again', trigger: 'blur' },
@@ -100,7 +104,7 @@ async function handleRegister() {
         <el-form-item label="Password" prop="password">
           <el-input
             v-model="form.password"
-            placeholder="At least 6 characters"
+            placeholder="8+ chars, upper/lowercase, number and special character"
             type="password"
             show-password
             autocomplete="new-password"
