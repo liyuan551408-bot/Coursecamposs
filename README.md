@@ -32,6 +32,8 @@ courseCompass/
 - Password reset email support
 - Prisma-backed PostgreSQL schema with seed data and smoke tests
 
+New account and password reset passwords must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character. Numbers are not required for existing passwords at sign-in.
+
 ## Typical Student Workflow
 
 1. Open **Courses** to browse or search the full course catalogue, then open a course to view its details.

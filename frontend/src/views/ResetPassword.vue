@@ -4,6 +4,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { resetPasswordApi } from '../api/auth'
+import { PASSWORD_POLICY, PASSWORD_POLICY_MESSAGE } from '../utils/passwordPolicy'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,8 +13,8 @@ const form = reactive({ email: typeof route.query.email === 'string' ? route.que
 
 async function submit() {
   if (!form.email || !form.resetCode || !form.newPassword) return ElMessage.warning('Complete every field.')
-  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/.test(form.newPassword)) {
-    return ElMessage.warning('Use at least 8 characters with uppercase, lowercase, number, and special character.')
+  if (!PASSWORD_POLICY.test(form.newPassword)) {
+    return ElMessage.warning(PASSWORD_POLICY_MESSAGE)
   }
   if (form.newPassword !== form.confirmPassword) return ElMessage.warning('Passwords do not match.')
   loading.value = true
