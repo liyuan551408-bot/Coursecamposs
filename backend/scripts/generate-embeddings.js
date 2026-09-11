@@ -23,7 +23,7 @@ async function main() {
             `);
         console.log(`Found ${courses.length} course(s) to process.`);
         if (courses.length === 0) {
-            console.log('数据库里还没有课程数据，请先通过前端或数据库面板添加一些测试课程！');
+            console.log('No courses found in the database. Add test courses through the frontend or database console first.');
             return;
         }
         for (const course of courses) {
@@ -41,7 +41,7 @@ async function main() {
         if (failed > 0) process.exitCode = 1;
 
     } catch (error) {
-        console.error('脚本运行出错:', error);
+        console.error('Embedding generation script failed:', error);
     } finally {
         await prisma.$disconnect();
     }

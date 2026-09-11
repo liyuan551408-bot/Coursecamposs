@@ -65,6 +65,12 @@ async function handleRemove(courseId, courseName, event) {
   if (event) event.stopPropagation()
   const id = Number(courseId)
   if (removingIds.value.has(id)) return
+  try {
+    await ElMessageBox.confirm(`Remove "${courseName}" from saved courses?`, 'Confirm removal', { confirmButtonText: 'Remove', cancelButtonText: 'Cancel', type: 'warning' })
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('Unable to confirm course removal')
+    return
+  }
   removingIds.value.add(id)
   try {
     await savedStore.removeSaved(id)

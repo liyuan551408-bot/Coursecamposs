@@ -4,12 +4,14 @@
  * Semester planner page.
  */
 import { reactive, ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getCourse } from '../api/courses'
 import { usePlannerStore } from '../stores/planner'
 import { useSavedStore } from '../stores/saved'
 
 const router = useRouter()
+const route = useRoute()
 const plannerStore = usePlannerStore()
 const savedStore = useSavedStore()
 
@@ -22,6 +24,11 @@ const selectedSemesterId = ref(null)
 const searchQuery = ref('')
 const selectedCourseIds = ref(new Set())
 const batchAdding = ref(false)
+const pendingCourse = ref(null)
+const pendingCourseDialogVisible = ref(false)
+const pendingSemesterId = ref(null)
+const addingPendingCourse = ref(false)
+const creatingForPendingCourse = ref(false)
 const planForm = reactive({ name: '', year: new Date().getFullYear(), semester: 'SEMESTER_1' })
 
 const CREDIT_WARNING_THRESHOLD = 60
@@ -61,11 +68,72 @@ async function loadCourses() {
       savedStore.loadSaved({ force: true }),
       plannerStore.loadPlans({ force: true }),
     ])
+    await openPendingCourseDialog()
   } catch (err) {
     ElMessage.error(err.response?.data?.message || 'Failed to load saved courses and plans')
   } finally {
     loading.value = false
   }
+}
+
+function clearPendingCourseRequest() {
+  const query = { ...route.query }
+  delete query.courseId
+  pendingCourse.value = null
+  pendingSemesterId.value = null
+  creatingForPendingCourse.value = false
+  if (route.query.courseId) router.replace({ query })
+}
+
+async function openPendingCourseDialog() {
+  const courseId = Number(route.query.courseId)
+  if (!Number.isInteger(courseId) || courseId <= 0) return
+
+  if (plannerStore.isInPlanner(courseId)) {
+    const semester = plannerStore.semesters.find((item) => item.courses.some((course) => course.id === courseId))
+    ElMessage.info(`This course is already in ${semester?.name || 'your plan'}`)
+    clearPendingCourseRequest()
+    return
+  }
+
+  try {
+    pendingCourse.value = await getCourse(courseId)
+    pendingSemesterId.value = plannerStore.semesters[0]?.id ?? null
+    pendingCourseDialogVisible.value = true
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Unable to load the selected course')
+    clearPendingCourseRequest()
+  }
+}
+
+async function addPendingCourseToSemester() {
+  if (!pendingCourse.value || !pendingSemesterId.value) {
+    ElMessage.warning('Choose a semester first')
+    return
+  }
+  const semesterName = getSemesterName(pendingSemesterId.value)
+  addingPendingCourse.value = true
+  try {
+    const result = await plannerStore.addCourse(pendingSemesterId.value, pendingCourse.value)
+    if (result.added) ElMessage.success(`${pendingCourse.value.code} added to ${semesterName}`)
+    if (result.warnings?.length) ElMessage.warning(result.warnings.join(' '))
+    pendingCourseDialogVisible.value = false
+    clearPendingCourseRequest()
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Unable to add the course to this semester')
+  } finally {
+    addingPendingCourse.value = false
+  }
+}
+
+function createSemesterForPendingCourse() {
+  pendingCourseDialogVisible.value = false
+  creatingForPendingCourse.value = true
+  addSemester()
+}
+
+function handlePlanDialogClosed() {
+  if (creatingForPendingCourse.value && !savingPlan.value) clearPendingCourseRequest()
 }
 
 async function openAddDialog(semesterId) {
@@ -168,9 +236,23 @@ async function createSemester() {
   if (!planForm.name.trim()) return ElMessage.warning('Enter a plan name')
   savingPlan.value = true
   try {
-    await plannerStore.addSemester({ ...planForm, name: planForm.name.trim() })
+    const newPlan = await plannerStore.addSemester({ ...planForm, name: planForm.name.trim() })
     planDialogVisible.value = false
-    ElMessage.success('Semester plan created')
+    if (creatingForPendingCourse.value && pendingCourse.value) {
+      try {
+        const result = await plannerStore.addCourse(newPlan.id, pendingCourse.value)
+        if (result.warnings?.length) ElMessage.warning(result.warnings.join(' '))
+        ElMessage.success(`${pendingCourse.value.code} added to ${newPlan.name}`)
+        clearPendingCourseRequest()
+      } catch (err) {
+        creatingForPendingCourse.value = false
+        pendingSemesterId.value = newPlan.id
+        pendingCourseDialogVisible.value = true
+        ElMessage.error(err.response?.data?.message || 'Semester created, but the course could not be added. Please try again.')
+      }
+    } else {
+      ElMessage.success('Semester plan created')
+    }
   } catch (err) {
     ElMessage.error(err.response?.data?.message || 'Unable to create plan')
   } finally {
@@ -196,7 +278,9 @@ function removeSemester(semesterId, semesterName) {
       })
       .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to remove plan') })
   } else {
-    plannerStore.removeSemester(semesterId).then(() => ElMessage.success('Semester removed')).catch((error) => ElMessage.error(error.response?.data?.message || 'Unable to remove plan'))
+    ElMessageBox.confirm(`${semesterName} is empty. Remove this semester?`, 'Remove semester', { confirmButtonText: 'Remove', cancelButtonText: 'Cancel', type: 'warning' })
+      .then(() => plannerStore.removeSemester(semesterId))
+      .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to remove plan') })
   }
 }
 
@@ -395,6 +479,48 @@ onMounted(loadCourses)
 
     <!-- Multi-select course dialog -->
     <el-dialog
+      v-model="pendingCourseDialogVisible"
+      title="Choose a semester"
+      width="min(520px, 94vw)"
+      :close-on-click-modal="false"
+      @closed="!creatingForPendingCourse && clearPendingCourseRequest()"
+    >
+      <template v-if="pendingCourse">
+        <div class="pending-course-summary">
+          <span class="course-code">{{ pendingCourse.code }}</span>
+          <div>
+            <strong>{{ pendingCourse.name }}</strong>
+            <p>{{ pendingCourse.credits }} credits · {{ pendingCourse.workloadHours || '—' }}h workload</p>
+          </div>
+        </div>
+
+        <el-radio-group v-if="plannerStore.semesters.length" v-model="pendingSemesterId" class="semester-picker">
+          <el-radio v-for="sem in semesterStats" :key="sem.id" :value="sem.id" border>
+            <span class="semester-option-name">{{ sem.name }}</span>
+            <span class="semester-option-meta">{{ sem.year }} · {{ sem.semester.replaceAll('_', ' ') }} · {{ sem.credits }} pts</span>
+          </el-radio>
+        </el-radio-group>
+        <el-empty v-else description="Create a semester before adding this course" :image-size="70" />
+      </template>
+
+      <template #footer>
+        <el-button @click="pendingCourseDialogVisible = false">Cancel</el-button>
+        <el-button v-if="!plannerStore.semesters.length" type="primary" @click="createSemesterForPendingCourse">
+          Create semester
+        </el-button>
+        <el-button
+          v-else
+          type="primary"
+          :loading="addingPendingCourse"
+          :disabled="!pendingSemesterId"
+          @click="addPendingCourseToSemester"
+        >
+          Add to semester
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="addDialogVisible"
       title="Add courses to semester"
       width="min(640px, 94vw)"
@@ -471,7 +597,15 @@ onMounted(loadCourses)
       </template>
     </el-dialog>
 
-    <el-dialog v-model="planDialogVisible" title="Create semester plan" width="min(480px, 94vw)">
+    <el-dialog
+      v-model="planDialogVisible"
+      title="Create semester plan"
+      width="min(480px, 94vw)"
+      :close-on-click-modal="!savingPlan"
+      :close-on-press-escape="!savingPlan"
+      :show-close="!savingPlan"
+      @closed="handlePlanDialogClosed"
+    >
       <el-form label-position="top">
         <el-form-item label="Plan name"><el-input v-model="planForm.name" placeholder="e.g. Computer Science pathway" /></el-form-item>
         <div class="plan-form-row">
@@ -479,7 +613,7 @@ onMounted(loadCourses)
           <el-form-item label="Teaching period"><el-select v-model="planForm.semester"><el-option label="Semester 1" value="SEMESTER_1" /><el-option label="Semester 2" value="SEMESTER_2" /><el-option label="Summer" value="SUMMER" /></el-select></el-form-item>
         </div>
       </el-form>
-      <template #footer><el-button @click="planDialogVisible = false">Cancel</el-button><el-button type="primary" :loading="savingPlan" @click="createSemester">Create plan</el-button></template>
+      <template #footer><el-button :disabled="savingPlan" @click="planDialogVisible = false">Cancel</el-button><el-button type="primary" :loading="savingPlan" @click="createSemester">Create plan</el-button></template>
     </el-dialog>
   </section>
 </template>
@@ -903,6 +1037,59 @@ onMounted(loadCourses)
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.pending-course-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+}
+
+.pending-course-summary strong {
+  color: var(--text-h);
+}
+
+.pending-course-summary p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.semester-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.semester-picker :deep(.el-radio) {
+  width: 100%;
+  height: auto;
+  min-height: 54px;
+  margin: 0;
+  padding: 10px 14px;
+}
+
+.semester-picker :deep(.el-radio__label) {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  white-space: normal;
+}
+
+.semester-option-name {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.semester-option-meta {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .plan-form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }

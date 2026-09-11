@@ -7,6 +7,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { PASSWORD_POLICY, PASSWORD_POLICY_MESSAGE } from '../utils/passwordPolicy'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -43,7 +44,11 @@ const rules = {
   ],
   password: [
     { required: true, message: 'Enter a password', trigger: 'blur' },
-    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
+    {
+      pattern: PASSWORD_POLICY,
+      message: PASSWORD_POLICY_MESSAGE,
+      trigger: 'blur',
+    },
   ],
   confirmPassword: [
     { required: true, message: 'Enter your password again', trigger: 'blur' },
@@ -100,7 +105,7 @@ async function handleRegister() {
         <el-form-item label="Password" prop="password">
           <el-input
             v-model="form.password"
-            placeholder="At least 6 characters"
+            placeholder="8+ chars, upper/lowercase, number and special character"
             type="password"
             show-password
             autocomplete="new-password"

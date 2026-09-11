@@ -26,7 +26,6 @@ const rules = {
   ],
   password: [
     { required: true, message: 'Enter your password', trigger: 'blur' },
-    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' },
   ],
 }
 
@@ -70,7 +69,7 @@ async function handleLogin() {
         <el-form-item label="Password" prop="password">
           <el-input
             v-model="form.password"
-            placeholder="At least 6 characters"
+            placeholder="Enter your password"
             type="password"
             show-password
             autocomplete="current-password"

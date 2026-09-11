@@ -7,8 +7,14 @@ const createPlan = async (req, res) => {
         const userId = req.user.id;
         const { name, year, semester } = req.body;
 
-        if (!name || !year || !semester) {
+        if (typeof name !== 'string' || !name.trim() || name.trim().length > 120) {
             return res.status(400).json({ success: false, message: 'Name, year, and semester are required' });
+        }
+        if (!Number.isInteger(Number(year)) || Number(year) < 2000 || Number(year) > 2200) {
+            return res.status(400).json({ success: false, message: 'Year must be a whole number between 2000 and 2200' });
+        }
+        if (!['SEMESTER_1', 'SEMESTER_2', 'SUMMER'].includes(semester)) {
+            return res.status(400).json({ success: false, message: 'Semester must be SEMESTER_1, SEMESTER_2, or SUMMER' });
         }
 
         const plan = await plannerService.createPlan(userId, req.body);
@@ -42,8 +48,11 @@ const addCourse = async (req, res) => {
         const planId = req.params.planId;
         const { courseId } = req.body; 
 
-        if (!courseId) {
+        if (!Number.isInteger(Number(courseId)) || Number(courseId) <= 0) {
             return res.status(400).json({ success: false, message: 'courseId is required' });
+        }
+        if (!/^\d+$/.test(String(planId)) || Number(planId) <= 0) {
+            return res.status(400).json({ success: false, message: 'A valid plan id is required' });
         }
 
         // Pass ownership context into the service for authorization-aware persistence.

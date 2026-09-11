@@ -16,6 +16,7 @@ import AdminDashboard from '../views/AdminDashboard.vue'
 import ModerationDashboard from '../views/ModerationDashboard.vue'
 import Profile from '../views/Profile.vue'
 import AiRecommendation from '../views/AiRecommendation.vue'
+import Notifications from '../views/Notifications.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -48,6 +49,7 @@ const routes = [
     meta: { requiresAuth: true, roles: ['admin', 'moderator'] },
   },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
+  { path: '/notifications', name: 'Notifications', component: Notifications, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

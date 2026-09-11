@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getSavedCourses, removeSavedCourse, saveCourse } from '../api/savedCourses'
+import { useNotificationStore } from './notifications'
 
 export const useSavedStore = defineStore('saved', () => {
   const records = ref([])
@@ -27,14 +28,17 @@ export const useSavedStore = defineStore('saved', () => {
 
   async function toggleSave(courseId) {
     const id = Number(courseId)
+    const notificationStore = useNotificationStore()
     if (isSaved(id)) {
       await removeSavedCourse(id)
       records.value = records.value.filter((record) => Number(record.courseId) !== id)
+      await notificationStore.refresh().catch(() => {})
       return false
     }
     const record = await saveCourse(id)
     records.value.unshift(record)
     loaded.value = true
+    await notificationStore.refresh().catch(() => {})
     return true
   }
 
@@ -42,6 +46,7 @@ export const useSavedStore = defineStore('saved', () => {
     const id = Number(courseId)
     await removeSavedCourse(id)
     records.value = records.value.filter((record) => Number(record.courseId) !== id)
+    await useNotificationStore().refresh().catch(() => {})
   }
 
   async function clearAll() {
