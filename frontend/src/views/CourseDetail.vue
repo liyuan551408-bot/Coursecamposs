@@ -83,6 +83,11 @@ async function loadPage() {
 }
 
 async function fetchAiSummary() {
+  if (!authStore.isLoggedIn) {
+    ElMessage.warning('Please log in before generating an AI course summary.')
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return
+  }
   isGenerating.value = true
   try {
     const response = await request.get(`/ai/courses/${route.params.id}/summary`)
