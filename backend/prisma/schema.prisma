@@ -1,13 +1,14 @@
 // @file Defines the relational data model, constraints, indexes, and generated Prisma client.
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"] 
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 enum UserRole {
   STUDENT
   MODERATOR
@@ -75,6 +76,7 @@ model User {
   savedCourses     SavedCourse[]
   semesterPlans    SemesterPlan[]
   completedCourses CompletedCourse[]
+  notifications    Notification[]
 }
 
 model Course {
@@ -192,4 +194,19 @@ model PlanCourse {
   course Course       @relation(fields: [courseId], references: [id])
 
   @@id([planId, courseId])
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  type      String
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([createdAt])
 }

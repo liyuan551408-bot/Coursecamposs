@@ -1,9 +1,10 @@
 /** @file Implements saved course business rules and persistence operations. */
 const prisma = require('../lib/prisma');
+const { createNotificationsSafely } = require('./notificationService');
 
 // 1. addSavedCourse
 const addSavedCourse = async (userId, courseId) => {
-    return prisma.savedCourse.create({
+    const saved = await prisma.savedCourse.create({
         data: {
             userId: Number(userId),
             courseId: Number(courseId)
@@ -14,6 +15,12 @@ const addSavedCourse = async (userId, courseId) => {
             } 
         }
     });
+    await createNotificationsSafely([userId], {
+        type: 'SAVED_COURSE_ADDED',
+        title: 'Course saved',
+        message: `${saved.course.code} was added to your saved courses.`
+    });
+    return saved;
 };
 
 // 2. obtain all saved courses for the current user
@@ -42,7 +49,11 @@ const getMySavedCourses = async (userId) => {
 
 // 3. cancel saved course
 const removeSavedCourse = async (userId, courseId) => {
-    return prisma.savedCourse.delete({
+    const saved = await prisma.savedCourse.findUnique({
+        where: { userId_courseId: { userId: Number(userId), courseId: Number(courseId) } },
+        include: { course: { select: { code: true } } }
+    });
+    const removed = await prisma.savedCourse.delete({
         where: {
             userId_courseId: {
                 userId: Number(userId),
@@ -50,6 +61,12 @@ const removeSavedCourse = async (userId, courseId) => {
             }
         }
     });
+    await createNotificationsSafely([userId], {
+        type: 'SAVED_COURSE_REMOVED',
+        title: 'Course removed from saved list',
+        message: `${saved?.course?.code || 'The course'} was removed from your saved courses.`
+    });
+    return removed;
 };
 
 module.exports = {

@@ -1,5 +1,6 @@
 /** @file Implements review business rules and persistence operations. */
 const prisma = require('../lib/prisma');
+const { createNotificationsSafely } = require('./notificationService');
 
 const VALID_STATUSES = new Set(['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN']);
 
@@ -104,7 +105,7 @@ const createReview = async (data) => {
     validateReviewData(data, true);
     await ensureCourseExists(data.courseId);
 
-    return prisma.review.create({
+    const created = await prisma.review.create({
         data: {
             userId: data.userId,
             courseId: data.courseId,
@@ -119,6 +120,12 @@ const createReview = async (data) => {
         },
         select: reviewSelect
     });
+    await createNotificationsSafely([data.userId], {
+        type: 'REVIEW_SUBMITTED',
+        title: 'Review submitted',
+        message: 'Your review was submitted and is waiting for moderator approval.'
+    });
+    return created;
 };
 
 const updateReview = async (userId, courseId, data) => {
@@ -149,11 +156,18 @@ const updateReview = async (userId, courseId, data) => {
     // Any student edit requires moderation again, even if the review was approved before.
     updateData.status = 'PENDING';
 
-    return prisma.review.update({
+    const updated = await prisma.review.update({
         where: { userId_courseId: { userId, courseId } },
         data: updateData,
         select: reviewSelect
     });
+    if (newStatus !== 'PENDING') {
+        await createNotificationsSafely([review.userId], {
+            type: 'REVIEW_MODERATION', title: 'Review moderation update',
+            message: `Your review for ${updated.course?.code || 'a course'} is now ${newStatus.toLowerCase()}.`
+        });
+    }
+    return updated;
 };
 
 const getApprovedReviewsByCourse = async (courseId) => {
@@ -199,11 +213,17 @@ const updateReviewStatus = async (reviewId, newStatus) => {
         throw error;
     }
 
-    return prisma.review.update({
+    const updated = await prisma.review.update({
         where: { id: Number(reviewId) },
         data: { status: newStatus },
         select: reviewSelect
     });
+    await createNotificationsSafely([review.userId], {
+        type: 'REVIEW_MODERATION',
+        title: 'Review moderation update',
+        message: `Your review for ${updated.course?.code || 'a course'} is now ${newStatus.toLowerCase()}.`
+    });
+    return updated;
 };
 
 const reportReview = async (reviewId, reporterId, reason) => {
@@ -227,7 +247,7 @@ const reportReview = async (reviewId, reporterId, reason) => {
     }
 
     // The database uniqueness constraint prevents one user from repeatedly reporting a review.
-    return prisma.reviewReport.create({
+    const report = await prisma.reviewReport.create({
         data: {
             reviewId,
             reporterId,
@@ -235,6 +255,21 @@ const reportReview = async (reviewId, reporterId, reason) => {
         },
         select: reportSelect
     });
+    await createNotificationsSafely([reporterId], {
+        type: 'REVIEW_REPORT_SUBMITTED',
+        title: 'Report submitted',
+        message: 'Your review report was submitted and is waiting for moderation.'
+    });
+    const moderators = await prisma.user.findMany({
+        where: { role: { in: ['ADMIN', 'MODERATOR'] } },
+        select: { id: true }
+    });
+    await createNotificationsSafely(moderators.map(({ id }) => id), {
+        type: 'NEW_REVIEW_REPORT',
+        title: 'New review report',
+        message: 'A student review has been reported and is waiting for moderation.'
+    });
+    return report;
 };
 
 const getPendingReports = async () => {
@@ -256,11 +291,16 @@ const updateReportStatus = async (reportId, newStatus) => {
         error.statusCode = 404;
         throw error;
     }
-    return prisma.reviewReport.update({
+    const updated = await prisma.reviewReport.update({
         where: { id: Number(reportId) },
         data: { status: newStatus },
         select: reportSelect
     });
+    await createNotificationsSafely([existing.reporterId], {
+        type: 'REPORT_UPDATE', title: 'Report update',
+        message: `Your review report has been ${newStatus.toLowerCase()}.`
+    });
+    return updated;
 };
 
 const getCourseRatingSummary = async (courseId) => {

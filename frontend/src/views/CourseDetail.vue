@@ -8,11 +8,13 @@ import { getCourseReviews, getMyCourseReview, reportReview, submitReview, update
 import request from '../api/request'
 import { useAuthStore } from '../stores/auth'
 import { useSavedStore } from '../stores/saved'
+import { useNotificationStore } from '../stores/notifications'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const savedStore = useSavedStore()
+const notificationStore = useNotificationStore()
 const loading = ref(true)
 const submitting = ref(false)
 const saving = ref(false)
@@ -22,7 +24,7 @@ const reviews = ref([])
 const ownReview = ref(null)
 const isGenerating = ref(false)
 const summaryData = ref('')
-const emptyReviewForm = () => ({ overallRating: 0, difficultyRating: 0, workloadRating: 0, comment: '' })
+const emptyReviewForm = () => ({ overallRating: 0, difficultyRating: 0, workloadRating: 0, teachingRating: 0, usefulnessRating: 0, assessmentStyle: '', comment: '' })
 const form = reactive(emptyReviewForm())
 const average = computed(() => reviews.value.length
   ? (reviews.value.reduce((total, item) => total + item.overallRating, 0) / reviews.value.length).toFixed(1)
@@ -56,6 +58,9 @@ function fillReviewForm(review) {
     overallRating: review.overallRating ?? 0,
     difficultyRating: review.difficultyRating ?? 0,
     workloadRating: review.workloadRating ?? 0,
+    teachingRating: review.teachingRating ?? 0,
+    usefulnessRating: review.usefulnessRating ?? 0,
+    assessmentStyle: review.assessmentStyle || '',
     comment: review.comment || '',
   })
 }
@@ -83,6 +88,11 @@ async function loadPage() {
 }
 
 async function fetchAiSummary() {
+  if (!authStore.isLoggedIn) {
+    ElMessage.warning('Please log in before generating an AI course summary.')
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return
+  }
   isGenerating.value = true
   try {
     const response = await request.get(`/ai/courses/${route.params.id}/summary`)
@@ -115,6 +125,7 @@ async function handleReview() {
       ? await updateMyReview(route.params.id, { ...form })
       : await submitReview({ courseId: Number(route.params.id), ...form })
     ownReview.value = updated
+    await notificationStore.refresh().catch(() => {})
     reviews.value = reviews.value.filter((review) => review.id !== updated.id)
     ElMessage.success(`Your review was ${wasEditing ? 'saved' : 'submitted'} and is pending approval.`)
   } catch (err) {
@@ -218,7 +229,7 @@ watch(() => route.params.id, () => {
                 Save course
               </template>
             </el-button>
-            <el-button size="large" plain @click="router.push('/compare')">
+            <el-button size="large" plain @click="router.push({ name: 'CompareCourses', query: { courseId: course.id } })">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10" />
                 <line x1="12" y1="20" x2="12" y2="4" />
@@ -226,7 +237,7 @@ watch(() => route.params.id, () => {
               </svg>
               Compare
             </el-button>
-            <el-button size="large" plain @click="router.push('/planner')">
+            <el-button size="large" plain @click="router.push({ name: 'Planner', query: { courseId: course.id } })">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
@@ -384,6 +395,21 @@ watch(() => route.params.id, () => {
             </el-form-item>
             <el-form-item label="Study workload">
               <el-rate v-model="form.workloadRating" />
+            </el-form-item>
+            <el-form-item label="Teaching quality (optional)">
+              <el-rate v-model="form.teachingRating" />
+            </el-form-item>
+            <el-form-item label="Usefulness (optional)">
+              <el-rate v-model="form.usefulnessRating" />
+            </el-form-item>
+            <el-form-item label="Assessment style (optional)">
+              <el-select v-model="form.assessmentStyle" clearable placeholder="Select assessment style" style="width:100%">
+                <el-option label="Exam heavy" value="EXAM_HEAVY" />
+                <el-option label="Coursework heavy" value="COURSEWORK_HEAVY" />
+                <el-option label="Project based" value="PROJECT_BASED" />
+                <el-option label="Practical" value="PRACTICAL" />
+                <el-option label="Balanced" value="BALANCED" />
+              </el-select>
             </el-form-item>
             <el-form-item label="Your review">
               <el-input

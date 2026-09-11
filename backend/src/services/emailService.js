@@ -1,10 +1,15 @@
 /** @file Implements email business rules and persistence operations. */
 const nodemailer = require('nodemailer');
+const smtpPort = Number(process.env.SMTP_PORT || 465);
 
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: true, 
+    port: smtpPort,
+    secure: smtpPort === 465,
+    requireTLS: smtpPort === 587,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -21,7 +26,7 @@ const sendResetEmail = async (toEmail, resetCode) => {
                 <h2>Password reset request</h2>
                 <p>You are trying to reset your account password. Your verification code is:</p>
                 <h1 style="color: #007bff; letter-spacing: 5px; background: #f4f4f4; padding: 10px; display: inline-block;">${resetCode}</h1>
-                <p>This code will expire in <strong>60 seconds</strong>. Please enter it as soon as possible.</p>
+            <p>This code will expire in <strong>10 minutes</strong>. Please enter it as soon as possible.</p>
             </div>
         `
     };

@@ -4,8 +4,8 @@
  * Course comparison page.
  */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourses, getCourse } from '../api/courses'
 import { getCourseComparisonAnalysis } from '../api/ai'
 import { getToken } from '../utils/auth'
@@ -13,6 +13,7 @@ import { useSavedStore } from '../stores/saved'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const savedStore = useSavedStore()
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -23,20 +24,23 @@ const searchQuery = ref('')
 const aiLoading = ref(false)
 const aiAnalysis = ref(null)
 const savingIds = ref(new Set())
+const originCourseId = ref(null)
 
 const MAX_COMPARE = 4
 
 const filteredCourses = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase()
-  if (!keyword) return allCourses.value
-  return allCourses.value.filter((course) =>
-    [course.code, course.name, course.description].some((value) =>
+  return allCourses.value.filter((course) => {
+    if (course.id === originCourseId.value) return false
+    if (!keyword) return true
+    return [course.code, course.name, course.description].some((value) =>
       value?.toLowerCase().includes(keyword)
     )
-  )
+  })
 })
 
 const canAdd = computed(() => compareIds.value.length < MAX_COMPARE)
+const originCourse = computed(() => compareCourses.value.find((course) => course.id === originCourseId.value))
 
 async function loadCourses() {
   loading.value = true
@@ -71,16 +75,19 @@ async function loadCompareCourse(courseId) {
   }
 }
 
-function removeFromCompare(courseId) {
+async function removeFromCompare(courseId) {
   const id = Number(courseId)
+  if (id === originCourseId.value) return
+  try { await ElMessageBox.confirm('Remove this course from the comparison?', 'Confirm removal', { confirmButtonText: 'Remove', cancelButtonText: 'Cancel', type: 'warning' }) } catch { return }
   compareIds.value = compareIds.value.filter((cid) => cid !== id)
   compareCourses.value = compareCourses.value.filter((c) => c.id !== id)
   aiAnalysis.value = null
 }
 
-function clearAll() {
-  compareIds.value = []
-  compareCourses.value = []
+async function clearAll() {
+  try { await ElMessageBox.confirm('Clear all comparison selections?', 'Confirm removal', { confirmButtonText: 'Clear all', cancelButtonText: 'Cancel', type: 'warning' }) } catch { return }
+  compareIds.value = originCourse.value ? [originCourse.value.id] : []
+  compareCourses.value = originCourse.value ? [originCourse.value] : []
   aiAnalysis.value = null
 }
 
@@ -148,6 +155,11 @@ async function handleQuickSave(course, event) {
 }
 
 onMounted(async () => {
+  const requestedCourseId = Number(route.query.courseId)
+  if (Number.isInteger(requestedCourseId) && requestedCourseId > 0) {
+    originCourseId.value = requestedCourseId
+    await addToCompare(requestedCourseId)
+  }
   loadCourses()
   if (authStore.isLoggedIn) {
     savedStore.loadSaved().catch(() => {})
@@ -160,16 +172,19 @@ onMounted(async () => {
     <div class="page-header">
       <div>
         <p class="eyebrow">COURSE COMPARISON</p>
-        <h1>Compare courses side by side</h1>
-        <p>Select up to {{ MAX_COMPARE }} courses to compare credits, workload, ratings and prerequisites.</p>
+        <h1>{{ originCourse ? `Compare ${originCourse.code} with other courses` : 'Compare courses side by side' }}</h1>
+        <p v-if="originCourse">Choose up to {{ MAX_COMPARE - 1 }} other courses to compare with {{ originCourse.code }}.</p>
+        <p v-else>Select up to {{ MAX_COMPARE }} courses to compare credits, workload, ratings and prerequisites.</p>
       </div>
-      <el-button v-if="compareCourses.length" plain @click="clearAll">Clear all</el-button>
+      <el-button v-if="compareCourses.length > (originCourse ? 1 : 0)" plain @click="clearAll">
+        {{ originCourse ? 'Clear comparisons' : 'Clear all' }}
+      </el-button>
     </div>
 
     <!-- Course selection controls. -->
     <el-card class="selector-card" shadow="never">
       <div class="selector-header">
-        <h2>Select courses to compare</h2>
+        <h2>{{ originCourse ? `Choose courses to compare with ${originCourse.code}` : 'Select courses to compare' }}</h2>
         <span class="count-badge">{{ compareIds.length }} / {{ MAX_COMPARE }} selected</span>
       </div>
       <el-input
