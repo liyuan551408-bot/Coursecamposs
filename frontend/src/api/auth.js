@@ -20,7 +20,9 @@ export function getMeApi() {
 }
 
 export function forgotPasswordApi(email) {
-  return request.post('/auth/forgot-password', { email })
+  // SMTP authentication can take longer on the first connection, so allow
+  // the reset request more time than the normal API timeout.
+  return request.post('/auth/forgot-password', { email }, { timeout: 30000 })
 }
 
 export function resetPasswordApi(payload) {
