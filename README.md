@@ -32,6 +32,14 @@ courseCompass/
 - Password reset email support
 - Prisma-backed PostgreSQL schema with seed data and smoke tests
 
+## Typical Student Workflow
+
+1. Open **Courses** to browse or search the full course catalogue, then open a course to view its details.
+2. Use **Save course** when you want to keep a course for later. Saved courses are an optional shortlist and are not required before planning.
+3. Use **Compare** from a course detail page to make that course the comparison baseline, then choose other courses to compare side by side.
+4. Use **Add to planner** from a course detail page to choose a semester and add the course directly. The Planner also supports importing multiple saved courses into an existing semester.
+5. Open **Planner** to review credits and workload across semesters, add or remove courses, and create additional semester plans.
+
 ## Prerequisites
 
 - Node.js 18 or newer
