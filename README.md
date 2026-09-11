@@ -158,6 +158,7 @@ Backend:
 cd backend
 npm start
 npm test
+npm run test:smtp
 npm run db:status
 npm run db:seed
 npm run embeddings:generate
@@ -178,6 +179,8 @@ npx prisma migrate status
 
 Main backend routes:
 
+- `GET /api/health`
+- `GET /api/health/database`
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/forgot-password`

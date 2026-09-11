@@ -6,7 +6,7 @@ const createPlan = async (userId, data) => {
     return prisma.semesterPlan.create({
         data: {
             userId: Number(userId),
-            name: data.name,
+            name: data.name.trim(),
             year: Number(data.year),
             semester: data.semester
         }
@@ -50,19 +50,6 @@ const requireOwnedPlan = async (userId, planId) => {
 // Add a course to a plan and report unmet prerequisites.
 const addCourseToPlan = async (userId, planId, courseId) => {
     await requireOwnedPlan(userId, planId);
-    const savedCourse = await prisma.savedCourse.findUnique({
-        where: {
-            userId_courseId: {
-                userId: Number(userId),
-                courseId: Number(courseId)
-            }
-        }
-    });
-    if (!savedCourse) {
-        const error = new Error('Save this course before adding it to a plan');
-        error.statusCode = 400;
-        throw error;
-    }
     // Load prerequisite ids before changing the plan.
     const course = await prisma.course.findUnique({
         where: { id: Number(courseId) },

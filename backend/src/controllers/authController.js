@@ -144,7 +144,12 @@ const forgotPassword = async(req, res) => {
                 await emailService.sendResetEmail(email, resetCode);
                 console.log(`[Email Success] Reset email sent successfully to ${email}`);
             } catch (emailError) {
-                console.error('[Email Error] Failed to send email:', emailError);
+                console.error('[Email Error] Failed to send reset email:', {
+                    code: emailError.code || 'UNKNOWN',
+                    responseCode: emailError.responseCode || null,
+                    command: emailError.command || null,
+                    message: emailError.message,
+                });
             }
         }
 
