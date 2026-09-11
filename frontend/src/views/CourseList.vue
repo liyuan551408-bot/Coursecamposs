@@ -18,7 +18,7 @@ const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const courses = ref([])
 const showFilters = ref(false)
 const savingIds = ref(new Set())
-const filters = reactive({ level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null })
+const filters = reactive({ level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minRating: null, hasPrerequisites: '' })
 let debounceTimer
 let latestSearchId = 0
 
@@ -71,7 +71,7 @@ function scheduleSearch() {
 }
 
 function resetFilters() {
-  Object.assign(filters, { level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null })
+  Object.assign(filters, { level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minRating: null, hasPrerequisites: '' })
   runSearch()
 }
 
@@ -156,6 +156,11 @@ onBeforeUnmount(() => {
         </el-select>
         <el-input-number v-model="filters.minCredits" :min="0" controls-position="right" placeholder="Min credits" />
         <el-input-number v-model="filters.maxCredits" :min="0" controls-position="right" placeholder="Max credits" />
+        <el-input-number v-model="filters.minRating" :min="1" :max="5" controls-position="right" placeholder="Min rating" />
+        <el-select v-model="filters.hasPrerequisites" clearable placeholder="Prerequisites">
+          <el-option label="Has prerequisites" value="true" />
+          <el-option label="No prerequisites" value="false" />
+        </el-select>
         <div class="filter-actions">
           <el-button @click="resetFilters">Reset</el-button>
           <el-button type="primary" @click="runSearch">Apply filters</el-button>

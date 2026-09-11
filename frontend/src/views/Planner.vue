@@ -278,7 +278,9 @@ function removeSemester(semesterId, semesterName) {
       })
       .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to remove plan') })
   } else {
-    plannerStore.removeSemester(semesterId).then(() => ElMessage.success('Semester removed')).catch((error) => ElMessage.error(error.response?.data?.message || 'Unable to remove plan'))
+    ElMessageBox.confirm(`${semesterName} is empty. Remove this semester?`, 'Remove semester', { confirmButtonText: 'Remove', cancelButtonText: 'Cancel', type: 'warning' })
+      .then(() => plannerStore.removeSemester(semesterId))
+      .catch((error) => { if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to remove plan') })
   }
 }
 

@@ -1,9 +1,10 @@
 /** @file Implements plan business rules and persistence operations. */
 const prisma = require('../lib/prisma');
+const { createNotificationsSafely, deleteExpired } = require('./notificationService');
 
 // Create a semester plan owned by one user.
 const createPlan = async (userId, data) => {
-    return prisma.semesterPlan.create({
+    const plan = await prisma.semesterPlan.create({
         data: {
             userId: Number(userId),
             name: data.name.trim(),
@@ -11,6 +12,8 @@ const createPlan = async (userId, data) => {
             semester: data.semester
         }
     });
+    await createNotificationsSafely([userId], { type: 'PLAN_CREATED', title: 'Semester plan created', message: `Your ${plan.semester} ${plan.year} plan is ready.` });
+    return plan;
 };
 
 // Load all plans for a user together with their course details.
@@ -97,16 +100,18 @@ const addCourseToPlan = async (userId, planId, courseId) => {
     });
 
     // Return warnings alongside data so the controller can preserve both.
-    return {
+    const result = {
         ...addedCourse,
         warnings 
     };
+    await createNotificationsSafely([userId], { type: 'PLAN_COURSE_ADDED', title: 'Course added to planner', message: `${course.code} was added to your ${planId} semester plan.` });
+    return result;
 };
 
 // Remove one course from a plan owned by the user.
 const removeCourseFromPlan = async (userId, planId, courseId) => {
     await requireOwnedPlan(userId, planId);
-    return prisma.planCourse.delete({
+    const removed = await prisma.planCourse.delete({
         where: {
             planId_courseId: {
                 planId: Number(planId),
@@ -114,6 +119,8 @@ const removeCourseFromPlan = async (userId, planId, courseId) => {
             }
         }
     });
+    await createNotificationsSafely([userId], { type: 'PLAN_COURSE_REMOVED', title: 'Course removed from planner', message: `A course was removed from your semester plan.` });
+    return removed;
 };
 
 const deletePlan = async (userId, planId) => {
@@ -128,3 +135,6 @@ module.exports = {
     removeCourseFromPlan,
     deletePlan
 };
+
+// Keep long-lived notification tables bounded without affecting request latency.
+setInterval(() => deleteExpired().catch((error) => console.error('Notification cleanup failed:', error)), 24 * 60 * 60 * 1000).unref();

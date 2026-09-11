@@ -7,6 +7,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { PASSWORD_POLICY, PASSWORD_POLICY_MESSAGE } from '../utils/passwordPolicy'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -44,8 +45,8 @@ const rules = {
   password: [
     { required: true, message: 'Enter a password', trigger: 'blur' },
     {
-      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/,
-      message: 'Use at least 8 characters with uppercase, lowercase, number, and special character',
+      pattern: PASSWORD_POLICY,
+      message: PASSWORD_POLICY_MESSAGE,
       trigger: 'blur',
     },
   ],

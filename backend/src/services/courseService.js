@@ -5,6 +5,7 @@ const {
     enqueueCourseEmbedding
 } = require('./courseEmbeddingService');
 const { rankFuzzyCourses } = require('../utils/fuzzySearch');
+const { createNotificationsSafely } = require('./notificationService');
 
 const courseSelect = {
     id: true,
@@ -190,6 +191,13 @@ const updateCourse = async (id, courseData) => {
     } catch (error) {
         console.error(`Course embedding generation failed for ${updatedCourse.code}:`, error);
     }
+
+    const savedUsers = await prisma.savedCourse.findMany({ where: { courseId: updatedCourse.id }, select: { userId: true } });
+    await createNotificationsSafely(savedUsers.map(({ userId }) => userId), {
+        type: 'SAVED_COURSE_UPDATE',
+        title: `${updatedCourse.code} was updated`,
+        message: 'A course in your saved list has new information. Open the course page to review the changes.'
+    });
 
     return updatedCourse;
 };
@@ -412,10 +420,10 @@ const getCoursesForComparison = async (codes) => {
 
 // Search active courses using optional text and structured filters.
 const searchCourses = async (queryFilters) => {
-    const { keyword, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits } = queryFilters;
+    const { keyword, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits, minRating, hasPrerequisites } = queryFilters;
     const whereClause = { isActive: true }; // Inactive courses are excluded by default.
     const numericFilters = {};
-    for (const [field, value] of Object.entries({ level, minCredits, maxCredits })) {
+    for (const [field, value] of Object.entries({ level, minCredits, maxCredits, minRating })) {
         if (value !== undefined && value !== '') {
             const parsed = Number(value);
             if (!Number.isInteger(parsed) || parsed < 0) throw new TypeError(`${field} must be a non-negative whole number`);
@@ -431,6 +439,12 @@ const searchCourses = async (queryFilters) => {
     }
     if (assessmentType && !['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION'].includes(assessmentType)) {
         throw new TypeError('Invalid assessment type filter');
+    }
+    if (hasPrerequisites !== undefined && hasPrerequisites !== '' && !['true', 'false'].includes(String(hasPrerequisites))) {
+        throw new TypeError('hasPrerequisites must be true or false');
+    }
+    if (numericFilters.minRating !== undefined && (numericFilters.minRating < 1 || numericFilters.minRating > 5)) {
+        throw new TypeError('minRating must be between 1 and 5');
     }
     if (!['keyword', 'fuzzy'].includes(mode)) {
         throw new TypeError('Invalid search mode');
@@ -465,6 +479,13 @@ const searchCourses = async (queryFilters) => {
         whereClause.credits = {};
         if (numericFilters.minCredits !== undefined) whereClause.credits.gte = numericFilters.minCredits;
         if (numericFilters.maxCredits !== undefined) whereClause.credits.lte = numericFilters.maxCredits;
+    }
+
+    if (numericFilters.minRating !== undefined) {
+        whereClause.reviews = { some: { status: 'APPROVED', overallRating: { gte: numericFilters.minRating } } };
+    }
+    if (hasPrerequisites !== undefined && hasPrerequisites !== '') {
+        whereClause.prerequisites = String(hasPrerequisites) === 'true' ? { some: {} } : { none: {} };
     }
 
     const courses = await prisma.course.findMany({

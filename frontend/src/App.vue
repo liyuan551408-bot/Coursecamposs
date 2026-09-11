@@ -9,16 +9,20 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useSavedStore } from './stores/saved'
 import { usePlannerStore } from './stores/planner'
+import { useNotificationStore } from './stores/notifications'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const savedStore = useSavedStore()
 const plannerStore = usePlannerStore()
+const notificationStore = useNotificationStore()
+let notificationTimer
 
 function handleLogout() {
   authStore.logout()
   savedStore.reset()
   plannerStore.reset()
+  notificationStore.reset()
   router.push('/login')
 }
 
@@ -26,13 +30,20 @@ function handleLogout() {
 watch(() => authStore.isLoggedIn, (isLoggedIn) => {
   if (isLoggedIn) {
     savedStore.loadSaved().catch(() => {})
+    notificationStore.refresh().catch(() => {})
+    clearInterval(notificationTimer)
+    notificationTimer = window.setInterval(() => notificationStore.refresh().catch(() => {}), 3000)
+  } else {
+    clearInterval(notificationTimer)
   }
 }, { immediate: true })
 
 onMounted(() => {
   if (authStore.isLoggedIn) {
     savedStore.loadSaved().catch(() => {})
+    notificationStore.refresh().catch(() => {})
   }
+  window.addEventListener('focus', () => notificationStore.refresh().catch(() => {}))
 })
 </script>
 
@@ -67,10 +78,11 @@ onMounted(() => {
 
       <div class="auth-area">
         <template v-if="authStore.isLoggedIn">
-          <router-link to="/profile" class="user-link">
+        <router-link to="/profile" class="user-link">
             <span class="user-avatar">{{ authStore.userName?.charAt(0)?.toUpperCase() || 'U' }}</span>
             <span class="user-name">{{ authStore.userName }}</span>
           </router-link>
+          <router-link to="/notifications" class="nav-link nav-link--badge" aria-label="Notifications">Notifications<span v-if="notificationStore.unreadCount" class="nav-badge">{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</span></router-link>
           <el-button size="small" @click="handleLogout" class="logout-btn">Log out</el-button>
         </template>
         <template v-else>

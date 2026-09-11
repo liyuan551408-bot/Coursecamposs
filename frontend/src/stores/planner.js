@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { addPlanCourse, createPlan, deletePlan, getPlans, removePlanCourse } from '../api/plans'
+import { useNotificationStore } from './notifications'
 
 const normalizePlan = (plan) => ({
   ...plan,
@@ -39,6 +40,7 @@ export const usePlannerStore = defineStore('planner', () => {
     if (!semester) return { added: false, warnings: [] }
     const result = await addPlanCourse(semester.id, course.id)
     semester.courses.push(result.course || course)
+    await useNotificationStore().refresh().catch(() => {})
     return { added: true, warnings: result.warnings }
   }
 
@@ -68,11 +70,13 @@ export const usePlannerStore = defineStore('planner', () => {
     await removePlanCourse(semesterId, courseId)
     const semester = semesters.value.find((item) => item.id === Number(semesterId))
     if (semester) semester.courses = semester.courses.filter((course) => course.id !== Number(courseId))
+    await useNotificationStore().refresh().catch(() => {})
   }
 
   async function addSemester(payload) {
     const plan = await createPlan(payload)
     semesters.value.push(normalizePlan(plan))
+    await useNotificationStore().refresh().catch(() => {})
     return plan
   }
 

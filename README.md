@@ -30,7 +30,11 @@ courseCompass/
 - AI-generated course review summaries
 - 1024-dimensional pgvector embeddings for course search
 - Password reset email support
+- In-app notifications for reviews, reports, Saved Course changes, and Planner changes
+- Notification unread badge, automatic refresh, read state, and confirmed deletion
 - Prisma-backed PostgreSQL schema with seed data and smoke tests
+
+New account and password reset passwords must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character. Existing passwords are not revalidated when users sign in.
 
 ## Typical Student Workflow
 
@@ -100,6 +104,8 @@ npm run db:seed
 npm run embeddings:generate
 ```
 
+After pulling a new database migration, run `npx prisma migrate deploy` before starting the backend. The notification system uses the `Notification` table created by the latest migration.
+
 The embedding command generates vectors for courses whose `embedding` is missing and uses the same shared course text as course create/update operations. It includes course code, name, description, level, credits, offered semesters, assessment types, and workload hours. To rebuild every course vector after changing this text format, run:
 
 ```powershell
@@ -159,6 +165,9 @@ cd backend
 npm start
 npm test
 npm run test:smtp
+npm run test:backend-rules
+npm run test:notifications
+npm run db:permission-check
 npm run db:status
 npm run db:seed
 npm run embeddings:generate
@@ -187,6 +196,11 @@ Main backend routes:
 - `POST /api/auth/reset-password`
 - `GET /api/users/me` (authenticated)
 - `PATCH /api/users/me` (authenticated)
+- `GET /api/notifications` (authenticated; supports `page`, `limit`, and `unreadOnly`)
+- `PATCH /api/notifications/:id/read` (authenticated)
+- `PATCH /api/notifications/read-all` (authenticated)
+- `DELETE /api/notifications/:id` (authenticated)
+- `DELETE /api/notifications` (authenticated)
 - `GET /api/courses`
 - `POST /api/courses` (administrator only)
 - `PATCH /api/courses/:id` (administrator only)
@@ -212,6 +226,16 @@ Backend smoke tests require a valid database connection:
 cd backend
 npm test
 ```
+
+Notification-specific checks:
+
+```powershell
+cd backend
+npm run db:permission-check
+npm run test:notifications
+```
+
+The notification smoke test creates temporary notifications for an existing user, verifies listing and read-state transitions, and removes its test records. It does not send email or browser push notifications.
 
 ## Notes
 

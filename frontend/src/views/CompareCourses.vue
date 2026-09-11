@@ -5,7 +5,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourses, getCourse } from '../api/courses'
 import { getCourseComparisonAnalysis } from '../api/ai'
 import { getToken } from '../utils/auth'
@@ -75,15 +75,17 @@ async function loadCompareCourse(courseId) {
   }
 }
 
-function removeFromCompare(courseId) {
+async function removeFromCompare(courseId) {
   const id = Number(courseId)
   if (id === originCourseId.value) return
+  try { await ElMessageBox.confirm('Remove this course from the comparison?', 'Confirm removal', { confirmButtonText: 'Remove', cancelButtonText: 'Cancel', type: 'warning' }) } catch { return }
   compareIds.value = compareIds.value.filter((cid) => cid !== id)
   compareCourses.value = compareCourses.value.filter((c) => c.id !== id)
   aiAnalysis.value = null
 }
 
-function clearAll() {
+async function clearAll() {
+  try { await ElMessageBox.confirm('Clear all comparison selections?', 'Confirm removal', { confirmButtonText: 'Clear all', cancelButtonText: 'Cancel', type: 'warning' }) } catch { return }
   compareIds.value = originCourse.value ? [originCourse.value.id] : []
   compareCourses.value = originCourse.value ? [originCourse.value] : []
   aiAnalysis.value = null
