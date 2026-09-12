@@ -2,40 +2,79 @@
 
 ## 1. Purpose
 
-This document describes the database Service functions currently available to the CourseCompass backend.
+This document describes the main database-facing Service modules used by the CourseCompass backend.
 
-Controllers should call Service functions instead of accessing Prisma directly.
-
-The current database Services are:
+The intended backend structure is:
 
 ```text
-src/services/userService.js
-src/services/courseService.js
+Route
+  ↓
+Controller
+  ↓
+Service
+  ↓
+Shared Prisma Client
+  ↓
+PostgreSQL
 ```
+
+Controllers should normally call Service functions instead of directly implementing database queries.
+
+---
 
 ## 2. Shared Prisma Client
 
-The shared Prisma Client is defined in:
+The shared Prisma client is defined in:
 
 ```text
 src/lib/prisma.js
 ```
 
-Service files may import it using:
+Service files import:
 
 ```javascript
 const prisma = require('../lib/prisma');
 ```
 
+The shared Prisma instance is configured using:
+
+```env
+DATABASE_URL
+```
+
+and uses the PostgreSQL adapter.
+
 Rules:
 
-- Do not create `new PrismaClient()` inside controllers.
-- Do not create a new Prisma Client for each request.
-- Do not access Prisma directly from route files.
-- Database queries should normally remain inside Service files.
-- Always use the shared Prisma instance.
+- Do not create `new PrismaClient()` inside each controller.
+- Do not create a new Prisma connection for each request.
+- Do not access PostgreSQL directly from frontend code.
+- Route files should not contain business-level database queries.
+- Database credentials must not be exposed in responses or logs.
 
-## 3. User Service
+---
+
+## 3. Current Database-Related Services
+
+The main database-related Service modules are:
+
+```text
+src/services/userService.js
+src/services/courseService.js
+src/services/savedCourseService.js
+src/services/completedCourseService.js
+src/services/planService.js
+src/services/reviewService.js
+src/services/notificationService.js
+src/services/courseEmbeddingService.js
+src/services/courseRetrievalService.js
+```
+
+Other backend services such as AI-provider and email services may support these modules but are not themselves the main relational persistence layer.
+
+---
+
+# 4. User Service
 
 File:
 
@@ -43,12 +82,27 @@ File:
 src/services/userService.js
 ```
 
-### 3.1 `normalizeEmail(email)`
+Responsibilities include:
 
-Purpose:
+- email normalisation
+- authentication user lookup
+- safe public user lookup
+- account creation
+- password hashing
+- reset-code creation
+- password reset
+- profile updates
 
-- Removes leading and trailing spaces.
-- Converts email addresses to lowercase.
+---
+
+## 4.1 `normalizeEmail(email)`
+
+Normalises an email by:
+
+- trimming whitespace
+- converting it to lowercase
+
+Invalid or empty input throws a `TypeError`.
 
 Example:
 
@@ -64,144 +118,109 @@ Result:
 student@coursecompass.test
 ```
 
-Possible error:
+---
 
-- Throws `TypeError` when email is empty or not a string.
+## 4.2 `findUserForAuthenticationByEmail(email)`
 
-### 3.2 `findUserForAuthenticationByEmail(email)`
+Finds a user by normalised email.
 
-Purpose:
+The authentication projection includes the password hash because password verification requires it.
 
-- Finds a user during login.
-- Returns the password hash required for bcrypt verification.
+Password hashes returned by this Service must never be sent to the frontend.
 
-Example:
+---
 
-```javascript
-const user =
-    await userService.findUserForAuthenticationByEmail(email);
-```
+## 4.3 `findPublicUserById(id)`
 
-Successful return value:
+Returns the safe public/profile representation of a user.
 
-```javascript
-{
-    id,
-    email,
-    passwordHash,
-    name,
-    role,
-    major
-}
-```
+The result includes profile information such as:
 
-When the email does not exist:
+- id
+- email
+- name
+- role
+- major
+- study year
+- interests
+- goals
+- planning preferences
+- completed-course details
+- timestamps
 
-```javascript
-null
-```
+It does not expose the password hash.
 
-Security rule:
+---
 
-`passwordHash` is returned only because the authentication module needs it. It must never be returned in an HTTP response or stored inside the JWT payload.
+## 4.4 `createUser(data)`
 
-### 3.3 `findPublicUserById(id)`
+Creates a standard user account.
 
-Purpose:
+The Service:
 
-- Finds a user by primary key.
-- Returns only fields that are safe for normal application responses.
+1. validates password policy
+2. normalises the email
+3. validates profile inputs
+4. hashes the plaintext password with bcrypt
+5. stores the new account
+6. returns a safe user projection
 
-Example:
-
-```javascript
-const user = await userService.findPublicUserById(userId);
-```
-
-Successful return value:
-
-```javascript
-{
-    id,
-    email,
-    name,
-    role,
-    major,
-    createdAt,
-    updatedAt
-}
-```
-
-When the user does not exist:
-
-```javascript
-null
-```
-
-The result does not contain `passwordHash`.
-
-### 3.4 `createUser(data)`
-
-Purpose:
-
-- Creates a standard student account.
-- Normalises the email before writing it.
-- Prevents public registration from assigning privileged roles.
-
-Input:
-
-```javascript
-{
-    email,
-    passwordHash,
-    name,
-    major
-}
-```
-
-Example:
-
-```javascript
-const passwordHash = await bcrypt.hash(password, 10);
-
-const user = await userService.createUser({
-    email,
-    passwordHash,
-    name,
-    major
-});
-```
-
-Requirements:
-
-- The caller must hash the password before calling the Service.
-- `email` must be a non-empty string.
-- `passwordHash` must be a non-empty string.
-- `name` must be a non-empty string.
-- `major` is optional.
-- Public registration must not accept a user-provided role.
-
-The database applies the default role:
+Public registration relies on the database default:
 
 ```text
 STUDENT
 ```
 
-Safe return value:
+for the user role.
 
-```javascript
-{
-    id,
-    email,
-    name,
-    role,
-    major,
-    createdAt,
-    updatedAt
-}
-```
+---
 
-## 4. Course Service
+## 4.5 `generateResetCode(email)`
+
+Generates a six-digit password-reset verification code.
+
+The code and its expiration time are stored on the user record.
+
+If the email does not belong to a user, the Service returns no reset code.
+
+---
+
+## 4.6 `resetPassword(email, resetCode, newPassword)`
+
+Resets a user's password after verifying:
+
+- email
+- reset code
+- code expiration
+- password policy
+
+On success the Service:
+
+- hashes the new password
+- updates `passwordHash`
+- clears `resetCode`
+- clears `resetCodeExpires`
+
+---
+
+## 4.7 `updateUserProfile(id, data)`
+
+Updates supported profile fields.
+
+Current editable profile data includes:
+
+- name
+- major
+- study year
+- interests
+- goals
+- planning preferences
+
+Input validation is applied before persistence.
+
+---
+
+# 5. Course Service
 
 File:
 
@@ -209,232 +228,757 @@ File:
 src/services/courseService.js
 ```
 
-### 4.1 `getAllCourses(options)`
+Responsibilities include:
 
-Purpose:
+- active course listing
+- administrator course listing
+- course creation
+- course updates
+- course detail loading
+- prerequisite relationships
+- course comparison
+- keyword/fuzzy search
+- rating-summary integration
+- course embedding refresh
+- notifications following course updates
 
-- Returns active courses from PostgreSQL.
-- Supports basic offset pagination.
+---
 
-Optional input:
+## 5.1 Course Listing
 
-```javascript
-{
-    skip,
-    take
-}
-```
+Normal student-facing course queries return active courses.
 
-Example:
+Typical course data includes:
 
-```javascript
-const courses = await courseService.getAllCourses({
-    skip: 0,
-    take: 20
-});
-```
+- id
+- code
+- name
+- description
+- credits
+- workload hours
+- level
+- offered semesters
+- assessment types
+- official link
+- prerequisites
+- timestamps
 
-Default behaviour:
+Administrator queries may include inactive courses.
 
-- `skip` defaults to `0`.
-- `take` defaults to `50`.
-- `take` is limited to a maximum of `100`.
-- Invalid pagination values are replaced with safe defaults.
-- Only courses with `isActive: true` are returned.
-- Courses are sorted by `code` in ascending order.
+---
 
-Returned course fields:
+## 5.2 Course Creation
 
-```javascript
-{
-    id,
-    code,
-    name,
-    description,
-    credits,
-    workloadHours,
-    isActive,
-    createdAt,
-    updatedAt
-}
-```
+Course creation may include prerequisite references.
 
-Naming requirement:
+Prerequisites may be resolved by supported course references.
 
-The database and API use `name` for the course name. Backend and frontend code should not use `title` for the same field.
+The Service validates that prerequisite courses exist before creating the relationship.
 
-## 5. Authentication Integration
+After course creation, embedding generation may be scheduled.
 
-The Backend Developer should implement login using this sequence:
+---
+
+## 5.3 Course Updates
+
+Course updates may modify:
+
+- name
+- code
+- credits
+- description
+- workload
+- offered semesters
+- level
+- assessment types
+- official link
+- active state
+- prerequisites
+
+When relevant course content changes, the Service refreshes the semantic embedding.
+
+Users who saved an updated course may receive an in-app notification.
+
+---
+
+## 5.4 Course Prerequisites
+
+Course detail queries may include both:
 
 ```text
-Login request
-    ↓
-Validate email and password
-    ↓
-findUserForAuthenticationByEmail(email)
-    ↓
-bcrypt.compare(password, user.passwordHash)
-    ↓
-Create JWT
-    ↓
-Return safe user data
+prerequisites
 ```
 
-Example:
+and:
 
-```javascript
-const bcrypt = require('bcryptjs');
-const userService = require('../services/userService');
-
-const user =
-    await userService.findUserForAuthenticationByEmail(email);
-
-if (!user) {
-    return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-    });
-}
-
-const passwordMatches = await bcrypt.compare(
-    password,
-    user.passwordHash
-);
-
-if (!passwordMatches) {
-    return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-    });
-}
-
-const safeUser = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    major: user.major
-};
+```text
+prerequisiteFor
 ```
 
-Authentication security requirements:
+relationships.
 
-- Use the same error message for an unknown email and an incorrect password.
-- Never return `passwordHash`.
-- Never place `passwordHash` in a JWT.
-- Never log passwords or password hashes.
-- Public registration must always create a `STUDENT`.
-- Moderator and administrator roles must be assigned through authorised administration logic.
+A course must not be configured as its own prerequisite.
 
-## 6. Course Controller Integration
+---
 
-The existing Controller may call:
+## 5.5 Course Comparison
 
-```javascript
-const courses = await courseService.getAllCourses();
+The Course Service provides database context for comparison features.
+
+Comparison data may include:
+
+- course attributes
+- prerequisite context
+- approved review ratings
+- selected review comments
+
+Only active courses should be used for normal student comparison.
+
+---
+
+## 5.6 Course Search
+
+Course search supports:
+
+- text search
+- fuzzy search
+- structured filters
+
+Structured filters may include:
+
+- course level
+- semester
+- assessment type
+- credit range
+- rating
+- prerequisite presence
+
+---
+
+# 6. Saved Course Service
+
+File:
+
+```text
+src/services/savedCourseService.js
 ```
 
-For pagination, query values must first be converted from strings to integers:
+Exports:
 
-```javascript
-const skip = Number.parseInt(req.query.skip, 10);
-const take = Number.parseInt(req.query.take, 10);
-
-const courses = await courseService.getAllCourses({
-    skip,
-    take
-});
+```text
+addSavedCourse
+getMySavedCourses
+removeSavedCourse
 ```
 
-The Service applies safe defaults when these values are invalid.
+---
 
-## 7. Prisma Error Handling
+## 6.1 `addSavedCourse(userId, courseId)`
 
-Controllers should catch Service errors and convert them into safe HTTP responses.
+Creates a `SavedCourse` relationship.
 
-Recommended mappings:
+The database composite key prevents duplicate saves.
 
-| Error | Meaning | Suggested HTTP response |
+A notification is created after a course is successfully saved.
+
+---
+
+## 6.2 `getMySavedCourses(userId)`
+
+Returns a user's saved courses.
+
+Returned course data includes information needed for saved-course and planning views.
+
+---
+
+## 6.3 `removeSavedCourse(userId, courseId)`
+
+Deletes the user-course saved relationship.
+
+The course itself is not deleted.
+
+A notification may be created after successful removal.
+
+---
+
+# 7. Completed Course Service
+
+File:
+
+```text
+src/services/completedCourseService.js
+```
+
+Exports:
+
+```text
+markCourseCompleted
+unmarkCourseCompleted
+getCompletedCoursesByUser
+```
+
+---
+
+## 7.1 `markCourseCompleted(userId, courseId, completedAt)`
+
+Marks a course as completed.
+
+The operation uses an upsert.
+
+This makes repeated completion requests idempotent and allows the completion date to be corrected.
+
+---
+
+## 7.2 `unmarkCourseCompleted(userId, courseId)`
+
+Removes a completed-course relationship.
+
+If the record is already absent, the Service returns a false result rather than requiring a database exception.
+
+---
+
+## 7.3 `getCompletedCoursesByUser(userId)`
+
+Returns all completed courses for a user.
+
+Results include:
+
+- user id
+- course id
+- completion date
+- basic course information
+
+Courses are ordered by course code.
+
+---
+
+# 8. Semester Plan Service
+
+File:
+
+```text
+src/services/planService.js
+```
+
+Exports:
+
+```text
+createPlan
+getUserPlans
+addCourseToPlan
+removeCourseFromPlan
+deletePlan
+```
+
+---
+
+## 8.1 `createPlan(userId, data)`
+
+Creates a semester plan owned by one user.
+
+The stored plan includes:
+
+- name
+- year
+- semester
+- owner
+
+A notification is created after successful plan creation.
+
+---
+
+## 8.2 `getUserPlans(userId)`
+
+Returns all plans belonging to a user.
+
+Each plan includes its `PlanCourse` relationships and related course details.
+
+---
+
+## 8.3 Plan Ownership
+
+Plan modification operations must verify that the current user owns the plan.
+
+Attempting to modify another user's plan should result in an authorization error.
+
+---
+
+## 8.4 `addCourseToPlan(userId, planId, courseId)`
+
+Adds a course to a semester plan.
+
+Before persistence, the Service loads prerequisite information.
+
+If prerequisites are neither:
+
+- completed
+- nor already planned
+
+the Service may return a non-blocking warning.
+
+The requested course may still be added.
+
+A notification is created after successful addition.
+
+---
+
+## 8.5 `removeCourseFromPlan(userId, planId, courseId)`
+
+Removes one course from a user's semester plan.
+
+Ownership is checked before deletion.
+
+A notification is created after successful removal.
+
+---
+
+## 8.6 `deletePlan(userId, planId)`
+
+Deletes a semester plan owned by the user.
+
+Related `PlanCourse` records are removed through the database relationship rules.
+
+---
+
+# 9. Review Service
+
+File:
+
+```text
+src/services/reviewService.js
+```
+
+Exports:
+
+```text
+createReview
+updateReview
+getApprovedReviewsByCourse
+getUserReviewForCourse
+getPendingReviews
+updateReviewStatus
+reportReview
+getPendingReports
+updateReportStatus
+getCourseRatingSummary
+```
+
+---
+
+## 9.1 Rating Validation
+
+Required ratings must be integers from:
+
+```text
+1
+```
+
+to:
+
+```text
+5
+```
+
+Optional rating fields use the same range when supplied.
+
+Supported assessment styles are:
+
+```text
+EXAM_HEAVY
+COURSEWORK_HEAVY
+PROJECT_BASED
+PRACTICAL
+BALANCED
+```
+
+---
+
+## 9.2 `createReview(data)`
+
+Creates a review for an active course.
+
+New reviews receive:
+
+```text
+PENDING
+```
+
+status.
+
+The database prevents the same user from creating more than one review for the same course.
+
+---
+
+## 9.3 `updateReview(userId, courseId, data)`
+
+Updates a user's existing review.
+
+Student edits return the review to:
+
+```text
+PENDING
+```
+
+so moderation can occur again.
+
+---
+
+## 9.4 `getApprovedReviewsByCourse(courseId)`
+
+Returns only reviews whose status is:
+
+```text
+APPROVED
+```
+
+This is the appropriate query for normal public course pages.
+
+---
+
+## 9.5 `getUserReviewForCourse(userId, courseId)`
+
+Returns the review created by a specific user for a course, if one exists.
+
+---
+
+## 9.6 `getPendingReviews()`
+
+Returns reviews waiting for moderation.
+
+---
+
+## 9.7 `updateReviewStatus(reviewId, newStatus)`
+
+Updates review moderation status.
+
+Supported values are:
+
+```text
+PENDING
+APPROVED
+REJECTED
+HIDDEN
+```
+
+The review author receives a moderation notification after an update.
+
+---
+
+## 9.8 `reportReview(reviewId, reporterId, reason)`
+
+Creates a review report.
+
+Rules include:
+
+- the review must exist
+- the reporter must be valid
+- a reason is required
+- a user cannot report their own review
+- duplicate reports by the same user are prevented by the database
+
+Notifications may be created for:
+
+- the reporter
+- moderators
+- administrators
+
+---
+
+## 9.9 `getPendingReports()`
+
+Returns reports with:
+
+```text
+PENDING
+```
+
+status for moderation.
+
+---
+
+## 9.10 `updateReportStatus(reportId, newStatus)`
+
+Supported moderation outcomes are:
+
+```text
+RESOLVED
+DISMISSED
+```
+
+The reporter receives a status notification.
+
+---
+
+## 9.11 `getCourseRatingSummary(courseId)`
+
+Calculates an aggregate summary from approved reviews.
+
+The summary may contain:
+
+- review count
+- average overall rating
+- average difficulty rating
+- average workload rating
+- average teaching rating
+- average usefulness rating
+
+---
+
+# 10. Notification Service
+
+File:
+
+```text
+src/services/notificationService.js
+```
+
+Exports:
+
+```text
+createNotifications
+createNotificationsSafely
+listForUser
+markRead
+markAllRead
+deleteOne
+deleteAll
+deleteExpired
+```
+
+---
+
+## 10.1 `createNotifications(userIds, data)`
+
+Creates one notification for each unique valid user id.
+
+Notification content includes:
+
+- type
+- title
+- message
+
+---
+
+## 10.2 `createNotificationsSafely(userIds, data)`
+
+Attempts notification creation without allowing notification failure to automatically fail the primary business operation.
+
+Failures are logged for diagnosis.
+
+---
+
+## 10.3 `listForUser(userId, options)`
+
+Returns paginated notifications.
+
+Supported options include:
+
+```text
+unreadOnly
+page
+limit
+```
+
+The result includes:
+
+- notification items
+- total count
+- unread count
+- current page
+- page limit
+
+---
+
+## 10.4 `markRead(userId, notificationId)`
+
+Sets:
+
+```text
+readAt
+```
+
+for one notification owned by the user.
+
+---
+
+## 10.5 `markAllRead(userId)`
+
+Marks all unread notifications belonging to the user as read.
+
+---
+
+## 10.6 Notification Deletion
+
+The Service supports:
+
+```text
+deleteOne
+deleteAll
+```
+
+for user-owned notifications.
+
+---
+
+## 10.7 `deleteExpired(days)`
+
+Deletes notifications older than the retention period.
+
+The current default retention value is:
+
+```text
+180 days
+```
+
+---
+
+# 11. Course Embedding Service
+
+File:
+
+```text
+src/services/courseEmbeddingService.js
+```
+
+Exports:
+
+```text
+buildCourseEmbeddingText
+refreshCourseEmbedding
+runCourseEmbeddingJob
+enqueueCourseEmbedding
+```
+
+---
+
+## 11.1 `buildCourseEmbeddingText(course)`
+
+Builds the canonical semantic representation of a course.
+
+The text includes:
+
+- code
+- name
+- description
+- level
+- credits
+- offered semesters
+- assessment types
+- workload hours
+
+Every course vector should use the same representation.
+
+---
+
+## 11.2 `refreshCourseEmbedding(course)`
+
+Generates a new embedding and stores it in PostgreSQL.
+
+The embedding is persisted in the `Course.embedding` vector field.
+
+---
+
+## 11.3 `runCourseEmbeddingJob(course)`
+
+Runs one embedding job.
+
+Provider failures are handled so batch or asynchronous processing can continue.
+
+---
+
+## 11.4 `enqueueCourseEmbedding(course)`
+
+Schedules course embedding generation without blocking the primary course-creation request.
+
+---
+
+# 12. Course Retrieval Service
+
+File:
+
+```text
+src/services/courseRetrievalService.js
+```
+
+Exports:
+
+```text
+semanticSearchCourses
+```
+
+---
+
+## 12.1 `semanticSearchCourses(options)`
+
+Semantic search:
+
+1. generates an embedding for the query
+2. converts it to PostgreSQL vector format
+3. applies structured database filters
+4. compares it with stored course vectors
+5. excludes inactive courses
+6. excludes courses without embeddings
+7. applies a similarity threshold
+8. sorts by vector distance
+9. limits the result count
+
+Supported options include:
+
+```text
+query
+limit
+threshold
+semester
+assessmentType
+minCredits
+maxCredits
+level
+```
+
+The default threshold comes from:
+
+```env
+AI_SIMILARITY_THRESHOLD
+```
+
+and falls back to:
+
+```text
+0.35
+```
+
+---
+
+# 13. Prisma Error Handling
+
+Controllers should convert Service/database errors into safe HTTP responses.
+
+Typical mappings include:
+
+| Error | Meaning | Suggested Response |
 |---|---|---|
-| `TypeError` | Invalid Service input | `400 Bad Request` |
+| `TypeError` | Invalid input | `400 Bad Request` |
 | `P2002` | Unique constraint violation | `409 Conflict` |
 | `P2003` | Foreign-key constraint violation | `409 Conflict` |
-| `P2004` or database constraint error | Value rejected by database constraint | `400 Bad Request` |
-| `P2025` | Required database record not found | `404 Not Found` |
-| Database connection failure | Database unavailable | `500 Internal Server Error` |
+| database constraint rejection | Invalid persisted value | `400 Bad Request` |
+| `P2025` | Record not found | `404 Not Found` |
+| database unavailable | Persistence failure | `500 Internal Server Error` |
 
-Example:
+Application-specific Services may also attach:
 
-```javascript
-try {
-    const user = await userService.createUser(data);
-
-    return res.status(201).json({
-        success: true,
-        data: user
-    });
-} catch (error) {
-    if (error.code === 'P2002') {
-        return res.status(409).json({
-            success: false,
-            message: 'Email already exists'
-        });
-    }
-
-    return res.status(500).json({
-        success: false,
-        message: 'Server error'
-    });
-}
+```text
+statusCode
 ```
 
-Do not return the following information to frontend clients:
+to domain errors.
 
-- Raw Prisma errors
-- SQL statements
-- Stack traces
-- Database connection strings
-- Internal file paths
+Controllers should preserve safe application messages without exposing internal database details.
 
-## 8. Current Responsibilities
+---
 
-### Database Engineer
+# 14. Security Rules
 
-Responsible for:
+Never return the following to frontend clients:
 
-- Prisma Schema
-- PostgreSQL migrations
-- Database constraints
-- Database indexes
-- Seed data
-- Prisma queries inside Service files
-- Database tests
-- Database documentation
-
-### Backend Developer
-
-Responsible for:
-
-- Express routes
-- Controllers
-- Request validation
-- Password hashing workflow
-- JWT generation and verification
-- Authentication middleware
-- HTTP status codes and responses
-- Role-based access control
-
-Changes to Service function names or return structures should be discussed before implementation because they may affect Controllers and frontend API contracts.
-
-## 9. Verification Commands
-
-Before integrating database changes, run:
-
-```powershell
-npx.cmd prisma validate
-npx.cmd prisma migrate status
-npm.cmd test
-```
-
-All three commands must succeed before the change is merged.
+- password hashes
+- password reset
