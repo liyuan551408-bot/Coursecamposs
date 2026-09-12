@@ -10,8 +10,8 @@ const createPlan = async (req, res) => {
         if (typeof name !== 'string' || !name.trim() || name.trim().length > 120) {
             return res.status(400).json({ success: false, message: 'Name, year, and semester are required' });
         }
-        if (!Number.isInteger(Number(year)) || Number(year) < 2000 || Number(year) > 2200) {
-            return res.status(400).json({ success: false, message: 'Year must be a whole number between 2000 and 2200' });
+        if (!Number.isInteger(Number(year)) || Number(year) < 2000 || Number(year) > 2100) {
+            return res.status(400).json({ success: false, message: 'Year must be a whole number between 2000 and 2100' });
         }
         if (!['SEMESTER_1', 'SEMESTER_2', 'SUMMER'].includes(semester)) {
             return res.status(400).json({ success: false, message: 'Semester must be SEMESTER_1, SEMESTER_2, or SUMMER' });

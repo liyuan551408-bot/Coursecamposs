@@ -85,6 +85,9 @@ const validateReviewData = (data, required) => {
     if (data.comment !== undefined && data.comment !== null && typeof data.comment !== 'string') {
         throw new TypeError('Comment must be a string');
     }
+    if (typeof data.comment === 'string' && data.comment.length > 2000) {
+        throw new TypeError('Comment must be at most 2000 characters');
+    }
 };
 
 const ensureCourseExists = async (courseId) => {
@@ -161,12 +164,11 @@ const updateReview = async (userId, courseId, data) => {
         data: updateData,
         select: reviewSelect
     });
-    if (newStatus !== 'PENDING') {
-        await createNotificationsSafely([review.userId], {
-            type: 'REVIEW_MODERATION', title: 'Review moderation update',
-            message: `Your review for ${updated.course?.code || 'a course'} is now ${newStatus.toLowerCase()}.`
-        });
-    }
+    await createNotificationsSafely([userId], {
+        type: 'REVIEW_SUBMITTED',
+        title: 'Review changes submitted',
+        message: `Your updated review for ${updated.course?.code || 'a course'} is waiting for moderator approval.`
+    });
     return updated;
 };
 
@@ -233,6 +235,7 @@ const reportReview = async (reviewId, reporterId, reason) => {
     if (typeof reason !== 'string' || reason.trim() === '') {
         throw new TypeError('A report reason is required');
     }
+    if (reason.trim().length > 1000) throw new TypeError('Report reason must be at most 1000 characters');
 
     const review = await prisma.review.findUnique({
         where: { id: reviewId }

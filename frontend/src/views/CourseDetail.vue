@@ -31,6 +31,14 @@ const average = computed(() => reviews.value.length
   : '-')
 
 const isSaved = computed(() => course.value ? savedStore.isSaved(course.value.id) : false)
+const safeOfficialLink = computed(() => {
+  try {
+    const url = new URL(course.value?.officialLink)
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : ''
+  } catch {
+    return ''
+  }
+})
 
 function formatReviewDate(value) {
   if (!value) return 'Unknown date'
@@ -288,6 +296,7 @@ watch(() => route.params.id, () => {
         </template>
         <div v-if="summaryData" class="summary-content">
           <p class="summary-text">{{ summaryData }}</p>
+          <p class="ai-disclaimer">AI summaries may contain mistakes. Verify course rules and advice with official university sources.</p>
         </div>
         <el-empty v-else description="Generate an AI summary of approved student reviews." :image-size="80" />
       </el-card>
@@ -317,6 +326,14 @@ watch(() => route.params.id, () => {
                 </template>
                 <template v-else>Not specified</template>
               </dd>
+            </div>
+            <div class="info-item">
+              <dt>Assessment types</dt>
+              <dd>{{ course.assessmentTypes?.length ? course.assessmentTypes.map(type => type.toLowerCase()).join(', ') : 'Not specified' }}</dd>
+            </div>
+            <div class="info-item">
+              <dt>Official information</dt>
+              <dd><a v-if="safeOfficialLink" :href="safeOfficialLink" target="_blank" rel="noopener noreferrer">Open official course page</a><span v-else>Not provided</span></dd>
             </div>
           </dl>
         </el-card>
@@ -382,7 +399,7 @@ watch(() => route.params.id, () => {
         </div>
 
         <el-card shadow="never" class="review-form-card">
-          <h2 class="card-heading">{{ ownReview ? 'Edit Your Review' : 'Write a Review' }}</h2>
+          <div class="review-form-heading"><h2 class="card-heading">{{ ownReview ? 'Edit Your Review' : 'Write a Review' }}</h2><el-button link type="primary" @click="router.push({ name: 'ReviewSubmit', query: { courseId: course.id } })">Open full-page form</el-button></div>
           <p class="muted-text review-status">
             {{ ownReview ? `Current status: ${ownReview.status}. Saving sends it back for approval.` : 'Your review will be published after approval.' }}
           </p>
@@ -416,7 +433,7 @@ watch(() => route.params.id, () => {
                 v-model="form.comment"
                 type="textarea"
                 :rows="4"
-                maxlength="500"
+                maxlength="2000"
                 show-word-limit
                 placeholder="Share your learning experience (optional)"
               />
@@ -640,6 +657,19 @@ watch(() => route.params.id, () => {
   color: var(--text-h);
   font-size: 15px;
   margin: 0;
+}
+
+.review-form-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-disclaimer {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 /* Detail grid */

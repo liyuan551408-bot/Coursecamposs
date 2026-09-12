@@ -76,8 +76,8 @@ const createUser = async ({ email, password, name, major = null, studyYear = nul
     const normalizedStudyYear = studyYear === null || studyYear === '' || studyYear === undefined
         ? null
         : Number(studyYear);
-    if (normalizedStudyYear !== null && (!Number.isInteger(normalizedStudyYear) || normalizedStudyYear < 1)) {
-        throw new TypeError('Study year must be a positive whole number');
+    if (normalizedStudyYear !== null && (!Number.isInteger(normalizedStudyYear) || normalizedStudyYear < 1 || normalizedStudyYear > 8)) {
+        throw new TypeError('Study year must be a whole number between 1 and 8');
     }
 
     // Hash in the service layer to keep business logic cohesive.
@@ -108,10 +108,11 @@ const generateResetCode = async (email) => {
     // Give email delivery and form completion enough time while keeping the code short-lived.
     const resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
     // 4. update reset code and expiration time to database
+    const resetCodeHash = crypto.createHash('sha256').update(resetCode).digest('hex');
     await prisma.user.update({
         where: {id: user.id},
         data:{
-            resetCode,
+            resetCode: resetCodeHash,
             resetCodeExpires
         }
     });
@@ -122,11 +123,15 @@ const generateResetCode = async (email) => {
 // Verify the code and reset the password.
 const resetPassword = async (email, resetCode, newPassword) => {
     validatePassword(newPassword);
+    if (typeof resetCode !== 'string' || !/^\d{6}$/.test(resetCode)) {
+        throw new Error('Invalid code');
+    }
+    const resetCodeHash = crypto.createHash('sha256').update(resetCode).digest('hex');
     // 1. Match both email and verification code in the database.
     const user = await prisma.user.findFirst({
         where: { 
             email: normalizeEmail(email),
-            resetCode: resetCode 
+            resetCode: resetCodeHash
         }
     });
 
@@ -169,8 +174,8 @@ const updateUserProfile = async (id, data) => {
     }
     if (data.studyYear !== undefined) {
         const value = data.studyYear === null || data.studyYear === '' ? null : Number(data.studyYear);
-        if (value !== null && (!Number.isInteger(value) || value < 1)) {
-            throw new TypeError('Study year must be a positive whole number');
+        if (value !== null && (!Number.isInteger(value) || value < 1 || value > 8)) {
+            throw new TypeError('Study year must be a whole number between 1 and 8');
         }
         updateData.studyYear = value;
     }

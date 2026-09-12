@@ -30,6 +30,21 @@ const createRateLimiter = ({ windowMs, max, keyGenerator, message }) => (req, re
 };
 
 const requestIdentity = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
+const emailIdentity = (req) => typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : 'unknown';
+
+const loginLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    keyGenerator: (req) => `login:${requestIdentity(req)}:${emailIdentity(req)}`,
+    message: 'Too many login attempts. Please try again later.',
+});
+
+const registerLimiter = createRateLimiter({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    keyGenerator: (req) => `register:${requestIdentity(req)}`,
+    message: 'Too many registration attempts. Please try again later.',
+});
 
 const forgotPasswordLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000,
@@ -45,4 +60,4 @@ const resetPasswordLimiter = createRateLimiter({
     message: 'Too many password reset attempts. Please try again later.',
 });
 
-module.exports = { forgotPasswordLimiter, resetPasswordLimiter };
+module.exports = { loginLimiter, registerLimiter, forgotPasswordLimiter, resetPasswordLimiter };

@@ -92,7 +92,7 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         offeredSemesters: courseData.offeredSemesters,
         level: courseData.level,
         assessmentTypes: courseData.assessmentTypes,
-        officialLink: courseData.officialLink
+        officialLink: courseData.officialLink,
     };
 
     // Resolve either numeric course IDs or course codes before connecting.
@@ -205,7 +205,7 @@ const updateCourse = async (id, courseData) => {
 // Fetch one course together with both directions of its prerequisite graph.
 const getCourseById = async (id) => {
     return prisma.course.findUnique({
-        where: { id: Number(id) },
+        where: { id: Number(id), isActive: true },
         include: {
             prerequisites: true,     // Courses that should be completed first.
             prerequisiteFor: true    // Follow-on courses unlocked by this course.
@@ -325,7 +325,8 @@ const getCourseByCode = async (code) => {
 
     return prisma.course.findUnique({
         where: {
-            code: normalizedCode
+            code: normalizedCode,
+            isActive: true
         },
         select: courseDetailSelect
     });
@@ -420,10 +421,11 @@ const getCoursesForComparison = async (codes) => {
 
 // Search active courses using optional text and structured filters.
 const searchCourses = async (queryFilters) => {
-    const { keyword, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits, minRating, hasPrerequisites } = queryFilters;
+    const { keyword, subject, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits,
+        minWorkload, maxWorkload, minRating, hasPrerequisites } = queryFilters;
     const whereClause = { isActive: true }; // Inactive courses are excluded by default.
     const numericFilters = {};
-    for (const [field, value] of Object.entries({ level, minCredits, maxCredits, minRating })) {
+    for (const [field, value] of Object.entries({ level, minCredits, maxCredits, minWorkload, maxWorkload, minRating })) {
         if (value !== undefined && value !== '') {
             const parsed = Number(value);
             if (!Number.isInteger(parsed) || parsed < 0) throw new TypeError(`${field} must be a non-negative whole number`);
@@ -433,6 +435,10 @@ const searchCourses = async (queryFilters) => {
     if (numericFilters.minCredits !== undefined && numericFilters.maxCredits !== undefined
         && numericFilters.minCredits > numericFilters.maxCredits) {
         throw new TypeError('minCredits cannot exceed maxCredits');
+    }
+    if (numericFilters.minWorkload !== undefined && numericFilters.maxWorkload !== undefined
+        && numericFilters.minWorkload > numericFilters.maxWorkload) {
+        throw new TypeError('minWorkload cannot exceed maxWorkload');
     }
     if (semester && !['SEMESTER_1', 'SEMESTER_2', 'SUMMER'].includes(semester)) {
         throw new TypeError('Invalid semester filter');
@@ -458,6 +464,15 @@ const searchCourses = async (queryFilters) => {
             { description: { contains: keyword, mode: 'insensitive' } }
         ];
     }
+    if (subject) {
+        if (typeof subject !== 'string' || subject.trim().length > 100) throw new TypeError('Invalid subject filter');
+        const value = subject.trim();
+        whereClause.AND = [{ OR: [
+            { code: { startsWith: value, mode: 'insensitive' } },
+            { name: { contains: value, mode: 'insensitive' } },
+                { description: { contains: value, mode: 'insensitive' } }
+        ] }];
+    }
 
     // Narrow results to the requested course level.
     if (numericFilters.level !== undefined) {
@@ -480,21 +495,39 @@ const searchCourses = async (queryFilters) => {
         if (numericFilters.minCredits !== undefined) whereClause.credits.gte = numericFilters.minCredits;
         if (numericFilters.maxCredits !== undefined) whereClause.credits.lte = numericFilters.maxCredits;
     }
-
-    if (numericFilters.minRating !== undefined) {
-        whereClause.reviews = { some: { status: 'APPROVED', overallRating: { gte: numericFilters.minRating } } };
+    if (numericFilters.minWorkload !== undefined || numericFilters.maxWorkload !== undefined) {
+        whereClause.workloadHours = {};
+        if (numericFilters.minWorkload !== undefined) whereClause.workloadHours.gte = numericFilters.minWorkload;
+        if (numericFilters.maxWorkload !== undefined) whereClause.workloadHours.lte = numericFilters.maxWorkload;
     }
+
     if (hasPrerequisites !== undefined && hasPrerequisites !== '') {
         whereClause.prerequisites = String(hasPrerequisites) === 'true' ? { some: {} } : { none: {} };
     }
 
     const courses = await prisma.course.findMany({
         where: whereClause,
-        select: courseSelect, 
+        select: {
+            ...courseSelect,
+            ...(numericFilters.minRating !== undefined ? {
+                reviews: { where: { status: 'APPROVED' }, select: { overallRating: true } }
+            } : {})
+        },
         orderBy: { code: 'asc' }
     });
 
-    return keyword && mode === 'fuzzy' ? rankFuzzyCourses(courses, keyword) : courses;
+    const filteredCourses = courses.flatMap((course) => {
+        const reviews = course.reviews;
+        if (numericFilters.minRating !== undefined) {
+            if (!reviews.length) return [];
+            const average = reviews.reduce((sum, review) => sum + review.overallRating, 0) / reviews.length;
+            if (average < numericFilters.minRating) return [];
+        }
+        const { reviews: _reviews, ...publicCourse } = course;
+        return [publicCourse];
+    });
+
+    return keyword && mode === 'fuzzy' ? rankFuzzyCourses(filteredCourses, keyword) : filteredCourses;
 };
 
 module.exports = {

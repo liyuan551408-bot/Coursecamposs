@@ -26,6 +26,7 @@ request.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       clearAuthStorage()
+      window.dispatchEvent(new Event('course-compass:unauthorized'))
       router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
     }
     return Promise.reject(error)

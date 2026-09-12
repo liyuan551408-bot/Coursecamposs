@@ -18,8 +18,9 @@ export const usePlannerStore = defineStore('planner', () => {
   ))
 
   const getSemesterCourses = (semesterId) => semesters.value.find((item) => item.id === Number(semesterId))?.courses || []
-  const isInPlanner = (courseId) => semesters.value.some(
-    (semester) => semester.courses.some((course) => course.id === Number(courseId)),
+  const isInPlanner = (courseId, semesterId = null) => semesters.value.some(
+    (semester) => (semesterId === null || semester.id === Number(semesterId))
+      && semester.courses.some((course) => course.id === Number(courseId)),
   )
 
   async function loadPlans({ force = false } = {}) {
@@ -35,7 +36,7 @@ export const usePlannerStore = defineStore('planner', () => {
   }
 
   async function addCourse(semesterId, course) {
-    if (isInPlanner(course.id)) return { added: false, warnings: [] }
+    if (isInPlanner(course.id, semesterId)) return { added: false, warnings: [] }
     const semester = semesters.value.find((item) => item.id === Number(semesterId))
     if (!semester) return { added: false, warnings: [] }
     const result = await addPlanCourse(semester.id, course.id)
@@ -47,7 +48,7 @@ export const usePlannerStore = defineStore('planner', () => {
   async function addCourses(semesterId, courses) {
     const results = { added: [], skipped: [], warnings: [] }
     for (const course of courses) {
-      if (isInPlanner(course.id)) {
+      if (isInPlanner(course.id, semesterId)) {
         results.skipped.push(course)
         continue
       }

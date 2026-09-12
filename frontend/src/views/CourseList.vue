@@ -18,7 +18,7 @@ const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const courses = ref([])
 const showFilters = ref(false)
 const savingIds = ref(new Set())
-const filters = reactive({ level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minRating: null, hasPrerequisites: '' })
+const filters = reactive({ subject: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
 let debounceTimer
 let latestSearchId = 0
 
@@ -49,6 +49,11 @@ async function runSearch() {
     ElMessage.warning('Minimum credits cannot exceed maximum credits.')
     return
   }
+  if (filters.minWorkload !== null && filters.maxWorkload !== null && filters.minWorkload > filters.maxWorkload) {
+    loading.value = false
+    ElMessage.warning('Minimum workload cannot exceed maximum workload.')
+    return
+  }
   loading.value = true
   error.value = ''
   try {
@@ -71,7 +76,7 @@ function scheduleSearch() {
 }
 
 function resetFilters() {
-  Object.assign(filters, { level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minRating: null, hasPrerequisites: '' })
+  Object.assign(filters, { subject: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
   runSearch()
 }
 
@@ -145,6 +150,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-show="showFilters" class="filter-grid">
+        <el-input v-model="filters.subject" clearable placeholder="Subject or code prefix" />
         <el-select v-model="filters.level" clearable placeholder="Course level">
           <el-option v-for="level in [100,200,300,400,500,600,700,800,900]" :key="level" :label="`Level ${level}`" :value="level" />
         </el-select>
@@ -156,6 +162,8 @@ onBeforeUnmount(() => {
         </el-select>
         <el-input-number v-model="filters.minCredits" :min="0" controls-position="right" placeholder="Min credits" />
         <el-input-number v-model="filters.maxCredits" :min="0" controls-position="right" placeholder="Max credits" />
+        <el-input-number v-model="filters.minWorkload" :min="0" controls-position="right" placeholder="Min workload hours" />
+        <el-input-number v-model="filters.maxWorkload" :min="0" controls-position="right" placeholder="Max workload hours" />
         <el-input-number v-model="filters.minRating" :min="1" :max="5" controls-position="right" placeholder="Min rating" />
         <el-select v-model="filters.hasPrerequisites" clearable placeholder="Prerequisites">
           <el-option label="Has prerequisites" value="true" />
@@ -187,7 +195,11 @@ onBeforeUnmount(() => {
         :key="course.id"
         shadow="hover"
         class="course-card"
+        role="link"
+        tabindex="0"
         @click="goToDetail(course.id)"
+        @keydown.enter.self="goToDetail(course.id)"
+        @keydown.space.self.prevent="goToDetail(course.id)"
       >
         <!-- Quick save button -->
         <button

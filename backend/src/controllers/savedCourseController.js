@@ -18,6 +18,9 @@ const addCourse = async (req, res) => {
         if (error.code === 'P2002') {
             return res.status(409).json({ success: false, message: 'Course already saved' });
         }
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({ success: false, message: error.message });
+        }
         console.error('Add Saved Course Error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }

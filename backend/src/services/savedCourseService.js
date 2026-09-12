@@ -4,6 +4,12 @@ const { createNotificationsSafely } = require('./notificationService');
 
 // 1. addSavedCourse
 const addSavedCourse = async (userId, courseId) => {
+    const course = await prisma.course.findFirst({ where: { id: Number(courseId), isActive: true }, select: { id: true } });
+    if (!course) {
+        const error = new Error('Active course not found');
+        error.statusCode = 404;
+        throw error;
+    }
     const saved = await prisma.savedCourse.create({
         data: {
             userId: Number(userId),

@@ -58,7 +58,7 @@ const semesterStats = computed(() => {
   }))
 })
 
-const availableToAdd = computed(() => filteredCourses.value.filter((c) => !plannerStore.isInPlanner(c.id)))
+const availableToAdd = computed(() => filteredCourses.value.filter((c) => !plannerStore.isInPlanner(c.id, selectedSemesterId.value)))
 const selectedCount = computed(() => selectedCourseIds.value.size)
 
 async function loadCourses() {
@@ -88,13 +88,6 @@ function clearPendingCourseRequest() {
 async function openPendingCourseDialog() {
   const courseId = Number(route.query.courseId)
   if (!Number.isInteger(courseId) || courseId <= 0) return
-
-  if (plannerStore.isInPlanner(courseId)) {
-    const semester = plannerStore.semesters.find((item) => item.courses.some((course) => course.id === courseId))
-    ElMessage.info(`This course is already in ${semester?.name || 'your plan'}`)
-    clearPendingCourseRequest()
-    return
-  }
 
   try {
     pendingCourse.value = await getCourse(courseId)
@@ -202,7 +195,7 @@ async function confirmAddCourses() {
 }
 
 function isCourseInPlanner(courseId) {
-  return plannerStore.isInPlanner(courseId)
+  return plannerStore.isInPlanner(courseId, selectedSemesterId.value)
 }
 
 function getSemesterName(semesterId) {
@@ -609,7 +602,7 @@ onMounted(loadCourses)
       <el-form label-position="top">
         <el-form-item label="Plan name"><el-input v-model="planForm.name" placeholder="e.g. Computer Science pathway" /></el-form-item>
         <div class="plan-form-row">
-          <el-form-item label="Year"><el-input-number v-model="planForm.year" :min="2000" :max="2200" /></el-form-item>
+          <el-form-item label="Year"><el-input-number v-model="planForm.year" :min="2000" :max="2100" /></el-form-item>
           <el-form-item label="Teaching period"><el-select v-model="planForm.semester"><el-option label="Semester 1" value="SEMESTER_1" /><el-option label="Semester 2" value="SEMESTER_2" /><el-option label="Summer" value="SUMMER" /></el-select></el-form-item>
         </div>
       </el-form>

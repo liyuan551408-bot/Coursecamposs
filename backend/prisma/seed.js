@@ -194,6 +194,7 @@ const main = async () => {
             }
         });
     }
+
     await prisma.course.update({
         where: {
             code: '159.201'
@@ -297,7 +298,7 @@ const main = async () => {
             userId_year_semester_name: {
                 userId: student.id,
                 year: 2026,
-                semester: 'Semester 2',
+                semester: 'SEMESTER_2',
                 name: 'Demo 2026 Plan'
             }
         },
@@ -306,7 +307,7 @@ const main = async () => {
             userId: student.id,
             name: 'Demo 2026 Plan',
             year: 2026,
-            semester: 'Semester 2'
+            semester: 'SEMESTER_2'
         }
     });
 

@@ -1,6 +1,7 @@
 /** @file Exercises user service.smoke behavior as a repeatable command-line smoke check. */
 const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
+const crypto = require('node:crypto');
 
 const prisma = require('../src/lib/prisma');
 const userService = require('../src/services/userService');
@@ -77,7 +78,11 @@ const run = async () => {
         }
     });
 
-    assert.equal(userWithResetCode.resetCode, resetCode);
+    assert.equal(
+        userWithResetCode.resetCode,
+        crypto.createHash('sha256').update(resetCode).digest('hex')
+    );
+    assert.notEqual(userWithResetCode.resetCode, resetCode);
     assert.ok(userWithResetCode.resetCodeExpires instanceof Date);
     assert.ok(userWithResetCode.resetCodeExpires > new Date());
 
