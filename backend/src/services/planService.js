@@ -52,14 +52,18 @@ const requireOwnedPlan = async (userId, planId) => {
 
 // Add a course to a plan and report unmet prerequisites.
 const addCourseToPlan = async (userId, planId, courseId) => {
-    await requireOwnedPlan(userId, planId);
+    const targetPlan = await requireOwnedPlan(userId, planId);
     // Load prerequisite ids before changing the plan.
-    const course = await prisma.course.findUnique({
-        where: { id: Number(courseId) },
+    const course = await prisma.course.findFirst({
+        where: { id: Number(courseId), isActive: true },
         include: { prerequisites: true }
     });
 
-    if (!course) throw new Error('Course not found');
+    if (!course) {
+        const error = new Error('Active course not found');
+        error.statusCode = 404;
+        throw error;
+    }
 
     let warnings = [];
 
@@ -71,11 +75,18 @@ const addCourseToPlan = async (userId, planId, courseId) => {
         });
         const completedIds = completed.map(c => c.courseId);
 
-        // Treat courses already present in any plan as planned prerequisites.
+        // A planned prerequisite only counts when it occurs before the target
+        // semester. Courses in the same or a later semester still need a warning.
         const planned = await prisma.planCourse.findMany({
-            where: { plan: { userId: Number(userId) } }
+            where: { plan: { userId: Number(userId) } },
+            include: { plan: { select: { year: true, semester: true } } }
         });
-        const plannedIds = planned.map(p => p.courseId);
+        const semesterOrder = { SUMMER: 0, SEMESTER_1: 1, SEMESTER_2: 2 };
+        const isEarlierPlan = (plan) => plan.year < targetPlan.year || (
+            plan.year === targetPlan.year
+            && (semesterOrder[plan.semester] ?? 99) < (semesterOrder[targetPlan.semester] ?? 99)
+        );
+        const plannedIds = planned.filter(({ plan }) => isEarlierPlan(plan)).map(({ courseId: id }) => id);
 
         // Warn only for prerequisites that are neither completed nor planned.
         const missingPrereqs = course.prerequisites.filter(p => 

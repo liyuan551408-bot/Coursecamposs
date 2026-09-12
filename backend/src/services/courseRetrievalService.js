@@ -33,6 +33,8 @@ const semanticSearchCourses = async ({
     assessmentType,
     minCredits,
     maxCredits,
+    minWorkload,
+    maxWorkload,
     level
 }) => {
     const embedding = await aiService.generateEmbedding(query);
@@ -54,6 +56,14 @@ const semanticSearchCourses = async ({
     if (maxCredits !== undefined) {
         values.push(maxCredits);
         filters.push(`AND credits <= $${values.length}::int`);
+    }
+    if (minWorkload !== undefined) {
+        values.push(minWorkload);
+        filters.push(`AND "workloadHours" >= $${values.length}::int`);
+    }
+    if (maxWorkload !== undefined) {
+        values.push(maxWorkload);
+        filters.push(`AND "workloadHours" <= $${values.length}::int`);
     }
     if (level !== undefined) {
         values.push(level);

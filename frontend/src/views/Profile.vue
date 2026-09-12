@@ -77,6 +77,7 @@ async function addCompleted() {
   finally { completedLoading.value = false }
 }
 
+
 async function removeCompleted(record) {
   try {
     await ElMessageBox.confirm(`Remove ${record.course.code} from completed courses?`, 'Remove completed course', { type: 'warning' })
@@ -99,7 +100,7 @@ onMounted(loadPage)
       <el-card><template #header><strong>Profile details</strong></template>
         <el-form label-position="top">
           <div class="form-row"><el-form-item label="Name"><el-input v-model="form.name" /></el-form-item><el-form-item label="Email"><el-input :model-value="profile.email" disabled /></el-form-item></div>
-          <div class="form-row"><el-form-item label="Major"><el-input v-model="form.major" placeholder="e.g. Computer Science" /></el-form-item><el-form-item label="Study year"><el-input-number v-model="form.studyYear" :min="1" :max="20" /></el-form-item></div>
+          <div class="form-row"><el-form-item label="Major"><el-input v-model="form.major" placeholder="e.g. Computer Science" /></el-form-item><el-form-item label="Study year"><el-input-number v-model="form.studyYear" :min="1" :max="8" /></el-form-item></div>
           <el-form-item label="Interests"><el-select v-model="form.interests" multiple filterable allow-create default-first-option placeholder="Type an interest and press Enter" style="width:100%" /></el-form-item>
           <el-form-item label="Study goals"><el-select v-model="form.goals" multiple filterable allow-create default-first-option placeholder="Type a goal and press Enter" style="width:100%" /></el-form-item>
         </el-form>
@@ -114,6 +115,7 @@ onMounted(loadPage)
           <el-button type="primary" :loading="saving" @click="saveProfile">Save profile</el-button>
         </el-form>
       </el-card>
+
     </div>
 
     <el-card v-if="profile" class="completed-card">

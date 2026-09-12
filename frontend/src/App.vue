@@ -4,7 +4,7 @@
  * Application shell shared by all pages.
  * The header remains visible while router-view changes the page content.
 */
-import { onMounted, watch } from 'vue'
+import { onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useSavedStore } from './stores/saved'
@@ -17,6 +17,18 @@ const savedStore = useSavedStore()
 const plannerStore = usePlannerStore()
 const notificationStore = useNotificationStore()
 let notificationTimer
+
+function resetAccountState() {
+  authStore.restoreSession()
+  savedStore.reset()
+  plannerStore.reset()
+  notificationStore.reset()
+  clearInterval(notificationTimer)
+}
+
+function refreshOnFocus() {
+  if (authStore.isLoggedIn) notificationStore.refresh().catch(() => {})
+}
 
 function handleLogout() {
   authStore.logout()
@@ -32,7 +44,7 @@ watch(() => authStore.isLoggedIn, (isLoggedIn) => {
     savedStore.loadSaved().catch(() => {})
     notificationStore.refresh().catch(() => {})
     clearInterval(notificationTimer)
-    notificationTimer = window.setInterval(() => notificationStore.refresh().catch(() => {}), 3000)
+    notificationTimer = window.setInterval(() => notificationStore.refresh().catch(() => {}), 30000)
   } else {
     clearInterval(notificationTimer)
   }
@@ -43,7 +55,14 @@ onMounted(() => {
     savedStore.loadSaved().catch(() => {})
     notificationStore.refresh().catch(() => {})
   }
-  window.addEventListener('focus', () => notificationStore.refresh().catch(() => {}))
+  window.addEventListener('focus', refreshOnFocus)
+  window.addEventListener('course-compass:unauthorized', resetAccountState)
+})
+
+onBeforeUnmount(() => {
+  clearInterval(notificationTimer)
+  window.removeEventListener('focus', refreshOnFocus)
+  window.removeEventListener('course-compass:unauthorized', resetAccountState)
 })
 </script>
 

@@ -1,22 +1,24 @@
 /** @file Defines application routes and enforces authentication and role metadata. */
 import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '../utils/auth'
-import Home from '../views/Home.vue'
-import Login from '../views/Login.vue'
-import Register from '../views/Register.vue'
-import ForgotPassword from '../views/ForgotPassword.vue'
-import ResetPassword from '../views/ResetPassword.vue'
-import Dashboard from '../views/Dashboard.vue'
-import CourseList from '../views/CourseList.vue'
-import CourseDetail from '../views/CourseDetail.vue'
-import CompareCourses from '../views/CompareCourses.vue'
-import Planner from '../views/Planner.vue'
-import SavedCourses from '../views/SavedCourses.vue'
-import AdminDashboard from '../views/AdminDashboard.vue'
-import ModerationDashboard from '../views/ModerationDashboard.vue'
-import Profile from '../views/Profile.vue'
-import AiRecommendation from '../views/AiRecommendation.vue'
-import Notifications from '../views/Notifications.vue'
+
+const Home = () => import('../views/Home.vue')
+const Login = () => import('../views/Login.vue')
+const Register = () => import('../views/Register.vue')
+const ForgotPassword = () => import('../views/ForgotPassword.vue')
+const ResetPassword = () => import('../views/ResetPassword.vue')
+const Dashboard = () => import('../views/Dashboard.vue')
+const CourseList = () => import('../views/CourseList.vue')
+const CourseDetail = () => import('../views/CourseDetail.vue')
+const CompareCourses = () => import('../views/CompareCourses.vue')
+const Planner = () => import('../views/Planner.vue')
+const SavedCourses = () => import('../views/SavedCourses.vue')
+const AdminDashboard = () => import('../views/AdminDashboard.vue')
+const ModerationDashboard = () => import('../views/ModerationDashboard.vue')
+const Profile = () => import('../views/Profile.vue')
+const AiRecommendation = () => import('../views/AiRecommendation.vue')
+const Notifications = () => import('../views/Notifications.vue')
+const ReviewSubmit = () => import('../views/ReviewSubmit.vue')
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -50,6 +52,7 @@ const routes = [
   },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/notifications', name: 'Notifications', component: Notifications, meta: { requiresAuth: true } },
+  { path: '/reviews/new', name: 'ReviewSubmit', component: ReviewSubmit, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

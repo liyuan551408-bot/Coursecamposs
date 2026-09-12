@@ -1,7 +1,12 @@
 /** @file Creates the Vue application and installs Pinia, routing, and Element Plus. */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus, { ElMessage } from 'element-plus'
+import {
+  ElAlert, ElButton, ElCard, ElCheckbox, ElDatePicker, ElDialog, ElEmpty,
+  ElForm, ElFormItem, ElInput, ElInputNumber, ElLoading, ElMessage, ElOption,
+  ElRadio, ElRadioGroup, ElRate, ElResult, ElSelect, ElSwitch, ElTable,
+  ElTableColumn, ElTag,
+} from 'element-plus'
 import 'element-plus/dist/index.css'
 import App from './App.vue'
 import router from './router'
@@ -16,7 +21,14 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(router)
-app.use(ElementPlus)
+for (const component of [
+  ElAlert, ElButton, ElCard, ElCheckbox, ElDatePicker, ElDialog, ElEmpty,
+  ElForm, ElFormItem, ElInput, ElInputNumber, ElOption, ElRadio, ElRadioGroup,
+  ElRate, ElResult, ElSelect, ElSwitch, ElTable, ElTableColumn, ElTag,
+]) {
+  app.component(component.name, component)
+}
+app.use(ElLoading)
 
 // Restore the saved session after a page refresh.
 const authStore = useAuthStore()
