@@ -8,7 +8,9 @@ export async function semanticSearchCourses(query, filters = {}) {
 
 /** Call the authenticated backend recommendation endpoint with the student's query. */
 export async function getCourseRecommendations(query, filters = {}) {
-  const response = await request.post('/ai/recommend', { query, ...filters })
+  // Embedding retries and the language-model fallback can exceed the global
+  // 10-second API timeout, so keep this request alive for the full workflow.
+  const response = await request.post('/ai/recommend', { query, ...filters }, { timeout: 150000 })
   return response.data
 }
 

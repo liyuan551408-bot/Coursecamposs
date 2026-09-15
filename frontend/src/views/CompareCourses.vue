@@ -95,6 +95,25 @@ function isInCompare(courseId) {
   return compareIds.value.includes(Number(courseId))
 }
 
+function parseCompareIds(value) {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') return []
+  return [...new Set(raw.split(',').map(Number).filter((id) => Number.isInteger(id) && id > 0))]
+    .slice(0, MAX_COMPARE)
+}
+
+function viewCourseDetails(courseId) {
+  router.push({
+    name: 'CourseDetail',
+    params: { id: courseId },
+    query: {
+      from: 'compare',
+      compareIds: compareIds.value.join(','),
+      ...(originCourseId.value ? { originCourseId: String(originCourseId.value) } : {}),
+    },
+  })
+}
+
 /** Request an on-demand AI analysis for the currently selected courses. */
 async function generateAiComparison() {
   if (compareIds.value.length < 2) {
@@ -158,8 +177,13 @@ onMounted(async () => {
   const requestedCourseId = Number(route.query.courseId)
   if (Number.isInteger(requestedCourseId) && requestedCourseId > 0) {
     originCourseId.value = requestedCourseId
-    await addToCompare(requestedCourseId)
   }
+  const restoredIds = parseCompareIds(route.query.compareIds)
+  const initialIds = [...new Set([
+    ...(originCourseId.value ? [originCourseId.value] : []),
+    ...restoredIds,
+  ])].slice(0, MAX_COMPARE)
+  for (const courseId of initialIds) await addToCompare(courseId)
   loadCourses()
   if (authStore.isLoggedIn) {
     savedStore.loadSaved().catch(() => {})
@@ -268,7 +292,7 @@ onMounted(async () => {
             <span>{{ course.workloadHours || '—' }}h</span>
             <span v-if="course.level">Level {{ course.level }}</span>
           </div>
-          <el-button link type="primary" size="small" @click="router.push(`/courses/${course.id}`)">View details →</el-button>
+          <el-button link type="primary" size="small" @click="viewCourseDetails(course.id)">View details →</el-button>
         </div>
       </div>
 

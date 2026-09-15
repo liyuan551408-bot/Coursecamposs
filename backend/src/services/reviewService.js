@@ -220,11 +220,24 @@ const updateReviewStatus = async (reviewId, newStatus) => {
         data: { status: newStatus },
         select: reviewSelect
     });
-    await createNotificationsSafely([review.userId], {
-        type: 'REVIEW_MODERATION',
-        title: 'Review moderation update',
-        message: `Your review for ${updated.course?.code || 'a course'} is now ${newStatus.toLowerCase()}.`
-    });
+
+    // Notify only on a real transition so repeated moderation requests do not
+    // create duplicate messages for the review author.
+    if (review.status !== newStatus) {
+        const courseLabel = [updated.course?.code, updated.course?.name].filter(Boolean).join(' — ') || 'a course';
+        const notification = newStatus === 'APPROVED'
+            ? {
+                type: 'REVIEW_APPROVED',
+                title: 'Review approved',
+                message: `Your review for ${courseLabel} has been approved and is now published.`
+            }
+            : {
+                type: 'REVIEW_MODERATION',
+                title: 'Review moderation update',
+                message: `Your review for ${courseLabel} is now ${newStatus.toLowerCase()}.`
+            };
+        await createNotificationsSafely([review.userId], notification);
+    }
     return updated;
 };
 
