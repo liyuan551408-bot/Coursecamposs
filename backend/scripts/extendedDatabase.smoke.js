@@ -127,14 +127,46 @@ const run = async () => {
 
     console.log('Passed: create review');
 
-    await prisma.review.update({
-        where: {
-            id: createdReview.id
-        },
-        data: {
-            status: 'APPROVED'
-        }
-    });
+    await reviewService.updateReviewStatus(
+        createdReview.id,
+        'APPROVED'
+    );
+
+    const approvalNotification =
+        await prisma.notification.findFirst({
+            where: {
+                userId: user.id,
+                type: 'REVIEW_APPROVED'
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+    assert.ok(approvalNotification);
+    assert.equal(
+        approvalNotification.title,
+        'Review approved'
+    );
+    assert.match(
+        approvalNotification.message,
+        /EXT\.TEST\.101.*approved.*published/
+    );
+
+    // Repeating the same decision must not create a duplicate notification.
+    await reviewService.updateReviewStatus(
+        createdReview.id,
+        'APPROVED'
+    );
+    assert.equal(
+        await prisma.notification.count({
+            where: {
+                userId: user.id,
+                type: 'REVIEW_APPROVED'
+            }
+        }),
+        1
+    );
+
+    console.log('Passed: approval notification');
 
     const comparison =
         await courseService.getCoursesForComparison(

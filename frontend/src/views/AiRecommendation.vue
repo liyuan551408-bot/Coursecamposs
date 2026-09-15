@@ -1,8 +1,9 @@
 <!-- @file Coordinates data loading, user actions, and presentation for the ai recommendation page. -->
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getCourseRecommendations } from '../api/ai'
+import AiCourseRecommendationCard from '../components/AiCourseRecommendationCard.vue'
 
 const query = ref('')
 const loading = ref(false)
@@ -14,6 +15,63 @@ const prompts = [
   'Help me plan a data science pathway from an introductory programming course',
 ]
 
+const courses = computed(() => result.value?.candidateCourses || result.value?.courses || [])
+
+function parseStructuredRationale(value) {
+  if (value && typeof value === 'object') return value
+  if (typeof value !== 'string') return null
+
+  const cleaned = value.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+  const candidates = [cleaned]
+  const objectStart = cleaned.indexOf('{')
+  const objectEnd = cleaned.lastIndexOf('}')
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    candidates.push(cleaned.slice(objectStart, objectEnd + 1))
+  }
+
+  for (const candidate of candidates) {
+    try {
+      let parsed = JSON.parse(candidate)
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed)
+      if (parsed && typeof parsed === 'object') return parsed
+    } catch {
+      // Try the next candidate before falling back to plain text.
+    }
+  }
+  return null
+}
+
+const rationalePayload = computed(() => {
+  const current = result.value || {}
+  const rawValues = [current.aiRationale, current.rationale, current.summary]
+  const parsed = rawValues.map(parseStructuredRationale).find(Boolean)
+  const recommendations = Array.isArray(current.recommendations) && current.recommendations.length
+    ? current.recommendations
+    : (Array.isArray(parsed?.recommendations) ? parsed.recommendations : [])
+  const plainSummary = rawValues.find(value => (
+    typeof value === 'string'
+    && value.trim()
+    && !parseStructuredRationale(value)
+    && !value.trim().startsWith('{')
+  ))
+  const parsedSummary = typeof parsed?.summary === 'string' ? parsed.summary.trim() : ''
+
+  return {
+    summary: parsedSummary || plainSummary || 'The AI has selected relevant courses for you.',
+    recommendations,
+  }
+})
+
+const courseRecommendations = computed(() => courses.value.map(course => {
+  const recommendation = rationalePayload.value.recommendations
+    .find(item => Number(item.courseId) === Number(course.id))
+  return {
+    course,
+    reasons: Array.isArray(recommendation?.reasons) ? recommendation.reasons.filter(Boolean) : [],
+    cautions: Array.isArray(recommendation?.cautions) ? recommendation.cautions.filter(Boolean) : [],
+  }
+}))
+
 async function recommend() {
   if (!query.value.trim()) return
   loading.value = true
@@ -24,9 +82,15 @@ async function recommend() {
   } catch (err) {
     error.value = err.response?.data?.error
       || err.response?.data?.message
+      || (err.code === 'ECONNABORTED'
+        ? 'The AI request took longer than expected. Please try again in a moment.'
+        : null)
+      || (!err.response
+        ? 'CourseCompass could not reach the backend service. Check that the backend is running on the configured API URL.'
+        : null)
       || (err.response?.status === 402
         ? 'SiliconFlow embedding is unavailable because the account balance or trial quota is insufficient.'
-        : 'The AI service is unavailable. Check that /api/ai/recommend has been deployed.')
+        : 'The AI recommendation service is temporarily unavailable. Please try again.')
     ElMessage.warning(error.value)
   } finally {
     loading.value = false
@@ -60,19 +124,22 @@ async function recommend() {
     <el-alert v-if="error" :title="error" type="warning" show-icon :closable="false" />
     <div v-if="result" class="ai-result">
       <el-alert v-if="result.warning" :title="result.warning" type="info" show-icon :closable="false" class="fallback-alert" />
-      <el-card><h2>Why these courses</h2><p class="rationale">{{ result.aiRationale || result.rationale || 'The AI has selected relevant courses for you.' }}</p></el-card>
       <div class="recommendations">
         <h2>Recommended courses</h2>
-        <el-card v-for="course in result.candidateCourses || result.courses || []" :key="course.id" class="recommendation">
-          <div><span class="course-code">{{ course.code }}</span><h3>{{ course.name }}</h3><p>{{ course.description }}</p></div>
-          <el-tag v-if="course.similarity" type="success">{{ (course.similarity * 100).toFixed(0) }}% match</el-tag>
-        </el-card>
-        <el-empty v-if="!(result.candidateCourses || result.courses)?.length" description="The AI did not return any courses" />
+        <p class="rationale">{{ rationalePayload.summary }}</p>
+        <AiCourseRecommendationCard
+          v-for="item in courseRecommendations"
+          :key="item.course.id"
+          :course="item.course"
+          :reasons="item.reasons"
+          :cautions="item.cautions"
+        />
+        <el-empty v-if="!courses.length" description="The AI did not return any courses" />
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.ai-page{max-width:850px;margin:0 auto}.ai-notice{margin-bottom:16px}.ai-hero{padding:36px;border:1px solid var(--accent-border);border-radius:16px;background:linear-gradient(135deg,var(--accent-bg),transparent)}.eyebrow{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em}.ai-hero h1{font-size:38px;margin:8px 0}.ai-hero>p:not(.eyebrow){line-height:1.6;margin-bottom:22px}.ai-actions{display:flex;align-items:center;gap:12px;margin-top:12px}.ai-actions span{font-size:13px;color:var(--text)}.prompt-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.ai-result{margin-top:24px}.fallback-alert{margin-bottom:12px}.rationale{white-space:pre-wrap;line-height:1.7}.recommendations{margin-top:24px}.recommendation{margin-top:12px;display:flex;justify-content:space-between;gap:20px}.recommendation h3{margin:8px 0;font-size:18px}.recommendation p{font-size:14px;line-height:1.5}.course-code{color:var(--accent);font-weight:700}@media(max-width:600px){.ai-hero{padding:22px}.ai-hero h1{font-size:30px}.recommendation{display:block}.recommendation .el-tag{margin-top:10px}}
+.ai-page{max-width:850px;margin:0 auto}.ai-notice{margin-bottom:16px}.ai-hero{padding:36px;border:1px solid var(--accent-border);border-radius:16px;background:linear-gradient(135deg,var(--accent-bg),transparent)}.eyebrow{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em}.ai-hero h1{font-size:38px;margin:8px 0}.ai-hero>p:not(.eyebrow){line-height:1.6;margin-bottom:22px}.ai-actions{display:flex;align-items:center;gap:12px;margin-top:12px}.ai-actions span{font-size:13px;color:var(--text)}.prompt-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.ai-result{margin-top:24px}.fallback-alert{margin-bottom:12px}.rationale{white-space:pre-wrap;line-height:1.7}.recommendations{margin-top:24px}
 </style>

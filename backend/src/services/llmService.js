@@ -5,7 +5,7 @@ const MAX_RETRIES = 1;
 const CHAT_MODEL = process.env.ZHIPU_CHAT_MODEL || 'glm-4';
 
 /** Send grounded chat messages to Zhipu GLM-4 and return its text response. */
-const chatCompletion = async ({ messages, temperature = 0.3 }) => {
+const chatCompletion = async ({ messages, temperature = 0.3, maxTokens }) => {
     const apiKey = process.env.ZHIPU_API_KEY;
     if (!apiKey) throw new Error('ZHIPU_API_KEY is not configured');
 
@@ -16,7 +16,12 @@ const chatCompletion = async ({ messages, temperature = 0.3 }) => {
             const response = await fetch(ZHIPU_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-                body: JSON.stringify({ model: CHAT_MODEL, messages, temperature }),
+                body: JSON.stringify({
+                    model: CHAT_MODEL,
+                    messages,
+                    temperature,
+                    ...(Number.isInteger(maxTokens) && maxTokens > 0 ? { max_tokens: maxTokens } : {})
+                }),
                 signal: controller.signal
             });
             const responseText = await response.text();

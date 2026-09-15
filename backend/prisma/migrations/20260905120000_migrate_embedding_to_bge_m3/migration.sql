@@ -1,6 +1,4 @@
--- Recover the range constraints omitted by a previously failed migration. The
--- conditional form also keeps fresh databases, where that migration succeeds,
--- deployable.
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_study_year_range') THEN

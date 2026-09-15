@@ -31,6 +31,8 @@ const average = computed(() => reviews.value.length
   : '-')
 
 const isSaved = computed(() => course.value ? savedStore.isSaved(course.value.id) : false)
+const cameFromCompare = computed(() => route.query.from === 'compare')
+const backLabel = computed(() => cameFromCompare.value ? 'Back to course comparison' : 'Back to course catalogue')
 const safeOfficialLink = computed(() => {
   try {
     const url = new URL(course.value?.officialLink)
@@ -39,6 +41,41 @@ const safeOfficialLink = computed(() => {
     return ''
   }
 })
+
+function normalizedQueryValue(value) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+function goBack() {
+  if (!cameFromCompare.value) {
+    router.push({ name: 'CourseList' })
+    return
+  }
+
+  const compareIds = normalizedQueryValue(route.query.compareIds)
+  const originCourseId = Number(normalizedQueryValue(route.query.originCourseId))
+  router.push({
+    name: 'CompareCourses',
+    query: {
+      ...(typeof compareIds === 'string' && compareIds ? { compareIds } : {}),
+      ...(Number.isInteger(originCourseId) && originCourseId > 0 ? { courseId: String(originCourseId) } : {}),
+    },
+  })
+}
+
+function openRelatedCourse(courseId) {
+  router.push({
+    name: 'CourseDetail',
+    params: { id: courseId },
+    query: cameFromCompare.value
+      ? {
+          from: 'compare',
+          compareIds: normalizedQueryValue(route.query.compareIds),
+          originCourseId: normalizedQueryValue(route.query.originCourseId),
+        }
+      : {},
+  })
+}
 
 function formatReviewDate(value) {
   if (!value) return 'Unknown date'
@@ -194,12 +231,12 @@ watch(() => route.params.id, () => {
 
     <template v-else-if="course">
       <!-- Back link -->
-      <button class="back-link" @click="router.push('/courses')">
+      <button class="back-link" @click="goBack">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="19" y1="12" x2="5" y2="12" />
           <polyline points="12 19 5 12 12 5" />
         </svg>
-        Back to course catalogue
+        {{ backLabel }}
       </button>
 
       <!-- Course Hero -->
@@ -348,7 +385,7 @@ watch(() => route.params.id, () => {
                 v-for="item in course.prerequisites"
                 :key="item.id"
                 class="clickable-tag"
-                @click="router.push(`/courses/${item.id}`)"
+                @click="openRelatedCourse(item.id)"
               >
                 {{ item.code }} · {{ item.name }}
               </el-tag>
@@ -363,7 +400,7 @@ watch(() => route.params.id, () => {
                 :key="item.id"
                 type="success"
                 class="clickable-tag"
-                @click="router.push(`/courses/${item.id}`)"
+                @click="openRelatedCourse(item.id)"
               >
                 {{ item.code }} · {{ item.name }}
               </el-tag>

@@ -58,28 +58,70 @@ const normalizeFilters = body => {
     return { filters };
 };
 
+/** Build a course-specific explanation when the model omits or truncates an item. */
+const buildFallbackRecommendation = (course, query) => {
+    const requirement = toPlainText(query).slice(0, 180);
+    const description = toPlainText(course.description).replace(/\s+/g, ' ').slice(0, 240);
+    const reasons = [description
+        ? `For your goal — ${requirement} — ${course.name} is relevant because its description states: ${description}`
+        : `${course.name} was retrieved as a match for your goal — ${requirement} — but its catalogue description is not available.`];
+    const cautions = [];
+    const semesters = Array.isArray(course.offeredSemesters) ? course.offeredSemesters : [];
+    const assessments = Array.isArray(course.assessmentTypes) ? course.assessmentTypes : [];
+
+    if (semesters.length) {
+        cautions.push(`It is currently listed for ${semesters.map(value => value.replaceAll('_', ' ').toLowerCase()).join(' and ')}; confirm the offering when planning your enrolment.`);
+    } else {
+        cautions.push('The available course data does not specify an offering semester, so confirm when it will run before planning around it.');
+    }
+    if (assessments.includes('EXAM')) {
+        cautions.push('The listed assessments include an exam; consider whether that suits your preferred assessment style.');
+    } else if (!assessments.length) {
+        cautions.push('Assessment details are not available, so check the official course information before enrolling.');
+    }
+    if (course.workloadHours === null || course.workloadHours === undefined) {
+        cautions.push('The workload is not specified in the available data, so verify the expected time commitment.');
+    }
+
+    return { courseId: course.id, reasons, cautions: cautions.slice(0, 3) };
+};
+
 /** Parse the model's JSON, keeping only recommendations that match retrieved courses. */
-const parseRecommendationOutput = (raw, candidates) => {
+const parseRecommendationOutput = (raw, candidates, query) => {
     const candidateIds = new Set(candidates.map(course => course.id));
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     try {
         const parsed = JSON.parse(cleaned);
         if (!parsed || !Array.isArray(parsed.recommendations)) throw new Error('Missing recommendations');
-        const recommendations = parsed.recommendations
+        const parsedRecommendations = parsed.recommendations
             .filter(item => candidateIds.has(Number(item.courseId)))
             .map(item => ({
                 courseId: Number(item.courseId),
                 reasons: Array.isArray(item.reasons) ? item.reasons.map(toPlainText).filter(Boolean).slice(0, 5) : [],
                 cautions: Array.isArray(item.cautions) ? item.cautions.map(toPlainText).filter(Boolean).slice(0, 5) : []
             }));
+        const recommendationsByCourse = new Map(parsedRecommendations.map(item => [item.courseId, item]));
+        const recommendations = candidates.map(course => {
+            const recommendation = recommendationsByCourse.get(course.id);
+            const fallback = buildFallbackRecommendation(course, query);
+            return {
+                courseId: course.id,
+                reasons: recommendation?.reasons.length
+                    ? recommendation.reasons
+                    : fallback.reasons,
+                cautions: recommendation?.cautions.length
+                    ? recommendation.cautions
+                    : fallback.cautions
+            };
+        });
         return {
             recommendations,
             summary: toPlainText(parsed.summary).slice(0, 2000)
         };
     } catch {
         return {
-            recommendations: candidates.map(course => ({ courseId: course.id, reasons: [], cautions: [] })),
-            summary: toPlainText(raw).slice(0, 2000)
+            recommendations: candidates.map(course => buildFallbackRecommendation(course, query)),
+            summary: 'The detailed AI response was incomplete, so the explanations below use the matching course data available in CourseCompass.'
         };
     }
 };
@@ -321,6 +363,10 @@ Use only the course information supplied by the application.
 Do not invent course facts or recommend courses outside the candidate list.
 Base every recommendation on supplied evidence. If a requirement cannot be verified, say so clearly.
 Distinguish semantic relevance from confirmed course facts. Keep the analysis concise and objective.
+Return exactly one recommendation object for every supplied candidate course.
+Each recommendation must contain exactly two concise reasons explaining how that specific course fits the student's stated requirements, using evidence from the supplied course data.
+Each recommendation must also contain one or two concise cautions. Mention missing prerequisite, semester, workload, or assessment evidence when no course-specific risk can be confirmed.
+Keep the summary under 60 words and every reason or caution under 35 words so the complete JSON response is not truncated.
 All text values must use plain text only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.
 Return JSON only in this exact shape: {"summary":"...","recommendations":[{"courseId":1,"reasons":["..."],"cautions":["..."]}]}.
 courseId must be copied from the supplied candidate data.`;
@@ -333,9 +379,10 @@ courseId must be copied from the supplied candidate data.`;
         try {
             const aiAnalysis = await llmService.chatCompletion({
                 messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
-                temperature: 0.7
+                temperature: 0.5,
+                maxTokens: 2048
             });
-            structuredResult = parseRecommendationOutput(aiAnalysis, candidates);
+            structuredResult = parseRecommendationOutput(aiAnalysis, candidates, normalizedQuery);
         } catch (llmError) {
             console.error('AI recommendation explanation failed; returning semantic matches:', llmError);
             warning = llmError.statusCode === 429
