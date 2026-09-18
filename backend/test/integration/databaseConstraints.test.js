@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
 
-const prisma = require('../src/lib/prisma');
+const prisma = require('../../src/lib/prisma');
 
 const TEST_EMAIL = 'day5.constraints@coursecompass.test';
 

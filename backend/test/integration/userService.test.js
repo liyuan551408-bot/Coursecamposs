@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
 const crypto = require('node:crypto');
 
-const prisma = require('../src/lib/prisma');
-const userService = require('../src/services/userService');
+const prisma = require('../../src/lib/prisma');
+const userService = require('../../src/services/userService');
 
 const TEST_EMAIL = 'day2.student@coursecompass.test';
 const TEST_PASSWORD = 'Day2Test123!';

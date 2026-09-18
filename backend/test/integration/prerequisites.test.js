@@ -1,7 +1,7 @@
 /** @file Exercises prerequisites.smoke behavior as a repeatable command-line smoke check. */
 const assert = require('node:assert/strict');
 
-const prisma = require('../src/lib/prisma');
+const prisma = require('../../src/lib/prisma');
 
 const run = async () => {
     const algorithms = await prisma.course.findUnique({
