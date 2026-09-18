@@ -1,31 +1,24 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "Backend API for the CourseCompass university course planning application.",
+  "main": "app.js",
+
   "scripts": {
-    "start": "node app.js",
     "dev": "nodemon app.js",
-    "db:status": "prisma migrate status",
-    "db:seed": "prisma db seed",
-    "test:smtp": "node scripts/test-smtp.js",
-    "test:backend-rules": "node --test test/backendRules.test.js",
-    "test:notifications": "node scripts/notifications.smoke.js",
-    "db:permission-check": "node scripts/db-permission-check.js",
+    "start": "node app.js",
+    "setup": "prisma validate && prisma generate && prisma migrate deploy && prisma db seed && npm run embeddings:generate && prisma migrate status",
+    "test": "node --test",
     "embeddings:generate": "node scripts/generate-embeddings.js",
-    "test": "npm run test:embedding-job && npm run test:user-service && npm run test:course-service && npm run test:database && npm run test:prerequisites && npm run test:extended-database",
-    "test:embedding-job": "node --test test/courseEmbeddingJob.test.js",
-    "test:user-service": "node scripts/userService.smoke.js",
-    "test:course-service": "node scripts/courseService.smoke.js",
-    "test:database": "node scripts/databaseConstraints.smoke.js",
-    "test:prerequisites": "node scripts/prerequisites.smoke.js",
-    "test:extended-database": "node scripts/extendedDatabase.smoke.js"
+    "embeddings:rebuild": "node scripts/generate-embeddings.js --force"
   },
+
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/adapter-pg": "^6.19.3",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -36,6 +29,7 @@
     "openai": "^7.3.0",
     "pg": "^8.22.0"
   },
+
   "devDependencies": {
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3"

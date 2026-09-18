@@ -2,13 +2,13 @@
 const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
 
-const prisma = require('../src/lib/prisma');
+const prisma = require('../../src/lib/prisma');
 const reviewService =
-    require('../src/services/reviewService');
+    require('../../src/services/reviewService');
 const completedCourseService =
-    require('../src/services/completedCourseService');
+    require('../../src/services/completedCourseService');
 const courseService =
-    require('../src/services/courseService');
+    require('../../src/services/courseService');
 
 const TEST_EMAIL =
     'extended.database@coursecompass.test';
