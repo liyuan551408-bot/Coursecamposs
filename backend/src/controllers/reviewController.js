@@ -181,6 +181,15 @@ const getPendingReports = async (req, res) => {
     }
 };
 
+const getModerationQueueCounts = async (req, res) => {
+    try {
+        const counts = await reviewService.getModerationQueueCounts();
+        return res.status(200).json({ success: true, data: counts });
+    } catch (error) {
+        return handleReviewError(res, error, { label: 'Get Moderation Queue Counts', duplicateMessage: '' });
+    }
+};
+
 const updateReportStatus = async (req, res) => {
     try {
         const report = await reviewService.updateReportStatus(req.params.id, req.body.status);
@@ -200,5 +209,6 @@ module.exports = {
     moderateReview,
     reportReview,
     getPendingReports,
+    getModerationQueueCounts,
     updateReportStatus
 };

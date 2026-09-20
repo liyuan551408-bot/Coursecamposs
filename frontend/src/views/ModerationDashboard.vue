@@ -3,7 +3,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPendingReports, getPendingReviews, moderateReview, updateReportStatus } from '../api/reviews'
+import { useModerationStore } from '../stores/moderation'
 
+const moderationStore = useModerationStore()
 const reviews = ref([])
 const reports = ref([])
 const loading = ref(false)
@@ -37,6 +39,7 @@ async function loadQueues() {
   error.value = ''
   try {
     ;[reviews.value, reports.value] = await Promise.all([getPendingReviews(), getPendingReports()])
+    moderationStore.setCounts(reviews.value.length, reports.value.length)
   } catch (err) {
     error.value = err.response?.data?.message || 'Unable to load the moderation queue.'
   } finally {
@@ -50,6 +53,7 @@ async function decideReport(report, status, hideReview = false) {
     if (hideReview) await moderateReview(report.reviewId, 'HIDDEN')
     await updateReportStatus(report.id, status)
     reports.value = reports.value.filter((item) => item.id !== report.id)
+    moderationStore.setCounts(reviews.value.length, reports.value.length)
     ElMessage.success(hideReview ? 'Review hidden and report resolved.' : `Report ${status.toLowerCase()}.`)
   } catch (err) {
     ElMessage.error(err.response?.data?.message || 'Unable to process this report.')
@@ -75,6 +79,7 @@ async function decide(review, status) {
   try {
     await moderateReview(review.id, status)
     reviews.value = reviews.value.filter((item) => item.id !== review.id)
+    moderationStore.setCounts(reviews.value.length, reports.value.length)
     ElMessage.success(status === 'APPROVED' ? 'Review approved and published.' : 'Review rejected.')
   } catch (err) {
     ElMessage.error(err.response?.data?.message || 'Unable to update this review.')

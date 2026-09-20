@@ -18,7 +18,7 @@ const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const courses = ref([])
 const showFilters = ref(false)
 const savingIds = ref(new Set())
-const filters = reactive({ subject: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
+const filters = reactive({ level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
 let debounceTimer
 let latestSearchId = 0
 
@@ -76,7 +76,7 @@ function scheduleSearch() {
 }
 
 function resetFilters() {
-  Object.assign(filters, { subject: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
+  Object.assign(filters, { level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
   runSearch()
 }
 
@@ -150,7 +150,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-show="showFilters" class="filter-grid">
-        <el-input v-model="filters.subject" clearable placeholder="Subject or code prefix" />
         <el-select v-model="filters.level" clearable placeholder="Course level">
           <el-option v-for="level in [100,200,300,400,500,600,700,800,900]" :key="level" :label="`Level ${level}`" :value="level" />
         </el-select>
@@ -339,6 +338,7 @@ onBeforeUnmount(() => {
 }
 
 .filter-actions {
+  grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
   gap: 8px;

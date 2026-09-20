@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteAllNotifications, deleteNotification, getNotifications, markAllNotificationsRead, markNotificationRead } from '../api/notifications'
 import { useNotificationStore } from '../stores/notifications'
@@ -7,10 +7,22 @@ import { useNotificationStore } from '../stores/notifications'
 const notifications = ref([])
 const loading = ref(true)
 const notificationStore = useNotificationStore()
+let loadSequence = 0
 
-async function load() {
-  loading.value = true
-  try { const result = await getNotifications(); notifications.value = result.items || []; notificationStore.unreadCount = result.unreadCount || 0 } catch (error) { ElMessage.error(error.response?.data?.message || 'Unable to load notifications') } finally { loading.value = false }
+async function load(showLoading = true) {
+  const sequence = ++loadSequence
+  if (showLoading) loading.value = true
+  try {
+    const result = await getNotifications()
+    if (sequence === loadSequence) {
+      notifications.value = result.items || []
+      notificationStore.unreadCount = result.unreadCount || 0
+    }
+  } catch (error) {
+    if (showLoading) ElMessage.error(error.response?.data?.message || 'Unable to load notifications')
+  } finally {
+    if (sequence === loadSequence) loading.value = false
+  }
 }
 
 async function markRead(item) {
@@ -60,6 +72,9 @@ async function removeAllNotifications() {
 }
 
 onMounted(load)
+watch(() => notificationStore.syncVersion, (syncVersion) => {
+  if (syncVersion && !loading.value) load(false)
+})
 </script>
 
 <template>

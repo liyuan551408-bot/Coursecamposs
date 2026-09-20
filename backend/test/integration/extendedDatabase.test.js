@@ -12,6 +12,10 @@ const courseService =
 
 const TEST_EMAIL =
     'extended.database@coursecompass.test';
+const REPORTER_EMAIL =
+    'extended.reporter@coursecompass.test';
+const MODERATOR_EMAIL =
+    'extended.moderator@coursecompass.test';
 
 const COURSE_CODES = [
     'EXT.TEST.101',
@@ -41,7 +45,7 @@ const cleanUp = async () => {
 
     await prisma.user.deleteMany({
         where: {
-            email: TEST_EMAIL
+            email: { in: [TEST_EMAIL, REPORTER_EMAIL, MODERATOR_EMAIL] }
         }
     });
 
@@ -71,6 +75,23 @@ const run = async () => {
             planningPreferences: {
                 preferredWorkload: 'MEDIUM'
             }
+        }
+    });
+
+    const reporter = await prisma.user.create({
+        data: {
+            email: REPORTER_EMAIL,
+            passwordHash,
+            name: 'Extended Database Reporter'
+        }
+    });
+
+    const moderator = await prisma.user.create({
+        data: {
+            email: MODERATOR_EMAIL,
+            passwordHash,
+            name: 'Extended Database Moderator',
+            role: 'MODERATOR'
         }
     });
 
@@ -125,6 +146,11 @@ const run = async () => {
     );
     assert.equal(createdReview.usefulnessRating, 5);
 
+    assert.deepEqual(
+        await reviewService.getModerationQueueCounts(),
+        { reviews: 1, reports: 0, total: 1 }
+    );
+
     console.log('Passed: create review');
 
     await reviewService.updateReviewStatus(
@@ -167,6 +193,34 @@ const run = async () => {
     );
 
     console.log('Passed: approval notification');
+
+    const report = await reviewService.reportReview(
+        createdReview.id,
+        reporter.id,
+        'The comment should be checked.'
+    );
+
+    assert.ok(await prisma.notification.findFirst({
+        where: { userId: reporter.id, type: 'REVIEW_REPORT_SUBMITTED' }
+    }));
+    assert.ok(await prisma.notification.findFirst({
+        where: { userId: moderator.id, type: 'NEW_REVIEW_REPORT' }
+    }));
+    assert.deepEqual(
+        await reviewService.getModerationQueueCounts(),
+        { reviews: 0, reports: 1, total: 1 }
+    );
+
+    await reviewService.updateReportStatus(report.id, 'RESOLVED');
+    assert.ok(await prisma.notification.findFirst({
+        where: { userId: reporter.id, type: 'REPORT_UPDATE' }
+    }));
+    assert.deepEqual(
+        await reviewService.getModerationQueueCounts(),
+        { reviews: 0, reports: 0, total: 0 }
+    );
+
+    console.log('Passed: report notifications and moderation counts');
 
     const comparison =
         await courseService.getCoursesForComparison(
