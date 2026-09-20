@@ -251,9 +251,9 @@ onBeforeRouteLeave(async () => {
 .page-heading > div > p:last-child { max-width: 640px; color: var(--text); }
 .eyebrow { color: var(--accent); font: 700 11px/1.4 var(--mono); letter-spacing: .13em; }
 .profile-role { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
-.profile-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 18px; align-items: start; }
+.profile-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
 
-.profile-details-card, .completed-card { border-top: 4px solid var(--accent); background: rgba(255, 255, 255, .88); }
+.profile-details-card, .completed-card { height: 100%; border-top: 4px solid var(--accent); background: rgba(255, 255, 255, .88); }
 .profile-details-card :deep(.el-card__header), .completed-card :deep(.el-card__header) { padding: 20px 22px; }
 .profile-details-card :deep(.el-card__body), .completed-card :deep(.el-card__body) { padding: 22px; }
 .card-heading span { color: var(--accent); font: 700 10px/1.35 var(--mono); letter-spacing: .13em; }

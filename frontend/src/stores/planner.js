@@ -35,14 +35,17 @@ export const usePlannerStore = defineStore('planner', () => {
     }
   }
 
-  async function addCourse(semesterId, course) {
+  async function addCourse(semesterId, course, options = { confirmPrerequisites: true }) {
     if (isInPlanner(course.id, semesterId)) return { added: false, warnings: [] }
     const semester = semesters.value.find((item) => item.id === Number(semesterId))
     if (!semester) return { added: false, warnings: [] }
-    const result = await addPlanCourse(semester.id, course.id)
+    const result = await addPlanCourse(semester.id, course.id, options)
+    if (result.requiresConfirmation) {
+      return { added: false, warnings: result.warnings, requiresConfirmation: true }
+    }
     semester.courses.push(result.course || course)
     await useNotificationStore().refresh().catch(() => {})
-    return { added: true, warnings: result.warnings }
+    return { added: true, warnings: result.warnings, requiresConfirmation: false }
   }
 
   async function addCourses(semesterId, courses) {

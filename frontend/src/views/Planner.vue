@@ -107,16 +107,37 @@ async function addPendingCourseToSemester() {
   const semesterName = getSemesterName(pendingSemesterId.value)
   addingPendingCourse.value = true
   try {
-    const result = await plannerStore.addCourse(pendingSemesterId.value, pendingCourse.value)
-    if (result.added) ElMessage.success(`${pendingCourse.value.code} added to ${semesterName}`)
-    if (result.warnings?.length) ElMessage.warning(result.warnings.join(' '))
-    pendingCourseDialogVisible.value = false
-    clearPendingCourseRequest()
+    const result = await addCourseWithPrerequisiteConfirmation(pendingSemesterId.value, pendingCourse.value)
+    if (result.cancelled) return
+    if (result.added) {
+      ElMessage.success(`${pendingCourse.value.code} added to ${semesterName}`)
+      pendingCourseDialogVisible.value = false
+      clearPendingCourseRequest()
+    }
   } catch (err) {
     ElMessage.error(err.response?.data?.message || 'Unable to add the course to this semester')
   } finally {
     addingPendingCourse.value = false
   }
+}
+
+async function addCourseWithPrerequisiteConfirmation(semesterId, course) {
+  let result = await plannerStore.addCourse(semesterId, course, { confirmPrerequisites: false })
+  if (!result.requiresConfirmation) return result
+
+  try {
+    await ElMessageBox.confirm(
+      `${result.warnings.join('\n')}\n\nDo you want to add this course anyway?`,
+      'Prerequisite warning',
+      { confirmButtonText: 'Add anyway', cancelButtonText: 'Cancel', type: 'warning' },
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return { ...result, cancelled: true }
+    throw error
+  }
+
+  result = await plannerStore.addCourse(semesterId, course, { confirmPrerequisites: true })
+  return result
 }
 
 function createSemesterForPendingCourse() {
@@ -176,7 +197,16 @@ async function confirmAddCourses() {
   const coursesToAdd = allCourses.value.filter((c) => selectedCourseIds.value.has(Number(c.id)))
   batchAdding.value = true
   try {
-    const result = await plannerStore.addCourses(selectedSemesterId.value, coursesToAdd)
+    const result = { added: [], skipped: [], warnings: [] }
+    for (const course of coursesToAdd) {
+      const courseResult = await addCourseWithPrerequisiteConfirmation(selectedSemesterId.value, course)
+      if (courseResult.cancelled || !courseResult.added) {
+        result.skipped.push(course)
+        continue
+      }
+      result.added.push(course)
+      if (courseResult.warnings?.length) result.warnings.push(...courseResult.warnings)
+    }
     if (result.added.length) {
       ElMessage.success(`Added ${result.added.length} course(s) to ${semName}`)
     }
@@ -233,10 +263,16 @@ async function createSemester() {
     planDialogVisible.value = false
     if (creatingForPendingCourse.value && pendingCourse.value) {
       try {
-        const result = await plannerStore.addCourse(newPlan.id, pendingCourse.value)
-        if (result.warnings?.length) ElMessage.warning(result.warnings.join(' '))
-        ElMessage.success(`${pendingCourse.value.code} added to ${newPlan.name}`)
-        clearPendingCourseRequest()
+        const result = await addCourseWithPrerequisiteConfirmation(newPlan.id, pendingCourse.value)
+        if (result.cancelled) {
+          pendingSemesterId.value = newPlan.id
+          pendingCourseDialogVisible.value = true
+          return
+        }
+        if (result.added) {
+          ElMessage.success(`${pendingCourse.value.code} added to ${newPlan.name}`)
+          clearPendingCourseRequest()
+        }
       } catch (err) {
         creatingForPendingCourse.value = false
         pendingSemesterId.value = newPlan.id

@@ -11,9 +11,16 @@ export async function createPlan(payload) {
   return response.data
 }
 
-export async function addPlanCourse(planId, courseId) {
-  const response = await request.post(`/plans/${planId}/courses`, { courseId: Number(courseId) })
-  return { course: response.data, warnings: response.warnings || [] }
+export async function addPlanCourse(planId, courseId, { confirmPrerequisites = true } = {}) {
+  const response = await request.post(`/plans/${planId}/courses`, {
+    courseId: Number(courseId),
+    confirmPrerequisites,
+  })
+  return {
+    course: response.data,
+    warnings: response.warnings || [],
+    requiresConfirmation: Boolean(response.requiresConfirmation),
+  }
 }
 
 export function removePlanCourse(planId, courseId) {
