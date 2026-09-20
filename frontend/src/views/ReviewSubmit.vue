@@ -4,9 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCourse } from '../api/courses'
 import { getMyCourseReview, submitReview, updateMyReview } from '../api/reviews'
+import { useNotificationStore } from '../stores/notifications'
 
 const route = useRoute()
 const router = useRouter()
+const notificationStore = useNotificationStore()
 const loading = ref(true)
 const submitting = ref(false)
 const course = ref(null)
@@ -48,6 +50,7 @@ async function save() {
     const data = { ...form }
     const review = ownReview.value ? await updateMyReview(courseId, data) : await submitReview({ courseId, ...data })
     applyReview(review)
+    await notificationStore.refresh().catch(() => {})
     ElMessage.success('Your review was submitted and is pending approval.')
     router.push(`/courses/${courseId}`)
   } catch (error) {

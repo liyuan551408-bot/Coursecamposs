@@ -41,6 +41,11 @@ export async function getPendingReports() {
   return response.data || []
 }
 
+export async function getModerationQueueCounts() {
+  const response = await request.get('/reviews/moderation/counts')
+  return response.data || { reviews: 0, reports: 0, total: 0 }
+}
+
 export async function updateReportStatus(id, status) {
   const response = await request.patch(`/reviews/reports/${id}/status`, { status })
   return response.data

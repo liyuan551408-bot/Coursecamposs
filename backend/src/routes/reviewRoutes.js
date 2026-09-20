@@ -27,6 +27,7 @@ router.get('/pending', ...moderatorOrAdmin, reviewController.getPendingReviews);
 
 // Moderator/Admin: pending report queue
 router.get('/reports/pending', ...moderatorOrAdmin, reviewController.getPendingReports);
+router.get('/moderation/counts', ...moderatorOrAdmin, reviewController.getModerationQueueCounts);
 router.patch('/reports/:id/status', ...moderatorOrAdmin, reviewController.updateReportStatus);
 
 // Student: report a review

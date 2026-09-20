@@ -208,6 +208,7 @@ async function handleReport(review) {
       inputValidator: (text) => Boolean(text?.trim()) || 'Please enter a reason',
     })
     await reportReview(review.id, value)
+    await notificationStore.refresh().catch(() => {})
     ElMessage.success('Report submitted to the moderation team.')
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') ElMessage.error(error.response?.data?.message || 'Unable to report review')

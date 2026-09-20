@@ -296,6 +296,14 @@ const getPendingReports = async () => {
     });
 };
 
+const getModerationQueueCounts = async () => {
+    const [reviews, reports] = await Promise.all([
+        prisma.review.count({ where: { status: 'PENDING' } }),
+        prisma.reviewReport.count({ where: { status: 'PENDING' } })
+    ]);
+    return { reviews, reports, total: reviews + reports };
+};
+
 const updateReportStatus = async (reportId, newStatus) => {
     const validStatuses = new Set(['RESOLVED', 'DISMISSED']);
     if (!validStatuses.has(newStatus)) {
@@ -371,6 +379,7 @@ module.exports = {
     updateReviewStatus,
     reportReview,
     getPendingReports,
+    getModerationQueueCounts,
     updateReportStatus,
     getCourseRatingSummary
 };

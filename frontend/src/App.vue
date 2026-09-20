@@ -10,24 +10,52 @@ import { useAuthStore } from './stores/auth'
 import { useSavedStore } from './stores/saved'
 import { usePlannerStore } from './stores/planner'
 import { useNotificationStore } from './stores/notifications'
+import { useModerationStore } from './stores/moderation'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const savedStore = useSavedStore()
 const plannerStore = usePlannerStore()
 const notificationStore = useNotificationStore()
-let notificationTimer
+const moderationStore = useModerationStore()
+const BADGE_REFRESH_INTERVAL_MS = 15000
+let badgeRefreshTimer
+
+function stopBadgeRefresh() {
+  clearInterval(badgeRefreshTimer)
+  badgeRefreshTimer = undefined
+}
+
+async function refreshBadges() {
+  if (!authStore.isLoggedIn) return
+  const refreshes = [notificationStore.refresh()]
+  if (authStore.isAdmin || authStore.isModerator) {
+    refreshes.push(moderationStore.refresh())
+  } else {
+    moderationStore.reset()
+  }
+  await Promise.allSettled(refreshes)
+}
+
+function startBadgeRefresh() {
+  stopBadgeRefresh()
+  refreshBadges()
+  badgeRefreshTimer = window.setInterval(() => {
+    if (!document.hidden) refreshBadges()
+  }, BADGE_REFRESH_INTERVAL_MS)
+}
 
 function resetAccountState() {
   authStore.restoreSession()
   savedStore.reset()
   plannerStore.reset()
   notificationStore.reset()
-  clearInterval(notificationTimer)
+  moderationStore.reset()
+  stopBadgeRefresh()
 }
 
-function refreshOnFocus() {
-  if (authStore.isLoggedIn) notificationStore.refresh().catch(() => {})
+function refreshWhenVisible() {
+  if (!document.hidden) refreshBadges()
 }
 
 function handleLogout() {
@@ -35,33 +63,36 @@ function handleLogout() {
   savedStore.reset()
   plannerStore.reset()
   notificationStore.reset()
+  moderationStore.reset()
+  stopBadgeRefresh()
   router.push('/login')
 }
 
 // Load saved courses count when user logs in
-watch(() => authStore.isLoggedIn, (isLoggedIn) => {
+watch(() => [authStore.isLoggedIn, authStore.user?.id, authStore.user?.role], ([isLoggedIn]) => {
   if (isLoggedIn) {
     savedStore.loadSaved().catch(() => {})
-    notificationStore.refresh().catch(() => {})
-    clearInterval(notificationTimer)
-    notificationTimer = window.setInterval(() => notificationStore.refresh().catch(() => {}), 30000)
+    startBadgeRefresh()
   } else {
-    clearInterval(notificationTimer)
+    notificationStore.reset()
+    moderationStore.reset()
+    stopBadgeRefresh()
   }
 }, { immediate: true })
 
+const removeRouteRefreshHook = router.afterEach(() => refreshBadges())
+
 onMounted(() => {
-  if (authStore.isLoggedIn) {
-    savedStore.loadSaved().catch(() => {})
-    notificationStore.refresh().catch(() => {})
-  }
-  window.addEventListener('focus', refreshOnFocus)
+  window.addEventListener('focus', refreshWhenVisible)
+  document.addEventListener('visibilitychange', refreshWhenVisible)
   window.addEventListener('course-compass:unauthorized', resetAccountState)
 })
 
 onBeforeUnmount(() => {
-  clearInterval(notificationTimer)
-  window.removeEventListener('focus', refreshOnFocus)
+  stopBadgeRefresh()
+  removeRouteRefreshHook()
+  window.removeEventListener('focus', refreshWhenVisible)
+  document.removeEventListener('visibilitychange', refreshWhenVisible)
   window.removeEventListener('course-compass:unauthorized', resetAccountState)
 })
 </script>
@@ -91,7 +122,12 @@ onBeforeUnmount(() => {
         <router-link to="/planner" class="nav-link">Planner</router-link>
         <router-link to="/compare" class="nav-link">Compare</router-link>
         <router-link to="/ai-recommend" class="nav-link">AI Recommendations</router-link>
-        <router-link v-if="authStore.isAdmin || authStore.isModerator" to="/moderation" class="nav-link">Moderation</router-link>
+        <router-link v-if="authStore.isAdmin || authStore.isModerator" to="/moderation" class="nav-link nav-link--badge">
+          Moderation
+          <span v-if="moderationStore.pendingCount" class="nav-badge" aria-label="Pending moderation items">
+            {{ moderationStore.pendingCount > 99 ? '99+' : moderationStore.pendingCount }}
+          </span>
+        </router-link>
         <router-link v-if="authStore.isAdmin" to="/admin" class="nav-link">Admin</router-link>
       </nav>
 
