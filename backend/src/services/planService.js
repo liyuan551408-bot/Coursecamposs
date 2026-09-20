@@ -51,7 +51,7 @@ const requireOwnedPlan = async (userId, planId) => {
 };
 
 // Add a course to a plan and report unmet prerequisites.
-const addCourseToPlan = async (userId, planId, courseId) => {
+const addCourseToPlan = async (userId, planId, courseId, { confirmPrerequisites = true } = {}) => {
     const targetPlan = await requireOwnedPlan(userId, planId);
     // Load prerequisite ids before changing the plan.
     const course = await prisma.course.findFirst({
@@ -99,6 +99,11 @@ const addCourseToPlan = async (userId, planId, courseId) => {
         }
     }
 
+    // Let the client ask for confirmation before persisting a course with unmet prerequisites.
+    if (warnings.length > 0 && !confirmPrerequisites) {
+        return { course: null, warnings, requiresConfirmation: true };
+    }
+
     // Persist the requested course even when non-blocking warnings exist.
     const addedCourse = await prisma.planCourse.create({
         data: {
@@ -113,7 +118,8 @@ const addCourseToPlan = async (userId, planId, courseId) => {
     // Return warnings alongside data so the controller can preserve both.
     const result = {
         ...addedCourse,
-        warnings 
+        warnings,
+        requiresConfirmation: false
     };
     await createNotificationsSafely([userId], { type: 'PLAN_COURSE_ADDED', title: 'Course added to planner', message: `${course.code} was added to your ${planId} semester plan.` });
     return result;

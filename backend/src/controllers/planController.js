@@ -56,12 +56,16 @@ const addCourse = async (req, res) => {
         }
 
         // Pass ownership context into the service for authorization-aware persistence.
-        const result = await plannerService.addCourseToPlan(userId, planId, courseId);
+        const result = await plannerService.addCourseToPlan(userId, planId, courseId, {
+            // Preserve the original API behavior for older clients that do not send this flag.
+            confirmPrerequisites: req.body.confirmPrerequisites !== false,
+        });
         
         res.status(201).json({ 
             success: true, 
             message: 'Course added to plan', 
             warnings: result.warnings, // Keep prerequisite warnings separate from the saved entity.
+            requiresConfirmation: result.requiresConfirmation === true,
             data: result.course // Return the created plan-course record as the primary payload.
         });
     } catch (error) {
