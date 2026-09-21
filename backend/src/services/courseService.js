@@ -6,6 +6,7 @@ const {
 } = require('./courseEmbeddingService');
 const { rankFuzzyCourses } = require('../utils/fuzzySearch');
 const { createNotificationsSafely } = require('./notificationService');
+const { resolvePrerequisiteCourses } = require('./prerequisiteService');
 
 const courseSelect = {
     id: true,
@@ -97,36 +98,7 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
 
     // Resolve either numeric course IDs or course codes before connecting.
     if (prerequisiteIds && prerequisiteIds.length > 0) {
-        const references = [...new Set(prerequisiteIds.map((value) => String(value).trim()).filter(Boolean))];
-        const numericIds = references.filter((value) => /^\d+$/.test(value)).map(Number);
-        // Course codes such as 159.101 are often entered as 159101.
-        const codeAlias = (value) => /^\d{6}$/.test(value)
-            ? `${value.slice(0, 3)}.${value.slice(3)}`
-            : value.toUpperCase();
-        const courseCodes = references
-            .filter((value) => !/^\d+$/.test(value) || /^\d{6}$/.test(value))
-            .flatMap((value) => [value.toUpperCase(), codeAlias(value)])
-            .filter((value, index, values) => values.indexOf(value) === index);
-        const lookup = [];
-        if (numericIds.length > 0) lookup.push({ id: { in: numericIds } });
-        if (courseCodes.length > 0) lookup.push({ code: { in: courseCodes } });
-        const prerequisiteCourses = await prisma.course.findMany({
-            where: { OR: lookup },
-            select: { id: true, code: true }
-        });
-        const foundReferences = new Set(prerequisiteCourses.flatMap((course) => [String(course.id), course.code.toUpperCase()]));
-        const missing = references.filter((reference) => {
-            const normalized = reference.toUpperCase();
-            return !foundReferences.has(reference)
-                && !foundReferences.has(normalized)
-                && !foundReferences.has(codeAlias(reference));
-        });
-        if (missing.length > 0) {
-            const error = new Error('One or more prerequisite courses do not exist');
-            error.code = 'PREREQUISITE_NOT_FOUND';
-            error.meta = { missing };
-            throw error;
-        }
+        const prerequisiteCourses = await resolvePrerequisiteCourses(prisma, prerequisiteIds);
         data.prerequisites = {
             connect: prerequisiteCourses.map((course) => ({ id: course.id }))
         };
@@ -157,25 +129,9 @@ const updateCourse = async (id, courseData) => {
     );
 
     if (courseData.prerequisiteIds !== undefined) {
-        if (!Array.isArray(courseData.prerequisiteIds)) {
-            throw new TypeError('prerequisiteIds must be an array');
-        }
-        const references = [...new Set(courseData.prerequisiteIds.map(String).map((value) => value.trim()).filter(Boolean))];
-        const numericIds = references.filter((value) => /^\d+$/.test(value)).map(Number);
-        const codes = references.filter((value) => !/^\d+$/.test(value)).map((value) => value.toUpperCase());
-        const lookup = [];
-        if (numericIds.length) lookup.push({ id: { in: numericIds } });
-        if (codes.length) lookup.push({ code: { in: codes } });
-        const prerequisiteCourses = lookup.length
-            ? await prisma.course.findMany({ where: { OR: lookup }, select: { id: true, code: true } })
-            : [];
+        const prerequisiteCourses = await resolvePrerequisiteCourses(prisma, courseData.prerequisiteIds);
         if (prerequisiteCourses.some((course) => course.id === Number(id))) {
             throw new TypeError('A course cannot be its own prerequisite');
-        }
-        if (prerequisiteCourses.length !== references.length) {
-            const error = new Error('One or more prerequisite courses do not exist');
-            error.code = 'PREREQUISITE_NOT_FOUND';
-            throw error;
         }
         data.prerequisites = { set: prerequisiteCourses.map((course) => ({ id: course.id })) };
     }
@@ -332,93 +288,6 @@ const getCourseByCode = async (code) => {
     });
 };
 
-const normalizeCourseCodes = (codes) => {
-    if (!Array.isArray(codes)) {
-        throw new TypeError('Course codes must be an array');
-    }
-
-    const normalizedCodes = [
-        ...new Set(
-            codes.map((code) => {
-                if (typeof code !== 'string' || code.trim() === '') {
-                    throw new TypeError('Each course code must be a non-empty string');
-                }
-                return code.trim().toUpperCase();
-            })
-        )
-    ];
-
-    if (normalizedCodes.length < 2 || normalizedCodes.length > 4) {
-        throw new TypeError('Select between 2 and 4 different courses');
-    }
-
-    return normalizedCodes;
-};
-
-const getCoursesForComparison = async (codes) => {
-    const normalizedCodes = normalizeCourseCodes(codes);
-
-    const courses = await prisma.course.findMany({
-        where: {
-            code: { in: normalizedCodes },
-            isActive: true
-        },
-        select: courseSelect,
-        orderBy: { code: 'asc' }
-    });
-
-    const foundCodes = new Set(courses.map((course) => course.code));
-    const missingCodes = normalizedCodes.filter((code) => !foundCodes.has(code));
-
-    if (missingCodes.length > 0) {
-        throw new Error(`Courses not found: ${missingCodes.join(', ')}`);
-    }
-
-    const courseIds = courses.map((course) => course.id);
-
-    const ratingGroups = await prisma.review.groupBy({
-        by: ['courseId'],
-        where: {
-            courseId: { in: courseIds },
-            status: 'APPROVED'
-        },
-        _avg: {
-            overallRating: true,
-            difficultyRating: true,
-            workloadRating: true,
-            teachingRating: true,
-            usefulnessRating: true
-        },
-        _count: { _all: true }
-    });
-
-    const ratingsByCourseId = new Map(
-        ratingGroups.map((group) => [
-            group.courseId,
-            {
-                reviewCount: group._count._all,
-                overallRating: group._avg.overallRating,
-                difficultyRating: group._avg.difficultyRating,
-                workloadRating: group._avg.workloadRating,
-                teachingRating: group._avg.teachingRating,
-                usefulnessRating: group._avg.usefulnessRating
-            }
-        ])
-    );
-
-    return courses.map((course) => ({
-        ...course,
-        ratingSummary: ratingsByCourseId.get(course.id) ?? {
-            reviewCount: 0,
-            overallRating: null,
-            difficultyRating: null,
-            workloadRating: null,
-            teachingRating: null,
-            usefulnessRating: null
-        }
-    }));
-};
-
 // Search active courses using optional text and structured filters.
 const searchCourses = async (queryFilters) => {
     const { keyword, subject, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits,
@@ -539,6 +408,5 @@ module.exports = {
     getCoursesByIds,
     getCoursesForComparisonAnalysis,
     getCourseByCode,
-    getCoursesForComparison,
     searchCourses
 };

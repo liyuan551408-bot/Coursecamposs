@@ -7,6 +7,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourseReviews } from '../api/reviews'
+import { normalizeSemesters } from '../utils/semesters'
 import { useSavedStore } from '../stores/saved'
 import { usePlannerStore } from '../stores/planner'
 
@@ -104,15 +105,6 @@ function handleClearAll() {
 
 function goToDetail(courseId) {
   router.push(`/courses/${courseId}`)
-}
-
-function normalizeSemesters(value) {
-  if (Array.isArray(value)) return value
-  if (typeof value !== 'string') return []
-  const content = value.trim().replace(/^\{/, '').replace(/\}$/, '')
-  return content
-    ? content.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
-    : []
 }
 
 /* ===== Export to planner ===== */

@@ -1,11 +1,6 @@
 /** @file Wraps backend ai endpoints behind a small frontend API client. */
 import request from './request'
 
-export async function semanticSearchCourses(query, filters = {}) {
-  const response = await request.post('/ai/semantic-search', { query, limit: 10, ...filters })
-  return response.data || []
-}
-
 /** Call the authenticated backend recommendation endpoint with the student's query. */
 export async function getCourseRecommendations(query, filters = {}) {
   // Embedding retries and the language-model fallback can exceed the global

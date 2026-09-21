@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { searchCourses } from '../api/courses'
+import { normalizeSemesters } from '../utils/semesters'
 import { useSavedStore } from '../stores/saved'
 import { useAuthStore } from '../stores/auth'
 
@@ -26,16 +27,6 @@ const semesterOptions = [
   ['Semester 1', 'SEMESTER_1'], ['Semester 2', 'SEMESTER_2'], ['Summer', 'SUMMER'],
 ]
 const assessmentOptions = ['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION']
-
-function normalizeSemesters(value) {
-  if (Array.isArray(value)) return value
-  if (typeof value !== 'string') return []
-
-  const content = value.trim().replace(/^\{/, '').replace(/\}$/, '')
-  return content
-    ? content.split(',').map((semester) => semester.trim().replace(/^"|"$/g, '')).filter(Boolean)
-    : []
-}
 
 function cleanFilters() {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== '' && value !== null))
