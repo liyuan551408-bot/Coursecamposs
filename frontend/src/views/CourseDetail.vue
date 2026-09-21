@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourse } from '../api/courses'
+import { normalizeSemesters } from '../utils/semesters'
 import { getCourseReviews, getMyCourseReview, reportReview, submitReview, updateMyReview } from '../api/reviews'
 import request from '../api/request'
 import { useAuthStore } from '../stores/auth'
@@ -85,15 +86,6 @@ function formatReviewDate(value) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
-}
-
-function normalizeSemesters(value) {
-  if (Array.isArray(value)) return value
-  if (typeof value !== 'string') return []
-  const content = value.trim().replace(/^\{/, '').replace(/\}$/, '')
-  return content
-    ? content.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
-    : []
 }
 
 function fillReviewForm(review) {

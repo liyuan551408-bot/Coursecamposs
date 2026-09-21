@@ -222,10 +222,10 @@ const run = async () => {
 
     console.log('Passed: report notifications and moderation counts');
 
-    const comparison =
-        await courseService.getCoursesForComparison(
-            COURSE_CODES
-        );
+    const comparison = await courseService.getCoursesByIds([
+        firstCourse.id,
+        secondCourse.id
+    ]);
 
     assert.equal(comparison.length, 2);
 
@@ -240,20 +240,13 @@ const run = async () => {
     assert.ok(firstComparison);
     assert.ok(secondComparison);
 
-    assert.equal(
-        firstComparison.ratingSummary.reviewCount,
-        1
-    );
-    assert.equal(
-        firstComparison.ratingSummary.overallRating,
-        4
-    );
-    assert.equal(
-        secondComparison.ratingSummary.reviewCount,
-        0
-    );
+    const firstRating = await reviewService.getCourseRatingSummary(firstCourse.id);
+    const secondRating = await reviewService.getCourseRatingSummary(secondCourse.id);
+    assert.equal(firstRating.reviewCount, 1);
+    assert.equal(firstRating.overallRating, 4);
+    assert.equal(secondRating.reviewCount, 0);
 
-    console.log('Passed: course comparison');
+    console.log('Passed: course comparison and rating summaries');
 
     const updatedReview =
         await reviewService.updateReview(

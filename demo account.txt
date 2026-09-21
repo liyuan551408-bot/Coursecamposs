@@ -1,4 +1,0 @@
-ROLE					Email							    Password
-STUDENT			        student@coursecompass.test   		CourseCompass123!
-MODERATOR		        moderator@coursecompass.test		CourseCompass123!
-ADMIN			        admin@coursecompass.test			CourseCompass123!

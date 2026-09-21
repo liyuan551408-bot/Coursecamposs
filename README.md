@@ -68,16 +68,17 @@ Example configuration:
 
 ### Backend
 
-Open a terminal and run `cd backend`, followed by `npm ci` and `npm run setup`.
+For a cloud database that already has the CourseCompass schema and data, set `DATABASE_URL`, then run `cd backend`, `npm ci`, `npx prisma generate`, and `npm run dev`. The backend reads courses and accounts from that database.
+
+Run `npm run setup` only when you intend to apply the repository's migrations and generate missing course embeddings on the database in `DATABASE_URL`.
 
 The `npm run setup` command automatically performs the following steps:
 
 1. Validates the Prisma schema
 2. Generates Prisma Client
 3. Applies existing database migrations
-4. Seeds the database
-5. Generates missing course embeddings
-6. Verifies the migration status
+4. Generates missing course embeddings
+5. Verifies the migration status
 
 After the setup is complete, start the backend with `npm run dev`.
 
@@ -97,9 +98,9 @@ The frontend communicates with the backend through `http://localhost:3000/api`.
 
 ### Project Setup
 
-Run `npm run setup` to complete the backend initialization process.
+Run `npm run setup` when provisioning a database or generating missing course embeddings.
 
-This includes Prisma schema validation, Prisma Client generation, database migration deployment, database seeding, course embedding generation, and migration status verification.
+This includes Prisma schema validation, Prisma Client generation, database migration deployment, course embedding generation, and migration status verification. It does not insert demo data.
 
 ### Development Server
 
@@ -155,7 +156,7 @@ Run `npm run embeddings:rebuild`.
 
 This regenerates embeddings for all courses.
 
-Embedding generation is already included in `npm run setup`, so it normally does not need to be run manually after initial setup.
+Embedding generation is included in `npm run setup`. An existing cloud database with course embeddings needs no generation step.
 
 ## Testing
 
@@ -176,7 +177,7 @@ The test suite includes coverage for:
 - Course prerequisites
 - Reviews and related database behaviour
 
-Some integration tests connect to the configured development or test database and may create temporary records.
+Some integration tests connect to the configured database and create temporary records. Run them against an isolated development or test database, not a populated cloud database.
 
 Temporary test data is cleaned up after the tests complete.
 
@@ -196,9 +197,10 @@ After cloning the repository, use the following workflow.
 
 1. `cd backend`
 2. `npm ci`
-3. `npm run setup`
-4. `npm test`
-5. `npm run dev`
+3. `npx prisma generate`
+4. `npm run dev`
+
+Run `npm run setup` separately if this database needs the repository's migrations or missing course embeddings. Run `npm test` against an isolated development or test database.
 
 ### Frontend
 
@@ -209,19 +211,9 @@ Open a second terminal and run:
 3. `npm run build`
 4. `npm run dev`
 
-## Development Accounts
+## Accounts
 
-The database seed creates the following development accounts:
-
-| Role | Email | Password |
-|---|---|---|
-| Student | `student@coursecompass.test` | `CourseCompass123!` |
-| Moderator | `moderator@coursecompass.test` | `CourseCompass123!` |
-| Administrator | `admin@coursecompass.test` | `CourseCompass123!` |
-
-These accounts are intended only for development and testing.
-
-Do not use these credentials in production.
+Setup does not create accounts. Use accounts already present in the connected database or register a student account through the application. Administrator and moderator roles must be provisioned separately.
 
 ## Dependency Management
 
@@ -237,6 +229,5 @@ Do not commit `node_modules/` to the repository.
 - Never commit database passwords.
 - Use a strong random `JWT_SECRET`.
 - Configure `CORS_ORIGIN` appropriately in production.
-- Development accounts must not be used in production.
 - AI-generated output is planning assistance only.
 - Course prerequisites and programme requirements should be verified against official university information.
