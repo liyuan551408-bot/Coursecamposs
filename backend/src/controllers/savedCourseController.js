@@ -1,20 +1,19 @@
 /** @file Translates saved course HTTP requests into service calls and API responses. */
 const savedCourseService = require('../services/savedCourseService');
+const { parsePositiveInteger } = require('../utils/validation');
 
-// Save a course for the verified user.
 const addCourse = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { courseId } = req.body;
+        const courseId = parsePositiveInteger(req.body?.courseId);
 
-        if (!courseId) {
-            return res.status(400).json({ success: false, message: 'courseId is required' });
+        if (courseId === null) {
+            return res.status(400).json({ success: false, message: 'courseId must be a positive integer' });
         }
 
         const saved = await savedCourseService.addSavedCourse(userId, courseId);
         res.status(201).json({ success: true, data: saved });
     } catch (error) {
-        // Prisma Joint primary key conflict error code: indicates the course has already been bookmarked.
         if (error.code === 'P2002') {
             return res.status(409).json({ success: false, message: 'Course already saved' });
         }
@@ -26,7 +25,6 @@ const addCourse = async (req, res) => {
     }
 };
 
-// obtained from the service
 const getMyCourses = async (req, res) => {
     try {
         const courses = await savedCourseService.getMySavedCourses(req.user.id);
@@ -37,16 +35,18 @@ const getMyCourses = async (req, res) => {
     }
 };
 
-// cancel saved course
 const removeCourse = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { courseId } = req.params;
+        const courseId = parsePositiveInteger(req.params.courseId);
+
+        if (courseId === null) {
+            return res.status(400).json({ success: false, message: 'courseId must be a positive integer' });
+        }
 
         await savedCourseService.removeSavedCourse(userId, courseId);
         res.status(200).json({ success: true, message: 'Course removed from saved list' });
     } catch (error) {
-        
         if (error.code === 'P2025') {
             return res.status(404).json({ success: false, message: 'Saved course not found' });
         }

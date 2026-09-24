@@ -35,12 +35,31 @@ const semanticSearchCourses = async ({
     maxCredits,
     minWorkload,
     maxWorkload,
-    level
+    level,
+    excludeUserId
 }) => {
     const embedding = await aiService.generateEmbedding(query);
     const vectorString = `[${embedding.join(',')}]`;
     const filters = [];
     const values = [vectorString, threshold];
+    if (excludeUserId !== undefined) {
+    const userId = Number(excludeUserId);
+
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+        throw new TypeError('Invalid user ID');
+    }
+
+    values.push(userId);
+
+    filters.push(`
+        AND NOT EXISTS (
+            SELECT 1
+            FROM "CompletedCourse" AS completed
+            WHERE completed."courseId" = "Course"."id"
+            AND completed."userId" = $${values.length}::int
+        )
+    `);
+}
     if (semester) {
         values.push(semester);
         filters.push(`AND "offeredSemesters" @> ARRAY[$${values.length}]::"CourseSemester"[]`);

@@ -3,13 +3,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
 const emailService = require('../services/emailService');
-// Handle user registration.
+
 const register = async (req, res) => {
     try {
-        // 1. Extract data from the request body sent by the frontend.
         const { email, password, name, major, studyYear } = req.body;
 
-        // 2. Basic validation for required fields.
         if (!email || !password || !name) {
             return res.status(400).json({
                 success: false,
@@ -17,7 +15,6 @@ const register = async (req, res) => {
             });
         }
 
-        // 3. Call the lower-level createUser method to store the user in the database.
         const newUser = await userService.createUser({
             email,
             password,
@@ -26,7 +23,6 @@ const register = async (req, res) => {
             studyYear
         });
 
-        // 4. Return JSON data to the frontend after success.
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
@@ -39,7 +35,6 @@ const register = async (req, res) => {
         if (error instanceof TypeError) {
             return res.status(400).json({ success: false, message: error.message });
         }
-        // Handle duplicate email errors (Prisma error code P2002).
         if (error.code === 'P2002') {
             return res.status(409).json({
                 success: false,
@@ -47,7 +42,6 @@ const register = async (req, res) => {
             });
         }
 
-        // Other unknown server errors.
         res.status(500).json({
             success: false,
             message: 'Server Error during registration'
@@ -55,13 +49,10 @@ const register = async (req, res) => {
     }
 };
 
-// Handle user login.
 const login = async (req, res) => {
     try {
-        // 1. Extract email and password from the request body.
         const { email, password } = req.body;
 
-        // 2. Basic validation.
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -69,10 +60,9 @@ const login = async (req, res) => {
             });
         }
 
-        // 3. Get user data with password hash from findUserForAuthenticationByEmail.
         const user = await userService.findUserForAuthenticationByEmail(email);
 
-        // For security, return the same invalid credentials message if the user does not exist.
+        // Do not reveal whether an email is registered.
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -80,7 +70,6 @@ const login = async (req, res) => {
             });
         }
 
-        // 4. Compare the plaintext password from the frontend with the stored password hash.
         const isMatch = await bcrypt.compare(password, user.passwordHash);
 
         if (!isMatch) {
@@ -90,22 +79,18 @@ const login = async (req, res) => {
             });
         }
 
-        // 5. JWT logc
-        // Include basic identity information.
         const payload = {
             id: user.id,
             email: user.email,
             role: user.role
         };
 
-        // 2. Issue token.
         const token = jwt.sign(
             payload,
-            process.env.JWT_SECRET, // Use the secret defined in .env.
-            { expiresIn: '24h' }    // Expire after 24 hours.
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
         );
 
-        // 6. Password is correct. Remove passwordHash before returning data.
         const { passwordHash, ...safeUser } = user;
 
         res.status(200).json({
@@ -137,10 +122,8 @@ const forgotPassword = async(req, res) => {
 
         const resetCode = await userService.generateResetCode(email);
 
-        // If the user exists and a code was generated, send the reset email.
         if (resetCode) {
             try {
-                // Send the real email.
                 await emailService.sendResetEmail(email, resetCode);
                 console.log(`[Email Success] Reset email sent successfully to ${email}`);
             } catch (emailError) {
@@ -153,8 +136,7 @@ const forgotPassword = async(req, res) => {
             }
         }
 
-        // Important security practice: always return the same success message regardless of whether the email exists.
-        // This prevents attackers from enumerating registered emails.
+        // Keep the response identical to prevent account discovery.
         res.status(200).json({
             success: true,
             message: 'If that email address is in our database, we will send you an email with a reset code.'
@@ -169,12 +151,10 @@ const forgotPassword = async(req, res) => {
     }
 }
 
-// Handle password reset.
 const resetPassword = async (req, res) => {
     try {
         const { email, resetCode, newPassword } = req.body;
 
-        // 1. Basic validation: all three parameters are required.
         if (!email || !resetCode || !newPassword) {
             return res.status(400).json({
                 success: false,
@@ -182,10 +162,8 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        // 2. Call the service layer to reset the password.
         await userService.resetPassword(email, resetCode, newPassword);
 
-        // 3. Return success.
         res.status(200).json({
             success: true,
             message: 'Password has been successfully reset'
@@ -198,7 +176,6 @@ const resetPassword = async (req, res) => {
             return res.status(400).json({ success: false, message: error.message });
         }
         
-        // Convert specific service-layer errors into friendly frontend messages.
         if (error.message === 'Invalid code') {
             return res.status(400).json({
                 success: false,
@@ -213,7 +190,6 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        // Other unknown server errors.
         res.status(500).json({
             success: false,
             message: 'Server Error during password reset'
@@ -221,7 +197,6 @@ const resetPassword = async (req, res) => {
     }
 };
 
-// Export these functions for the route layer.
 module.exports = {
     register,
     login,

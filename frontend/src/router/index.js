@@ -1,6 +1,6 @@
 /** @file Defines application routes and enforces authentication and role metadata. */
 import { createRouter, createWebHistory } from 'vue-router'
-import { getToken } from '../utils/auth'
+import { getStoredUser, getToken } from '../utils/auth'
 
 const Home = () => import('../views/Home.vue')
 const Login = () => import('../views/Login.vue')
@@ -60,12 +60,9 @@ const router = createRouter({
   routes,
 })
 
-/**
- * Route guard: validate access before navigation.
- */
 router.beforeEach((to, _from, next) => {
   const token = getToken()
-  const user = JSON.parse(localStorage.getItem('course_compass_user') || 'null')
+  const user = getStoredUser()
 
   if (to.meta.requiresAuth && !token) {
     next({ name: 'Login', query: { redirect: to.fullPath } })

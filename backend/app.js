@@ -47,6 +47,8 @@ const savedCourseRoutes = require('./src/routes/savedCourseRoutes');
 const completedCourseRoutes = require('./src/routes/completedCourseRoutes');
 const healthRoutes = require('./src/routes/healthRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
+const adminRoutes = require('./src/routes/adminRoutes');
+const subjectRoutes = require('./src/routes/subjectRoutes');
 
 
 app.use('/api/courses', courseRoutes);
@@ -59,6 +61,8 @@ app.use('/api/saved-courses', savedCourseRoutes);
 app.use('/api/completed-courses', completedCourseRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/subjects', subjectRoutes);
 
 app.use((req, res) => res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.path}` }));
 app.use((error, _req, res, _next) => {

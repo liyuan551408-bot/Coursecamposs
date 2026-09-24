@@ -15,10 +15,6 @@ export function registerApi(data) {
   return request.post('/auth/register', data)
 }
 
-export function getMeApi() {
-  return request.get('/users/me')
-}
-
 export function forgotPasswordApi(email) {
   // SMTP authentication can take longer on the first connection, so allow
   // the reset request more time than the normal API timeout.

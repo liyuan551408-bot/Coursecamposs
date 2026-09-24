@@ -2,7 +2,6 @@
 const prisma = require('../lib/prisma');
 const { createNotificationsSafely } = require('./notificationService');
 
-// 1. addSavedCourse
 const addSavedCourse = async (userId, courseId) => {
     const course = await prisma.course.findFirst({ where: { id: Number(courseId), isActive: true }, select: { id: true } });
     if (!course) {
@@ -29,7 +28,6 @@ const addSavedCourse = async (userId, courseId) => {
     return saved;
 };
 
-// 2. obtain all saved courses for the current user
 const getMySavedCourses = async (userId) => {
     return prisma.savedCourse.findMany({
         where: { userId: Number(userId) },
@@ -53,7 +51,6 @@ const getMySavedCourses = async (userId) => {
     });
 };
 
-// 3. cancel saved course
 const removeSavedCourse = async (userId, courseId) => {
     const saved = await prisma.savedCourse.findUnique({
         where: { userId_courseId: { userId: Number(userId), courseId: Number(courseId) } },

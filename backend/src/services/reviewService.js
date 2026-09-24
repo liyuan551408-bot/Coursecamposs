@@ -250,8 +250,18 @@ const reportReview = async (reviewId, reporterId, reason) => {
     }
     if (reason.trim().length > 1000) throw new TypeError('Report reason must be at most 1000 characters');
 
-    const review = await prisma.review.findUnique({
-        where: { id: reviewId }
+    const review = await prisma.review.findFirst({
+        where: {
+            id: reviewId,
+            status: 'APPROVED',
+            course: {
+                isActive: true
+            }
+        },
+        select: {
+            id: true,
+            userId: true
+        }
     });
     if (!review) {
         const error = new Error('Review not found');
@@ -269,7 +279,12 @@ const reportReview = async (reviewId, reporterId, reason) => {
             reporterId,
             reason: reason.trim()
         },
-        select: reportSelect
+        select: {
+            id: true,
+            reviewId: true,
+            status: true,
+            createdAt: true
+        }
     });
     await createNotificationsSafely([reporterId], {
         type: 'REVIEW_REPORT_SUBMITTED',

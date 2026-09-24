@@ -8,7 +8,6 @@ import { loginApi, registerApi } from '../api/auth'
 import {
   getToken,
   setToken,
-  removeToken,
   getStoredUser,
   setStoredUser,
   clearAuthStorage,

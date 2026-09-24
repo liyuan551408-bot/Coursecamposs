@@ -9,7 +9,7 @@
     "dev": "nodemon app.js",
     "start": "node app.js",
     "setup": "prisma validate && prisma generate && prisma migrate deploy && npm run embeddings:generate && prisma migrate status",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "embeddings:generate": "node scripts/generate-embeddings.js",
     "embeddings:rebuild": "node scripts/generate-embeddings.js --force"
   },

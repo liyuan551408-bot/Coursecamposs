@@ -1,9 +1,35 @@
 /** @file Wraps backend courses endpoints behind a small frontend API client. */
 import request from './request'
 
-export async function getCourses() {
-  const response = await request.get('/courses')
+export async function getCourses({ skip = 0, take = 50 } = {}) {
+  const response = await request.get('/courses', {
+    params: { skip, take },
+  })
+
   return response.data || []
+}
+
+export async function getAllCoursesForComparison() {
+  const courses = []
+  const pageSize = 100
+  let skip = 0
+
+  while (true) {
+    const page = await getCourses({
+      skip,
+      take: pageSize,
+    })
+
+    courses.push(...page)
+
+    if (page.length < pageSize) {
+      break
+    }
+
+    skip += pageSize
+  }
+
+  return courses
 }
 
 export async function getAdminCourses() {

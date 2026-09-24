@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { searchCourses } from '../api/courses'
+import { getSubjects } from '../api/subjects'
 import { normalizeSemesters } from '../utils/semesters'
 import { useSavedStore } from '../stores/saved'
 import { useAuthStore } from '../stores/auth'
@@ -17,9 +18,10 @@ const loading = ref(false)
 const error = ref('')
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const courses = ref([])
+const subjects = ref([])
 const showFilters = ref(false)
 const savingIds = ref(new Set())
-const filters = reactive({ level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
+const filters = reactive({ subjectId: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
 let debounceTimer
 let latestSearchId = 0
 
@@ -67,7 +69,7 @@ function scheduleSearch() {
 }
 
 function resetFilters() {
-  Object.assign(filters, { level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
+  Object.assign(filters, { subjectId: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
   runSearch()
 }
 
@@ -98,6 +100,11 @@ watch(query, scheduleSearch)
 
 onMounted(async () => {
   runSearch()
+  try {
+    subjects.value = await getSubjects()
+  } catch (err) {
+    console.error('Unable to load subjects:', err)
+  }
   if (authStore.isLoggedIn) {
     savedStore.loadSaved().catch(() => {})
   }
@@ -141,6 +148,14 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-show="showFilters" class="filter-grid">
+        <el-select v-model="filters.subjectId" clearable placeholder="Subject">
+          <el-option
+            v-for="subject in subjects"
+            :key="subject.id"
+            :label="`${subject.code} — ${subject.name}`"
+            :value="subject.id"
+          />
+        </el-select>
         <el-select v-model="filters.level" clearable placeholder="Course level">
           <el-option v-for="level in [100,200,300,400,500,600,700,800,900]" :key="level" :label="`Level ${level}`" :value="level" />
         </el-select>
@@ -218,6 +233,7 @@ onBeforeUnmount(() => {
         <p class="course-desc text-clamp-3">{{ course.description || 'No course description is available.' }}</p>
 
         <div class="tag-row">
+          <el-tag v-if="course.subject" size="small" effect="plain" type="success">{{ course.subject.name }}</el-tag>
           <el-tag v-if="course.level" size="small" effect="plain" type="info">Level {{ course.level }}</el-tag>
           <el-tag
             v-for="semester in normalizeSemesters(course.offeredSemesters)"

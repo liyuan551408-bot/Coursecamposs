@@ -6,7 +6,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getCourses, getCourse } from '../api/courses'
+import { getAllCoursesForComparison, getCourse } from '../api/courses'
 import { getCourseComparisonAnalysis } from '../api/ai'
 import { getToken } from '../utils/auth'
 import { useSavedStore } from '../stores/saved'
@@ -45,7 +45,7 @@ const originCourse = computed(() => compareCourses.value.find((course) => course
 async function loadCourses() {
   loading.value = true
   try {
-    allCourses.value = await getCourses()
+    allCourses.value = await getAllCoursesForComparison()
   } catch (err) {
     ElMessage.error('Failed to load courses')
   } finally {

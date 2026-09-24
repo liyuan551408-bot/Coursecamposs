@@ -50,4 +50,4 @@ const deleteExpired = (days = 180) => prisma.notification.deleteMany({
     where: { createdAt: { lt: new Date(Date.now() - days * 86400000) } }
 });
 
-module.exports = { createNotifications, createNotificationsSafely, listForUser, markRead, markAllRead, deleteOne, deleteAll, deleteExpired };
+module.exports = { createNotificationsSafely, listForUser, markRead, markAllRead, deleteOne, deleteAll, deleteExpired };

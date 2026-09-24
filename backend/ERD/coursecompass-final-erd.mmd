@@ -1,0 +1,119 @@
+erDiagram
+    SUBJECT o|--o{ COURSE : categorizes
+    USER ||--o{ REVIEW : writes
+    COURSE ||--o{ REVIEW : receives
+    REVIEW ||--o{ REVIEW_REPORT : has
+    USER ||--o{ REVIEW_REPORT : submits
+    USER ||--o{ SAVED_COURSE : saves
+    COURSE ||--o{ SAVED_COURSE : appears_in
+    USER ||--o{ COMPLETED_COURSE : completes
+    COURSE ||--o{ COMPLETED_COURSE : appears_in
+    USER ||--o{ SEMESTER_PLAN : owns
+    SEMESTER_PLAN ||--o{ PLAN_COURSE : contains
+    COURSE ||--o{ PLAN_COURSE : scheduled_as
+    USER ||--o{ NOTIFICATION : receives
+    COURSE }o--o{ COURSE : prerequisites
+
+    SUBJECT {
+        int id PK
+        string code UK
+        string name
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    COURSE {
+        int id PK
+        string name
+        string code UK
+        string description "nullable"
+        int credits
+        int workloadHours "nullable"
+        CourseSemester_array offeredSemesters
+        int level "nullable"
+        AssessmentType_array assessmentTypes
+        string officialLink "nullable"
+        int subjectId FK "nullable; preserves legacy unassigned courses"
+        boolean isActive
+        datetime createdAt
+        datetime updatedAt
+        vector embedding "nullable"
+    }
+
+    USER {
+        int id PK
+        string email UK
+        string passwordHash
+        string name
+        UserRole role
+        string major "nullable"
+        int studyYear "nullable"
+        string_array interests
+        string_array goals
+        json planningPreferences "nullable"
+        string resetCode "nullable"
+        datetime resetCodeExpires "nullable"
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    REVIEW {
+        int id PK
+        int userId FK
+        int courseId FK
+        int overallRating
+        int difficultyRating
+        int workloadRating
+        int teachingRating "nullable"
+        AssessmentStyle assessmentStyle "nullable"
+        int usefulnessRating "nullable"
+        string comment "nullable"
+        ReviewStatus status
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    REVIEW_REPORT {
+        int id PK
+        int reviewId FK
+        int reporterId FK
+        string reason
+        ReportStatus status
+        datetime createdAt
+    }
+
+    SAVED_COURSE {
+        int userId PK,FK
+        int courseId PK,FK
+        datetime createdAt
+    }
+
+    COMPLETED_COURSE {
+        int userId PK,FK
+        int courseId PK,FK
+        datetime completedAt "nullable"
+    }
+
+    SEMESTER_PLAN {
+        int id PK
+        int userId FK
+        string name
+        int year
+        string semester
+        datetime createdAt
+    }
+
+    PLAN_COURSE {
+        int planId PK,FK
+        int courseId PK,FK
+    }
+
+    NOTIFICATION {
+        int id PK
+        int userId FK
+        string type
+        string title
+        string message
+        datetime readAt "nullable"
+        datetime createdAt
+    }

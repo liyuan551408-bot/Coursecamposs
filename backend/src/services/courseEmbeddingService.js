@@ -60,7 +60,6 @@ const enqueueCourseEmbedding = (
 };
 
 module.exports = {
-    buildCourseEmbeddingText,
     refreshCourseEmbedding,
     runCourseEmbeddingJob,
     enqueueCourseEmbedding

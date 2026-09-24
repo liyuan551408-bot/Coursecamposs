@@ -1,7 +1,7 @@
 /** @file Translates plan HTTP requests into service calls and API responses. */
 const plannerService = require('../services/planService');
+const { parsePositiveInteger } = require('../utils/validation');
 
-// Create a semester plan for the verified user.
 const createPlan = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -29,7 +29,6 @@ const createPlan = async (req, res) => {
     }
 };
 
-// Return all plans owned by the verified user.
 const getMyPlans = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -41,10 +40,9 @@ const getMyPlans = async (req, res) => {
     }
 };
 
-// Add a course to a plan owned by the verified user.
 const addCourse = async (req, res) => {
     try {
-        const userId = req.user.id; // Never trust a user id supplied in the request body.
+        const userId = req.user.id;
         const planId = req.params.planId;
         const { courseId } = req.body; 
 
@@ -55,18 +53,16 @@ const addCourse = async (req, res) => {
             return res.status(400).json({ success: false, message: 'A valid plan id is required' });
         }
 
-        // Pass ownership context into the service for authorization-aware persistence.
         const result = await plannerService.addCourseToPlan(userId, planId, courseId, {
-            // Preserve the original API behavior for older clients that do not send this flag.
             confirmPrerequisites: req.body.confirmPrerequisites !== false,
         });
         
         res.status(201).json({ 
             success: true, 
             message: 'Course added to plan', 
-            warnings: result.warnings, // Keep prerequisite warnings separate from the saved entity.
+            warnings: result.warnings,
             requiresConfirmation: result.requiresConfirmation === true,
-            data: result.course // Return the created plan-course record as the primary payload.
+            data: result.course
         });
     } catch (error) {
         if (error.code === 'P2002') {
@@ -82,7 +78,13 @@ const addCourse = async (req, res) => {
 
 const removeCourse = async (req, res) => {
     try {
-        await plannerService.removeCourseFromPlan(req.user.id, req.params.planId, req.params.courseId);
+        const planId = parsePositiveInteger(req.params.planId);
+        const courseId = parsePositiveInteger(req.params.courseId);
+        if (planId === null || courseId === null) {
+            return res.status(400).json({ success: false, message: 'Valid plan and course ids are required' });
+        }
+
+        await plannerService.removeCourseFromPlan(req.user.id, planId, courseId);
         return res.status(200).json({ success: true, message: 'Course removed from plan' });
     } catch (error) {
         if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
@@ -94,7 +96,12 @@ const removeCourse = async (req, res) => {
 
 const deletePlan = async (req, res) => {
     try {
-        await plannerService.deletePlan(req.user.id, req.params.planId);
+        const planId = parsePositiveInteger(req.params.planId);
+        if (planId === null) {
+            return res.status(400).json({ success: false, message: 'A valid plan id is required' });
+        }
+
+        await plannerService.deletePlan(req.user.id, planId);
         return res.status(200).json({ success: true, message: 'Plan deleted' });
     } catch (error) {
         if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });

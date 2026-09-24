@@ -334,13 +334,14 @@ const aiRecommendCourses = async (req, res) => {
             studentContext.savedCourses.length && `Saved course interests: ${studentContext.savedCourses.map(course => `${course.code} ${course.name}`).join(', ')}`
         ].filter(Boolean).join('\n').slice(0, MAX_EMBEDDING_TEXT_LENGTH);
 
-        const retrievedCandidates = await courseRetrievalService.semanticSearchCourses({
+        const retrievedCandidates =
+        await courseRetrievalService.semanticSearchCourses({
             query: retrievalContext,
-            limit: MAX_RESULT_LIMIT,
-            ...filterResult.filters
+            limit: safeLimit,
+            ...filterResult.filters,
+            excludeUserId: req.user.id
         });
-        const completedIds = new Set(studentContext.completedCourses.map(course => course.id));
-        const candidates = retrievedCandidates.filter(course => !completedIds.has(course.id)).slice(0, safeLimit);
+        const candidates = retrievedCandidates;
 
         if (candidates.length === 0) {
             const emptyMessage = "Sorry, there are no matching courses in the database yet.";
@@ -359,17 +360,17 @@ const aiRecommendCourses = async (req, res) => {
         }
 
         const systemPrompt = `You are CourseCompass's intelligent course selection assistant.
-Use only the course information supplied by the application.
-Do not invent course facts or recommend courses outside the candidate list.
-Base every recommendation on supplied evidence. If a requirement cannot be verified, say so clearly.
-Distinguish semantic relevance from confirmed course facts. Keep the analysis concise and objective.
-Return exactly one recommendation object for every supplied candidate course.
-Each recommendation must contain exactly two concise reasons explaining how that specific course fits the student's stated requirements, using evidence from the supplied course data.
-Each recommendation must also contain one or two concise cautions. Mention missing prerequisite, semester, workload, or assessment evidence when no course-specific risk can be confirmed.
-Keep the summary under 60 words and every reason or caution under 35 words so the complete JSON response is not truncated.
-All text values must use plain text only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.
-Return JSON only in this exact shape: {"summary":"...","recommendations":[{"courseId":1,"reasons":["..."],"cautions":["..."]}]}.
-courseId must be copied from the supplied candidate data.`;
+            Use only the course information supplied by the application.
+            Do not invent course facts or recommend courses outside the candidate list.
+            Base every recommendation on supplied evidence. If a requirement cannot be verified, say so clearly.
+            Distinguish semantic relevance from confirmed course facts. Keep the analysis concise and objective.
+            Return exactly one recommendation object for every supplied candidate course.
+            Each recommendation must contain exactly two concise reasons explaining how that specific course fits the student's stated requirements, using evidence from the supplied course data.
+            Each recommendation must also contain one or two concise cautions. Mention missing prerequisite, semester, workload, or assessment evidence when no course-specific risk can be confirmed.
+            Keep the summary under 60 words and every reason or caution under 35 words so the complete JSON response is not truncated.
+            All text values must use plain text only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.
+            Return JSON only in this exact shape: {"summary":"...","recommendations":[{"courseId":1,"reasons":["..."],"cautions":["..."]}]}.
+            courseId must be copied from the supplied candidate data.`;
         
         const userContent = `Student requirements: "${normalizedQuery}"\n\nNon-identifying student context:\n${JSON.stringify(studentContext, null, 2)}\n\nCandidate course data:\n${JSON.stringify(candidates, null, 2)}`;
 

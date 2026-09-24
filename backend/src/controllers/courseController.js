@@ -1,5 +1,4 @@
 /** @file Translates course HTTP requests into service calls and API responses. */
-// Import methods provided by the service layer.
 const courseService = require('../services/courseService');
 
 const COURSE_SEMESTERS = new Set(['SEMESTER_1', 'SEMESTER_2', 'SUMMER']);
@@ -59,17 +58,68 @@ const normalizeCoursePayload = (body, { partial = false } = {}) => {
         if (typeof body.isActive !== 'boolean') throw new TypeError('isActive must be true or false');
         data.isActive = body.isActive;
     }
+    if (body.subjectId !== undefined) {
+        if (body.subjectId === null || body.subjectId === '') {
+            data.subjectId = null;
+        } else {
+            const subjectId = Number(body.subjectId);
+
+            if (
+                !Number.isSafeInteger(subjectId) ||
+                subjectId <= 0
+            ) {
+                throw new TypeError(
+                    'subjectId must be a positive integer'
+                );
+            }
+
+            data.subjectId = subjectId;
+        }
+    }
     return data;
 };
 
 // Handle requests to get all courses.
 const getCourses = async (req, res) => {
     try {
-        const courses = await courseService.getAllCourses();
-        res.status(200).json({ success: true, data: courses });
+        const skip = Number(req.query.skip ?? 0);
+        const take = Number(req.query.take ?? 50);
+
+        if (
+            !Number.isSafeInteger(skip) ||
+            skip < 0 ||
+            !Number.isSafeInteger(take) ||
+            take < 1 ||
+            take > 100
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'skip must be a non-negative integer, and take must be an integer between 1 and 100'
+            });
+        }
+
+        const courses = await courseService.getAllCourses({
+            skip,
+            take
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: courses,
+            pagination: {
+                skip,
+                take,
+                returned: courses.length
+            }
+        });
     } catch (error) {
         console.error('Course list query failed:', error);
-        res.status(500).json({ success: false, message: 'Server Error' });
+
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error'
+        });
     }
 };
 
@@ -87,7 +137,7 @@ const getAdminCourses = async (_req, res) => {
 const createCourse = async (req, res) => {
     try {
         const { name, code, credits, description, workloadHours, offeredSemesters,
-            level, assessmentTypes, officialLink, prerequisiteIds } = req.body;
+            level, assessmentTypes, officialLink, prerequisiteIds, subjectId } = req.body;
 
         if (!name || !code) {
             return res.status(400).json({ success: false, message: 'Course name and code are required' });
@@ -103,7 +153,7 @@ const createCourse = async (req, res) => {
 
         const newCourse = await courseService.createCourse(
             normalizeCoursePayload({ name, code, credits, description, workloadHours, offeredSemesters,
-                level, assessmentTypes, officialLink }),
+                level, assessmentTypes, officialLink, subjectId }),
             prerequisiteIds
         );
         res.status(201).json({ success: true, data: newCourse });
@@ -170,7 +220,12 @@ const compareCourses = async (req, res) => {
         if (!Array.isArray(courseIds) || courseIds.length === 0) {
             return res.status(400).json({ success: false, message: 'Please provide an array of courseIds' });
         }
-        const courses = await courseService.getCoursesByIds(courseIds);
+        const normalizedIds = courseIds.map(Number);
+        if (normalizedIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+            return res.status(400).json({ success: false, message: 'courseIds must contain positive integers' });
+        }
+
+        const courses = await courseService.getCoursesByIds([...new Set(normalizedIds)]);
         res.status(200).json({ success: true, data: courses });
     } catch (error) {
         console.error('Course comparison query failed:', error);

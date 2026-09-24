@@ -22,6 +22,14 @@ const courseSelect = {
     level: true,
     assessmentTypes: true,
     officialLink: true,
+    subjectId: true,
+    subject: {
+        select: {
+            id: true,
+            code: true,
+            name: true
+        }
+    },
     prerequisites: {
         select: {
             id:true,
@@ -96,6 +104,22 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         officialLink: courseData.officialLink,
     };
 
+    if (courseData.subjectId !== null &&
+        courseData.subjectId !== undefined) {
+        const subject = await prisma.subject.findUnique({
+            where: { id: courseData.subjectId },
+            select: { id: true }
+        });
+
+        if (!subject) {
+            throw new TypeError('Subject not found');
+        }
+
+        data.subject = {
+            connect: { id: subject.id }
+        };
+    }
+
     // Resolve either numeric course IDs or course codes before connecting.
     if (prerequisiteIds && prerequisiteIds.length > 0) {
         const prerequisiteCourses = await resolvePrerequisiteCourses(prisma, prerequisiteIds);
@@ -108,7 +132,8 @@ const createCourse = async (courseData, prerequisiteIds = []) => {
         data,
         // Return prerequisite details so callers do not need a follow-up query.
         include: {
-            prerequisites: true 
+            prerequisites: true,
+            subject: true
         }
     });
 
@@ -128,6 +153,25 @@ const updateCourse = async (id, courseData) => {
             .map((field) => [field, courseData[field]])
     );
 
+    if (courseData.subjectId !== undefined) {
+        if (courseData.subjectId === null) {
+            data.subject = { disconnect: true };
+        } else {
+            const subject = await prisma.subject.findUnique({
+                where: { id: courseData.subjectId },
+                select: { id: true }
+            });
+
+            if (!subject) {
+                throw new TypeError('Subject not found');
+            }
+
+            data.subject = {
+                connect: { id: subject.id }
+            };
+        }
+    }
+
     if (courseData.prerequisiteIds !== undefined) {
         const prerequisiteCourses = await resolvePrerequisiteCourses(prisma, courseData.prerequisiteIds);
         if (prerequisiteCourses.some((course) => course.id === Number(id))) {
@@ -139,7 +183,10 @@ const updateCourse = async (id, courseData) => {
     const updatedCourse = await prisma.course.update({
         where: { id: Number(id) },
         data,
-        include: { prerequisites: true }
+        include: {
+            prerequisites: true,
+            subject: true
+        }
     });
 
     try {
@@ -164,7 +211,8 @@ const getCourseById = async (id) => {
         where: { id: Number(id), isActive: true },
         include: {
             prerequisites: true,     // Courses that should be completed first.
-            prerequisiteFor: true    // Follow-on courses unlocked by this course.
+            prerequisiteFor: true,   // Follow-on courses unlocked by this course.
+            subject: true
         }
     });
 };
@@ -180,7 +228,8 @@ const getCoursesByIds = async (courseIds) => {
             isActive: true // Exclude courses that are no longer offered.
         },
         include: {
-            prerequisites: true // Include prerequisite context in comparisons.
+            prerequisites: true, // Include prerequisite context in comparisons.
+            subject: true
         }
     });
 };
@@ -290,9 +339,23 @@ const getCourseByCode = async (code) => {
 
 // Search active courses using optional text and structured filters.
 const searchCourses = async (queryFilters) => {
-    const { keyword, subject, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits,
+    const { keyword, subject, subjectId, mode = 'keyword', level, semester, assessmentType, minCredits, maxCredits,
         minWorkload, maxWorkload, minRating, hasPrerequisites } = queryFilters;
     const whereClause = { isActive: true }; // Inactive courses are excluded by default.
+    if (subjectId !== undefined && subjectId !== '') {
+        const parsedSubjectId = Number(subjectId);
+
+        if (
+            !Number.isSafeInteger(parsedSubjectId) ||
+            parsedSubjectId <= 0
+        ) {
+            throw new TypeError(
+                'subjectId must be a positive integer'
+            );
+        }
+
+        whereClause.subjectId = parsedSubjectId;
+    }
     const numericFilters = {};
     for (const [field, value] of Object.entries({ level, minCredits, maxCredits, minWorkload, maxWorkload, minRating })) {
         if (value !== undefined && value !== '') {

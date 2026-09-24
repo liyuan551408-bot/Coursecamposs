@@ -3,7 +3,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import {
   ElAlert, ElButton, ElCard, ElCheckbox, ElDatePicker, ElDialog, ElEmpty,
-  ElForm, ElFormItem, ElInput, ElInputNumber, ElLoading, ElMessage, ElOption,
+  ElForm, ElFormItem, ElInput, ElInputNumber, ElLoading, ElOption,
   ElRadio, ElRadioGroup, ElRate, ElResult, ElSelect, ElSwitch, ElTable,
   ElTableColumn, ElTag,
 } from 'element-plus'
@@ -12,9 +12,6 @@ import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
 import './style.css'
-
-// Successful mutations are reflected inline in the affected view; keep the global UI free of green toast banners.
-ElMessage.success = () => undefined
 
 const app = createApp(App)
 const pinia = createPinia()
