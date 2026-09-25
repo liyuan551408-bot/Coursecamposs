@@ -23,7 +23,9 @@ let feedbackTimer
 const form = reactive({ name: '', major: '', studyYear: null })
 
 function profileDraft() {
-  return { name: form.name, major: form.major, studyYear: form.studyYear }
+  return authStore.isStudent
+    ? { name: form.name, major: form.major, studyYear: form.studyYear }
+    : { name: form.name }
 }
 
 const completedIds = computed(() => new Set(completed.value.map((item) => item.courseId)))
@@ -75,8 +77,8 @@ async function loadPage() {
   try {
     const [user, completedRecords] = await Promise.all([
       getProfile(),
-      getCompletedCourses(),
-      plannerStore.loadPlans({ force: true }),
+      authStore.isStudent ? getCompletedCourses() : Promise.resolve([]),
+      authStore.isStudent ? plannerStore.loadPlans({ force: true }) : Promise.resolve(),
     ])
     profile.value = user
     completed.value = completedRecords
@@ -93,7 +95,10 @@ async function saveProfile() {
   saving.value = true
   saveFeedback.value = ''
   try {
-    const user = await updateProfile({ name: form.name, major: form.major, studyYear: form.studyYear })
+    const payload = authStore.isStudent
+      ? { name: form.name, major: form.major, studyYear: form.studyYear }
+      : { name: form.name }
+    const user = await updateProfile(payload)
     profile.value = user
     fillForm(user)
     authStore.updateUser(user)
@@ -167,7 +172,7 @@ onBeforeRouteLeave(async () => {
         <div>
           <p class="eyebrow">YOUR ACCOUNT</p>
           <h1>Profile</h1>
-          <p>Manage your personal details and keep your completed course record current.</p>
+          <p>{{ authStore.isStudent ? 'Manage your personal details and keep your completed course record current.' : 'Manage your account details.' }}</p>
         </div>
         <el-tag class="profile-role" size="large" effect="plain">{{ profile.role }}</el-tag>
       </header>
@@ -188,10 +193,10 @@ onBeforeRouteLeave(async () => {
               <el-input :model-value="profile.email" disabled />
               <p class="field-note">Your sign-in email cannot be changed here.</p>
             </el-form-item>
-            <el-form-item label="Major or programme">
+            <el-form-item v-if="authStore.isStudent" label="Major or programme">
               <el-input v-model="form.major" placeholder="e.g. Computer Science" maxlength="120" />
             </el-form-item>
-            <el-form-item label="Current study year">
+            <el-form-item v-if="authStore.isStudent" label="Current study year">
               <el-select v-model="form.studyYear" clearable placeholder="Select study year" style="width:100%">
                 <el-option v-for="year in [1, 2, 3, 4, 5]" :key="year" :label="`Year ${year}`" :value="year" />
               </el-select>
@@ -207,7 +212,7 @@ onBeforeRouteLeave(async () => {
           </div>
         </el-card>
 
-        <el-card class="completed-card" shadow="never">
+        <el-card v-if="authStore.isStudent" class="completed-card" shadow="never">
           <template #header>
             <div class="completed-heading">
               <div class="card-heading"><div><span>ACADEMIC RECORD</span><h2>Completed courses</h2></div></div>
@@ -254,6 +259,7 @@ onBeforeRouteLeave(async () => {
 .profile-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
 
 .profile-details-card, .completed-card { height: 100%; border-top: 4px solid var(--accent); background: rgba(255, 255, 255, .88); }
+.profile-details-card:only-child { grid-column: 1 / -1; }
 .profile-details-card :deep(.el-card__header), .completed-card :deep(.el-card__header) { padding: 20px 22px; }
 .profile-details-card :deep(.el-card__body), .completed-card :deep(.el-card__body) { padding: 22px; }
 .card-heading span { color: var(--accent); font: 700 10px/1.35 var(--mono); letter-spacing: .13em; }

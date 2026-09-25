@@ -29,7 +29,7 @@ function stopBadgeRefresh() {
 async function refreshBadges() {
   if (!authStore.isLoggedIn) return
   const refreshes = [notificationStore.refresh()]
-  if (authStore.isAdmin || authStore.isModerator) {
+  if (authStore.isModerator) {
     refreshes.push(moderationStore.refresh())
   } else {
     moderationStore.reset()
@@ -68,10 +68,15 @@ function handleLogout() {
   router.push('/login')
 }
 
-// Load saved courses count when user logs in
+// Load student state only for student accounts.
 watch(() => [authStore.isLoggedIn, authStore.user?.id, authStore.user?.role], ([isLoggedIn]) => {
-  if (isLoggedIn) {
+  if (isLoggedIn && authStore.isStudent) {
     savedStore.loadSaved().catch(() => {})
+  } else {
+    savedStore.reset()
+    plannerStore.reset()
+  }
+  if (isLoggedIn) {
     startBadgeRefresh()
   } else {
     notificationStore.reset()
@@ -111,18 +116,18 @@ onBeforeUnmount(() => {
       </router-link>
 
       <nav class="nav-links">
-        <router-link v-if="authStore.isLoggedIn" to="/dashboard" class="nav-link">Dashboard</router-link>
+        <router-link v-if="authStore.isStudent" to="/dashboard" class="nav-link">Dashboard</router-link>
         <router-link to="/courses" class="nav-link">Courses</router-link>
-        <router-link to="/saved" class="nav-link nav-link--badge">
+        <router-link v-if="authStore.isStudent" to="/saved" class="nav-link nav-link--badge">
           Saved
           <span v-if="authStore.isLoggedIn && savedStore.savedCount > 0" class="nav-badge">
             {{ savedStore.savedCount > 99 ? '99+' : savedStore.savedCount }}
           </span>
         </router-link>
-        <router-link to="/planner" class="nav-link">Planner</router-link>
+        <router-link v-if="authStore.isStudent" to="/planner" class="nav-link">Planner</router-link>
         <router-link to="/compare" class="nav-link">Compare</router-link>
-        <router-link to="/ai-recommend" class="nav-link">AI Recommendations</router-link>
-        <router-link v-if="authStore.isAdmin || authStore.isModerator" to="/moderation" class="nav-link nav-link--badge">
+        <router-link v-if="authStore.isStudent" to="/ai-recommend" class="nav-link">AI Recommendations</router-link>
+        <router-link v-if="authStore.isModerator" to="/moderation" class="nav-link nav-link--badge">
           Moderation
           <span v-if="moderationStore.pendingCount" class="nav-badge" aria-label="Pending moderation items">
             {{ moderationStore.pendingCount > 99 ? '99+' : moderationStore.pendingCount }}

@@ -292,7 +292,7 @@ const reportReview = async (reviewId, reporterId, reason) => {
         message: 'Your review report was submitted and is waiting for moderation.'
     });
     const moderators = await prisma.user.findMany({
-        where: { role: { in: ['ADMIN', 'MODERATOR'] } },
+        where: { role: 'MODERATOR' },
         select: { id: true }
     });
     await createNotificationsSafely(moderators.map(({ id }) => id), {

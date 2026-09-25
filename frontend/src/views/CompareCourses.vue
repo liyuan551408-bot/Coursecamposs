@@ -185,7 +185,7 @@ onMounted(async () => {
   ])].slice(0, MAX_COMPARE)
   for (const courseId of initialIds) await addToCompare(courseId)
   loadCourses()
-  if (authStore.isLoggedIn) {
+  if (authStore.isStudent) {
     savedStore.loadSaved().catch(() => {})
   }
 })
@@ -233,6 +233,7 @@ onMounted(async () => {
           </div>
           <div class="item-actions">
             <button
+              v-if="!authStore.isLoggedIn || authStore.isStudent"
               class="quick-save-btn"
               :class="{ 'quick-save-btn--saved': savedStore.isSaved(course.id) }"
               :title="savedStore.isSaved(course.id) ? 'Remove from saved' : 'Quick save'"
@@ -277,6 +278,7 @@ onMounted(async () => {
           <div class="overview-header">
             <span class="course-code">{{ course.code }}</span>
             <button
+              v-if="!authStore.isLoggedIn || authStore.isStudent"
               class="quick-save-btn"
               :class="{ 'quick-save-btn--saved': savedStore.isSaved(course.id) }"
               :title="savedStore.isSaved(course.id) ? 'Remove from saved' : 'Quick save'"

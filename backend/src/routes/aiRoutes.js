@@ -12,7 +12,7 @@ router.use(verifyToken);
 router.use(aiRateLimit);
 router.post('/test-embedding', requireRole('ADMIN'), aiController.testEmbedding);
 router.post('/semantic-search', aiController.semanticSearch);
-router.post('/recommend', aiController.aiRecommendCourses);
+router.post('/recommend', requireRole('STUDENT'), aiController.aiRecommendCourses);
 router.post('/compare', aiController.compareCoursesWithAi);
 router.get('/courses/:id/summary', aiController.getCourseSummary);
 

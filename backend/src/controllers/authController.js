@@ -20,7 +20,8 @@ const register = async (req, res) => {
             password,
             name,
             major,
-            studyYear
+            studyYear,
+            role: 'STUDENT'
         });
 
         res.status(201).json({
@@ -51,12 +52,13 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, role } = req.body;
+        const allowedRoles = ['STUDENT', 'MODERATOR', 'ADMIN'];
 
-        if (!email || !password) {
+        if (!email || !password || !allowedRoles.includes(role)) {
             return res.status(400).json({
                 success: false,
-                message: 'Email and password are required'
+                message: 'Email, password, and a valid account type are required'
             });
         }
 
@@ -66,7 +68,7 @@ const login = async (req, res) => {
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid email or password'
+                message: 'Invalid email, password, or account type'
             });
         }
 
@@ -75,7 +77,16 @@ const login = async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid email or password'
+                message: 'Invalid email, password, or account type'
+            });
+        }
+
+        // The role choice scopes the login experience; authority still comes
+        // from the role stored for the authenticated account.
+        if (user.role !== role) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email, password, or account type'
             });
         }
 

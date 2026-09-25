@@ -34,6 +34,9 @@ const updateProfile = async (req, res) => {
             data: updatedUser 
         });
     } catch (error) {
+        if (error.statusCode === 403) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
         if (error instanceof TypeError) {
             return res.status(400).json({ success: false, message: error.message });
         }

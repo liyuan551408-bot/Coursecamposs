@@ -73,6 +73,11 @@ function resetFilters() {
   runSearch()
 }
 
+function selectSubject(subjectId = '') {
+  filters.subjectId = subjectId === '' ? '' : Number(subjectId)
+  runSearch()
+}
+
 async function handleQuickSave(course, event) {
   event.stopPropagation()
   if (!authStore.isLoggedIn) {
@@ -105,7 +110,7 @@ onMounted(async () => {
   } catch (err) {
     console.error('Unable to load subjects:', err)
   }
-  if (authStore.isLoggedIn) {
+  if (authStore.isStudent) {
     savedStore.loadSaved().catch(() => {})
   }
 })
@@ -124,10 +129,34 @@ onBeforeUnmount(() => {
         <h1>Discover the right courses for you</h1>
         <p>Search by course code, name or keyword — even when the spelling is not exact. Quick-save courses for later.</p>
       </div>
-      <el-button type="primary" plain @click="router.push('/ai-recommend')" class="heading-btn">
+      <el-button v-if="!authStore.isLoggedIn || authStore.isStudent" type="primary" plain @click="router.push('/ai-recommend')" class="heading-btn">
         🤖 Get AI recommendations
       </el-button>
     </div>
+
+    <nav class="subject-nav" aria-label="Course subjects">
+      <div class="subject-nav__scroll">
+        <button
+          type="button"
+          class="subject-nav__item"
+          :class="{ 'is-active': filters.subjectId === '' }"
+          @click="selectSubject()"
+        >
+          All courses
+        </button>
+        <button
+          v-for="subject in subjects"
+          :key="subject.id"
+          type="button"
+          class="subject-nav__item"
+          :class="{ 'is-active': Number(filters.subjectId) === Number(subject.id) }"
+          @click="selectSubject(subject.id)"
+        >
+          <span><b>{{ subject.code }}</b>{{ subject.name }}</span>
+          <small>{{ subject._count?.courses ?? 0 }}</small>
+        </button>
+      </div>
+    </nav>
 
     <el-card class="search-panel" shadow="never">
       <div class="search-row">
@@ -148,14 +177,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-show="showFilters" class="filter-grid">
-        <el-select v-model="filters.subjectId" clearable placeholder="Subject">
-          <el-option
-            v-for="subject in subjects"
-            :key="subject.id"
-            :label="`${subject.code} — ${subject.name}`"
-            :value="subject.id"
-          />
-        </el-select>
         <el-select v-model="filters.level" clearable placeholder="Course level">
           <el-option v-for="level in [100,200,300,400,500,600,700,800,900]" :key="level" :label="`Level ${level}`" :value="level" />
         </el-select>
@@ -208,6 +229,7 @@ onBeforeUnmount(() => {
       >
         <!-- Quick save button -->
         <button
+          v-if="!authStore.isLoggedIn || authStore.isStudent"
           class="quick-save-btn"
           :class="{ 'quick-save-btn--saved': savedStore.isSaved(course.id), 'quick-save-btn--loading': savingIds.has(course.id) }"
           :title="savedStore.isSaved(course.id) ? 'Remove from saved' : 'Quick save'"
@@ -306,6 +328,93 @@ onBeforeUnmount(() => {
 .heading-btn {
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.subject-nav {
+  margin-bottom: 16px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .82);
+  box-shadow: 0 8px 24px rgba(50, 37, 79, .04);
+}
+
+.subject-nav__scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.subject-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  transition: color .18s ease, background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.subject-nav__item > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.subject-nav__item b {
+  color: var(--text-h);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.subject-nav__item small {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(114, 81, 232, .09);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.subject-nav__item:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.subject-nav__item.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 5px 14px rgba(114, 81, 232, .2);
+}
+
+.subject-nav__item.is-active b,
+.subject-nav__item.is-active small {
+  color: white;
+}
+
+.subject-nav__item.is-active small {
+  background: rgba(255, 255, 255, .18);
+}
+
+.subject-nav__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Search panel */

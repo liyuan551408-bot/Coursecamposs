@@ -109,8 +109,8 @@ async function loadPage() {
     const requests = [
       getCourse(route.params.id),
       getCourseReviews(route.params.id),
-      authStore.isLoggedIn ? getMyCourseReview(route.params.id) : Promise.resolve(null),
-      authStore.isLoggedIn ? savedStore.loadSaved().catch(() => undefined) : Promise.resolve(),
+      authStore.isStudent ? getMyCourseReview(route.params.id) : Promise.resolve(null),
+      authStore.isStudent ? savedStore.loadSaved().catch(() => undefined) : Promise.resolve(),
     ]
     const [courseResult, reviewResults, myReview] = await Promise.all(requests)
     course.value = courseResult
@@ -248,6 +248,7 @@ watch(() => route.params.id, () => {
           <!-- Action buttons -->
           <div class="hero-actions">
             <el-button
+              v-if="!authStore.isLoggedIn || authStore.isStudent"
               :type="isSaved ? 'warning' : 'primary'"
               size="large"
               :loading="saving"
@@ -275,7 +276,7 @@ watch(() => route.params.id, () => {
               </svg>
               Compare
             </el-button>
-            <el-button size="large" plain @click="router.push({ name: 'Planner', query: { courseId: course.id } })">
+            <el-button v-if="!authStore.isLoggedIn || authStore.isStudent" size="large" plain @click="router.push({ name: 'Planner', query: { courseId: course.id } })">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
@@ -418,7 +419,7 @@ watch(() => route.params.id, () => {
               </div>
               <div class="review-meta">
                 <time :datetime="review.createdAt">{{ formatReviewDate(review.createdAt) }}</time>
-                <el-button v-if="review.userId !== authStore.user?.id" link type="danger" size="small" @click="handleReport(review)">
+                <el-button v-if="(!authStore.isLoggedIn || authStore.isStudent) && review.userId !== authStore.user?.id" link type="danger" size="small" @click="handleReport(review)">
                   Report
                 </el-button>
               </div>
@@ -428,7 +429,7 @@ watch(() => route.params.id, () => {
           </article>
         </div>
 
-        <el-card shadow="never" class="review-form-card">
+        <el-card v-if="!authStore.isLoggedIn || authStore.isStudent" shadow="never" class="review-form-card">
           <div class="review-form-heading"><h2 class="card-heading">{{ ownReview ? 'Edit Your Review' : 'Write a Review' }}</h2><el-button link type="primary" @click="router.push({ name: 'ReviewSubmit', query: { courseId: course.id } })">Open full-page form</el-button></div>
           <p class="muted-text review-status">
             {{ ownReview ? `Current status: ${ownReview.status}. Saving sends it back for approval.` : 'Your review will be published after approval.' }}

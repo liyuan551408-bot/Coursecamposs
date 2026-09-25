@@ -21,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
   const normalizedRole = computed(() => user.value?.role?.toLowerCase())
   const isAdmin = computed(() => normalizedRole.value === 'admin')
   const isModerator = computed(() => normalizedRole.value === 'moderator')
+  const isStudent = computed(() => normalizedRole.value === 'student')
   const userName = computed(() => user.value?.name || user.value?.email || '')
 
   /** Store backend/mock authentication data in Pinia and localStorage. */
@@ -46,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** Register an account, then sign in with the newly created credentials. */
   async function register(formData) {
     await registerApi(formData)
-    return login({ email: formData.email, password: formData.password })
+    return login({ email: formData.email, password: formData.password, role: 'STUDENT' })
   }
 
   /** Log out: clear the store and localStorage. */
@@ -68,6 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     isAdmin,
     isModerator,
+    isStudent,
     userName,
     updateUser,
     login,

@@ -1,5 +1,34 @@
 const adminService = require('../services/adminService');
 
+const createStaffUser = async (req, res, next) => {
+    try {
+        const { email, password, name, role } = req.body || {};
+        if (typeof email !== 'string' || typeof password !== 'string' || typeof name !== 'string') {
+            return res.status(400).json({
+                success: false,
+                message: 'Name, email, password, and role are required'
+            });
+        }
+        if (!['MODERATOR', 'ADMIN'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Only moderator and admin accounts can be created here'
+            });
+        }
+
+        const user = await adminService.createStaffUser({ email, password, name, role });
+        return res.status(201).json({ success: true, data: user });
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(409).json({ success: false, message: 'This email is already registered' });
+        }
+        if (error.statusCode || error instanceof TypeError) {
+            return res.status(error.statusCode || 400).json({ success: false, message: error.message });
+        }
+        return next(error);
+    }
+};
+
 const getStats = async (_req, res, next) => {
     try {
         const data = await adminService.getStats();
@@ -17,6 +46,7 @@ const listUsers = async (req, res, next) => {
     try {
         const page = Number(req.query.page ?? 1);
         const limit = Number(req.query.limit ?? 20);
+        const role = req.query.role || undefined;
 
         if (
             !Number.isSafeInteger(page) ||
@@ -33,9 +63,17 @@ const listUsers = async (req, res, next) => {
             });
         }
 
+        if (role && !['STUDENT', 'MODERATOR', 'ADMIN'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid role filter'
+            });
+        }
+
         const data = await adminService.listUsers({
             page,
-            limit
+            limit,
+            role
         });
 
         return res.json({
@@ -96,5 +134,6 @@ const changeUserRole = async (req, res, next) => {
 module.exports = {
     getStats,
     listUsers,
+    createStaffUser,
     changeUserRole
 };

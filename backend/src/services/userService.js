@@ -15,21 +15,7 @@ const publicUserSelect = {
     studyYear:true,
     interests:true,
     goals:true,
-    planningPreferences:true,
-
-    completedCourses: {
-        select: {
-            completedAt: true,
-            course: {
-                select: {
-                    id:true,
-                    code:true,
-                    name:true,
-                    credits:true
-                }
-            }
-        }
-    }
+    planningPreferences:true
 
 };
 
@@ -65,10 +51,13 @@ const findPublicUserById = async (id) => {
     });
 };
 
-const createUser = async ({ email, password, name, major = null, studyYear = null }) => {
+const createUser = async ({ email, password, name, major = null, studyYear = null, role = 'STUDENT' }) => {
     validatePassword(password);
     if (typeof name !== 'string' || name.trim() === '') {
         throw new TypeError('A user name is required');
+    }
+    if (!['STUDENT', 'MODERATOR', 'ADMIN'].includes(role)) {
+        throw new TypeError('A valid user role is required');
     }
 
     const normalizedStudyYear = studyYear === null || studyYear === '' || studyYear === undefined
@@ -85,6 +74,7 @@ const createUser = async ({ email, password, name, major = null, studyYear = nul
             email: normalizeEmail(email),
             passwordHash,
             name: name.trim(),
+            role,
             major: typeof major === 'string' && major.trim() !== '' ? major.trim() : null,
             studyYear: normalizedStudyYear
         },
@@ -149,6 +139,19 @@ const resetPassword = async (email, resetCode, newPassword) => {
 };
 
 const updateUserProfile = async (id, data) => {
+    const currentUser = await prisma.user.findUnique({
+        where: { id: Number(id) },
+        select: { role: true }
+    });
+    if (!currentUser) throw new TypeError('User not found');
+
+    const studentOnlyFields = ['major', 'studyYear', 'interests', 'goals', 'planningPreferences'];
+    if (currentUser.role !== 'STUDENT' && studentOnlyFields.some((field) => data[field] !== undefined)) {
+        const error = new Error('Academic profile fields are available to students only');
+        error.statusCode = 403;
+        throw error;
+    }
+
     const updateData = {};
     if (data.name !== undefined) {
         if (typeof data.name !== 'string' || !data.name.trim()) throw new TypeError('Name is required');

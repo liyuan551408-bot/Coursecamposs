@@ -85,8 +85,8 @@ async function handleRegister() {
 <template>
   <div class="auth-page">
     <el-card class="auth-card" shadow="hover">
-      <h1>Create an account</h1>
-      <p class="subtitle">Join CourseCompass and start planning your courses.</p>
+      <h1>Create a student account</h1>
+      <p class="subtitle">Student accounts can register here. Contact an administrator if you need a staff account.</p>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item label="Name" prop="name">

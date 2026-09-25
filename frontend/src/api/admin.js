@@ -5,10 +5,15 @@ export async function getAdminStats() {
   return response.data
 }
 
-export async function getAdminUsers(page = 1, limit = 20) {
+export async function getAdminUsers(page = 1, limit = 20, role = '') {
   const response = await request.get('/admin/users', {
-    params: { page, limit },
+    params: { page, limit, ...(role && { role }) },
   })
+  return response.data
+}
+
+export async function createStaffUser(user) {
+  const response = await request.post('/admin/users', user)
   return response.data
 }
 

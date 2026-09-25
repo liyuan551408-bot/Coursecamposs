@@ -30,14 +30,14 @@ const routes = [
     path: '/dashboard',
     name: 'Dashboard',
     component: Dashboard,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, roles: ['student'] },
   },
   { path: '/courses', name: 'CourseList', component: CourseList },
   { path: '/courses/:id', name: 'CourseDetail', component: CourseDetail },
   { path: '/compare', name: 'CompareCourses', component: CompareCourses },
-  { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation, meta: { requiresAuth: true } },
-  { path: '/planner', name: 'Planner', component: Planner, meta: { requiresAuth: true } },
-  { path: '/saved', name: 'SavedCourses', component: SavedCourses, meta: { requiresAuth: true } },
+  { path: '/ai-recommend', name: 'AiRecommendation', component: AiRecommendation, meta: { requiresAuth: true, roles: ['student'] } },
+  { path: '/planner', name: 'Planner', component: Planner, meta: { requiresAuth: true, roles: ['student'] } },
+  { path: '/saved', name: 'SavedCourses', component: SavedCourses, meta: { requiresAuth: true, roles: ['student'] } },
   {
     path: '/admin',
     name: 'AdminDashboard',
@@ -48,12 +48,20 @@ const routes = [
     path: '/moderation',
     name: 'ModerationDashboard',
     component: ModerationDashboard,
-    meta: { requiresAuth: true, roles: ['admin', 'moderator'] },
+    meta: { requiresAuth: true, roles: ['moderator'] },
   },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/notifications', name: 'Notifications', component: Notifications, meta: { requiresAuth: true } },
-  { path: '/reviews/new', name: 'ReviewSubmit', component: ReviewSubmit, meta: { requiresAuth: true } },
+  { path: '/reviews/new', name: 'ReviewSubmit', component: ReviewSubmit, meta: { requiresAuth: true, roles: ['student'] } },
 ]
+
+function roleHome(user) {
+  const role = user?.role?.toLowerCase()
+  if (role === 'admin') return { name: 'AdminDashboard' }
+  if (role === 'moderator') return { name: 'ModerationDashboard' }
+  if (role === 'student') return { name: 'Dashboard' }
+  return { name: 'Home' }
+}
 
 const router = createRouter({
   history: createWebHistory(),
@@ -70,12 +78,12 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (to.meta.roles && (!user || !to.meta.roles.includes(user.role?.toLowerCase()))) {
-    next({ name: 'Home' })
+    next(roleHome(user))
     return
   }
 
   if (to.meta.guestOnly && token) {
-    next({ name: 'Dashboard' })
+    next(roleHome(user))
     return
   }
 

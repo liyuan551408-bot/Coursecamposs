@@ -3,12 +3,14 @@ const express = require('express');
 const router = express.Router();
 const planController = require('../controllers/planController');
 const { verifyToken } = require('../middlewares/authMiddleware');
+const { requireRole } = require('../middlewares/roleMiddleware');
 
 // Every planner endpoint requires authentication because schedules are private user data.
-router.post('/', verifyToken, planController.createPlan);
-router.get('/', verifyToken, planController.getMyPlans);
-router.post('/:planId/courses', verifyToken, planController.addCourse);
-router.delete('/:planId/courses/:courseId', verifyToken, planController.removeCourse);
-router.delete('/:planId', verifyToken, planController.deletePlan);
+router.use(verifyToken, requireRole('STUDENT'));
+router.post('/', planController.createPlan);
+router.get('/', planController.getMyPlans);
+router.post('/:planId/courses', planController.addCourse);
+router.delete('/:planId/courses/:courseId', planController.removeCourse);
+router.delete('/:planId', planController.deletePlan);
 
 module.exports = router;

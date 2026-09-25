@@ -10,6 +10,7 @@ router.use(requireRole('ADMIN'));
 
 router.get('/stats', adminController.getStats);
 router.get('/users', adminController.listUsers);
+router.post('/users', adminController.createStaffUser);
 router.patch('/users/:id/role', adminController.changeUserRole);
 
 module.exports = router;
