@@ -66,28 +66,28 @@ function roleHome(user) {
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition || { top: 0 }
+  },
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to) => {
   const token = getToken()
   const user = getStoredUser()
 
   if (to.meta.requiresAuth && !token) {
-    next({ name: 'Login', query: { redirect: to.fullPath } })
-    return
+    return { name: 'Login', query: { redirect: to.fullPath } }
   }
 
   if (to.meta.roles && (!user || !to.meta.roles.includes(user.role?.toLowerCase()))) {
-    next(roleHome(user))
-    return
+    return roleHome(user)
   }
 
   if (to.meta.guestOnly && token) {
-    next(roleHome(user))
-    return
+    return roleHome(user)
   }
 
-  next()
+  return true
 })
 
 export default router

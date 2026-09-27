@@ -4,14 +4,16 @@
  * Saved courses page.
  */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourseReviews } from '../api/reviews'
 import { normalizeSemesters } from '../utils/semesters'
 import { useSavedStore } from '../stores/saved'
 import { usePlannerStore } from '../stores/planner'
+import { courseDetailLocation } from '../utils/courseNavigation'
 
 const router = useRouter()
+const route = useRoute()
 const savedStore = useSavedStore()
 const plannerStore = usePlannerStore()
 
@@ -22,9 +24,8 @@ const removingIds = ref(new Set())
 // Export to planner
 const exportDialogVisible = ref(false)
 const exportSelectedIds = ref(new Set())
-const targetPlanId = ref(null)
-const targetPlanName = ref('Semester 1')
 const exporting = ref(false)
+const exportingPlanId = ref(null)
 const plansLoading = ref(false)
 
 const hasCourses = computed(() => savedCourses.value.length > 0)
@@ -104,20 +105,15 @@ function handleClearAll() {
 }
 
 function goToDetail(courseId) {
-  router.push(`/courses/${courseId}`)
+  router.push(courseDetailLocation(courseId, route, 'saved'))
 }
 
 /* ===== Export to planner ===== */
 async function openExportDialog() {
   exportSelectedIds.value = new Set(savedCourses.value.map((c) => c.id))
-  targetPlanId.value = plannerStore.semesters.length ? plannerStore.semesters[0].id : null
-  targetPlanName.value = 'Semester 1'
   plansLoading.value = true
   try {
     await plannerStore.loadPlans({ force: true })
-    if (plannerStore.semesters.length && !targetPlanId.value) {
-      targetPlanId.value = plannerStore.semesters[0].id
-    }
     exportDialogVisible.value = true
   } catch (err) {
     ElMessage.error('Failed to load your plans')
@@ -142,39 +138,22 @@ function selectAllForExport() {
   }
 }
 
-async function confirmExport() {
+async function exportToPlan(plan) {
+  if (exporting.value) return
   if (!exportSelectedIds.value.size) {
     ElMessage.warning('Select at least one course to export')
     return
   }
-
-  let planId = targetPlanId.value
-
-  if (!planId) {
-    try {
-      const plan = await plannerStore.addSemester({
-        name: targetPlanName.value.trim() || 'Semester 1',
-        year: new Date().getFullYear(),
-        semester: 'SEMESTER_1',
-      })
-      planId = plan.id
-      ElMessage.success(`Created plan "${targetPlanName.value}"`)
-    } catch (err) {
-      ElMessage.error(err.response?.data?.message || 'Failed to create semester plan')
-      return
-    }
-  }
-
   const coursesToExport = savedCourses.value.filter((c) => exportSelectedIds.value.has(Number(c.id)))
   exporting.value = true
+  exportingPlanId.value = plan.id
   try {
-    const result = await plannerStore.addCourses(planId, coursesToExport)
-    const planName = plannerStore.semesters.find((s) => s.id === planId)?.name || 'your plan'
+    const result = await plannerStore.addCourses(plan.id, coursesToExport)
     if (result.added.length) {
-      ElMessage.success(`Exported ${result.added.length} course(s) to ${planName}`)
+      ElMessage.success(`Exported ${result.added.length} course(s) to ${plan.name}`)
     }
     if (result.skipped.length) {
-      ElMessage.info(`${result.skipped.length} course(s) already in plan, skipped`)
+      ElMessage.info(`${result.skipped.length} course(s) were already in ${plan.name} or could not be added, so they were skipped`)
     }
     exportDialogVisible.value = false
     router.push('/planner')
@@ -182,6 +161,7 @@ async function confirmExport() {
     ElMessage.error(err.response?.data?.message || 'Export failed')
   } finally {
     exporting.value = false
+    exportingPlanId.value = null
   }
 }
 
@@ -340,49 +320,6 @@ onMounted(loadSavedCourses)
       :close-on-click-modal="false"
     >
       <div v-loading="plansLoading" class="export-dialog">
-        <!-- Target plan selection -->
-        <div class="export-section">
-          <label class="export-label">Choose destination</label>
-          <div v-if="plannerStore.semesters.length" class="plan-options">
-            <label
-              v-for="plan in plannerStore.semesters"
-              :key="plan.id"
-              class="plan-option"
-              :class="{ active: targetPlanId === plan.id }"
-            >
-              <input
-                type="radio"
-                :value="plan.id"
-                v-model="targetPlanId"
-                class="plan-radio"
-              />
-              <div class="plan-option-info">
-                <span class="plan-option-name">{{ plan.name }}</span>
-                <span class="plan-option-meta">{{ plan.year }} · {{ plan.semester.replaceAll('_', ' ') }} · {{ plan.courses?.length || 0 }} courses</span>
-              </div>
-            </label>
-          </div>
-          <div class="plan-option plan-option--new" :class="{ active: !targetPlanId }">
-            <input
-              type="radio"
-              :value="null"
-              v-model="targetPlanId"
-              class="plan-radio"
-            />
-            <div class="plan-option-info">
-              <span class="plan-option-name">✨ Create new Semester 1 plan</span>
-              <el-input
-                v-if="!targetPlanId"
-                v-model="targetPlanName"
-                size="small"
-                placeholder="Plan name"
-                class="new-plan-input"
-                @click.stop
-              />
-            </div>
-          </div>
-        </div>
-
         <!-- Course selection -->
         <div class="export-section">
           <div class="export-section-header">
@@ -408,19 +345,33 @@ onMounted(loadSavedCourses)
             </label>
           </div>
         </div>
+
+        <div class="export-section">
+          <label class="export-label">Export {{ exportSelectedIds.size }} selected course(s) to:</label>
+          <div v-if="plannerStore.semesters.length" class="plan-actions">
+            <el-button
+              v-for="plan in plannerStore.semesters"
+              :key="plan.id"
+              class="plan-action"
+              :loading="exportingPlanId === plan.id"
+              :disabled="exporting || !exportSelectedIds.size"
+              @click="exportToPlan(plan)"
+            >
+              <span class="plan-option-info">
+                <strong>Export to {{ plan.name }}</strong>
+                <small>{{ plan.year }} · {{ plan.semester.replaceAll('_', ' ') }} · {{ plan.courses?.length || 0 }} courses</small>
+              </span>
+            </el-button>
+          </div>
+          <el-empty v-else description="You do not have an existing planner yet" :image-size="64">
+            <el-button type="primary" @click="exportDialogVisible = false; router.push('/planner')">Open Planner</el-button>
+          </el-empty>
+        </div>
       </div>
 
       <template #footer>
         <div class="export-footer">
           <el-button @click="exportDialogVisible = false">Cancel</el-button>
-          <el-button
-            type="primary"
-            :loading="exporting"
-            :disabled="!exportSelectedIds.size"
-            @click="confirmExport"
-          >
-            Export {{ exportSelectedIds.size ? `${exportSelectedIds.size} course(s)` : '' }}
-          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -803,37 +754,21 @@ onMounted(loadSavedCourses)
   margin-bottom: 10px;
 }
 
-.plan-options {
+.plan-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 9px;
+  margin-top: 10px;
 }
 
-.plan-option {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.plan-option:hover {
+.plan-action {
+  width: 100%;
+  height: auto;
+  min-height: 54px;
+  justify-content: flex-start;
+  padding: 10px 14px;
   border-color: var(--accent-border);
   background: var(--accent-bg);
-}
-
-.plan-option.active {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
-
-.plan-radio {
-  accent-color: var(--accent);
-  flex-shrink: 0;
 }
 
 .plan-option-info {
@@ -842,26 +777,18 @@ onMounted(loadSavedCourses)
   gap: 2px;
   flex: 1;
   min-width: 0;
+  text-align: left;
 }
 
-.plan-option-name {
+.plan-option-info strong {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-h);
 }
 
-.plan-option-meta {
+.plan-option-info small {
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.plan-option--new {
-  border-style: dashed;
-}
-
-.new-plan-input {
-  margin-top: 8px;
-  max-width: 240px;
 }
 
 .export-course-list {

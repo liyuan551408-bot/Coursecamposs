@@ -1,14 +1,16 @@
 <!-- @file Summarizes the signed-in student's course activity and next actions. -->
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getProfile } from '../api/users'
 import { useAuthStore } from '../stores/auth'
 import { usePlannerStore } from '../stores/planner'
+import { courseDetailLocation } from '../utils/courseNavigation'
 import { useSavedStore } from '../stores/saved'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const savedStore = useSavedStore()
 const plannerStore = usePlannerStore()
@@ -42,7 +44,7 @@ onMounted(loadDashboard)
     </div>
 
     <div class="dashboard-grid">
-      <el-card><template #header><div class="card-header"><strong>Saved for later</strong><el-button link type="primary" @click="router.push('/saved')">View all</el-button></div></template><div v-for="course in savedStore.courses.slice(0,4)" :key="course.id" class="course-row" @click="router.push(`/courses/${course.id}`)"><span><b>{{ course.code }}</b>{{ course.name }}</span><small>{{ course.credits }} credits</small></div><el-empty v-if="!savedStore.courses.length" description="No saved courses yet" :image-size="65" /></el-card>
+      <el-card><template #header><div class="card-header"><strong>Saved for later</strong><el-button link type="primary" @click="router.push('/saved')">View all</el-button></div></template><div v-for="course in savedStore.courses.slice(0,4)" :key="course.id" class="course-row" @click="router.push(courseDetailLocation(course.id, route, 'dashboard'))"><span><b>{{ course.code }}</b>{{ course.name }}</span><small>{{ course.credits }} credits</small></div><el-empty v-if="!savedStore.courses.length" description="No saved courses yet" :image-size="65" /></el-card>
 
       <el-card><template #header><div class="card-header"><strong>Current semester plans</strong><el-button link type="primary" @click="router.push('/planner')">Open planner</el-button></div></template><div v-for="plan in plannerStore.semesters.slice(0,4)" :key="plan.id" class="plan-row"><div><b>{{ plan.name }}</b><span>{{ plan.year }} · {{ plan.semester.replaceAll('_', ' ') }}</span></div><el-tag>{{ plan.courses.length }} courses</el-tag></div><el-empty v-if="!plannerStore.semesters.length" description="No plans created yet" :image-size="65" /></el-card>
 

@@ -6,6 +6,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCompletedCourses, getProfile, markCourseCompleted, unmarkCourseCompleted, updateProfile } from '../api/users'
 import { useAuthStore } from '../stores/auth'
 import { usePlannerStore } from '../stores/planner'
+import KeywordTagInput from '../components/KeywordTagInput.vue'
+import { GOAL_KEYWORDS, INTEREST_KEYWORDS } from '../utils/profileKeywords'
 
 const authStore = useAuthStore()
 const plannerStore = usePlannerStore()
@@ -244,29 +246,17 @@ onBeforeRouteLeave(async () => {
                 <p>Add a short phrase, then press Enter. These details help tailor AI recommendations.</p>
               </div>
               <el-form-item label="Interests">
-                <el-select
+                <KeywordTagInput
                   v-model="form.interests"
-                  multiple
-                  filterable
-                  allow-create
-                  default-first-option
-                  :reserve-keyword="false"
-                  :multiple-limit="20"
+                  :vocabulary="INTEREST_KEYWORDS"
                   placeholder="e.g. machine learning, web development"
-                  style="width:100%"
                 />
               </el-form-item>
               <el-form-item label="Study goals">
-                <el-select
+                <KeywordTagInput
                   v-model="form.goals"
-                  multiple
-                  filterable
-                  allow-create
-                  default-first-option
-                  :reserve-keyword="false"
-                  :multiple-limit="20"
+                  :vocabulary="GOAL_KEYWORDS"
                   placeholder="e.g. prepare for a software engineering role"
-                  style="width:100%"
                 />
               </el-form-item>
 

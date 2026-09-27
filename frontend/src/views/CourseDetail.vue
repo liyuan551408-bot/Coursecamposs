@@ -9,6 +9,7 @@ import { getCourseReviews, getMyCourseReview, reportReview, submitReview, update
 import request from '../api/request'
 import { useAuthStore } from '../stores/auth'
 import { useSavedStore } from '../stores/saved'
+import { detailBackLabel, safeReturnTarget } from '../utils/courseNavigation'
 import { useNotificationStore } from '../stores/notifications'
 
 const route = useRoute()
@@ -32,8 +33,7 @@ const average = computed(() => reviews.value.length
   : '-')
 
 const isSaved = computed(() => course.value ? savedStore.isSaved(course.value.id) : false)
-const cameFromCompare = computed(() => route.query.from === 'compare')
-const backLabel = computed(() => cameFromCompare.value ? 'Back to course comparison' : 'Back to course catalogue')
+const backLabel = computed(() => detailBackLabel(route.query.from))
 const safeOfficialLink = computed(() => {
   try {
     const url = new URL(course.value?.officialLink)
@@ -43,38 +43,19 @@ const safeOfficialLink = computed(() => {
   }
 })
 
-function normalizedQueryValue(value) {
-  return Array.isArray(value) ? value[0] : value
-}
-
 function goBack() {
-  if (!cameFromCompare.value) {
-    router.push({ name: 'CourseList' })
-    return
-  }
-
-  const compareIds = normalizedQueryValue(route.query.compareIds)
-  const originCourseId = Number(normalizedQueryValue(route.query.originCourseId))
-  router.push({
-    name: 'CompareCourses',
-    query: {
-      ...(typeof compareIds === 'string' && compareIds ? { compareIds } : {}),
-      ...(Number.isInteger(originCourseId) && originCourseId > 0 ? { courseId: String(originCourseId) } : {}),
-    },
-  })
+  const target = safeReturnTarget(route.query.returnTo)
+  router.push(target || { name: 'CourseList' })
 }
 
 function openRelatedCourse(courseId) {
   router.push({
     name: 'CourseDetail',
     params: { id: courseId },
-    query: cameFromCompare.value
-      ? {
-          from: 'compare',
-          compareIds: normalizedQueryValue(route.query.compareIds),
-          originCourseId: normalizedQueryValue(route.query.originCourseId),
-        }
-      : {},
+    query: {
+      ...(route.query.from ? { from: route.query.from } : {}),
+      ...(safeReturnTarget(route.query.returnTo) ? { returnTo: safeReturnTarget(route.query.returnTo) } : {}),
+    },
   })
 }
 
@@ -125,6 +106,7 @@ async function loadPage() {
 }
 
 async function fetchAiSummary() {
+  if (isGenerating.value) return
   if (!authStore.isLoggedIn) {
     ElMessage.warning('Please log in before generating an AI course summary.')
     router.push({ name: 'Login', query: { redirect: route.fullPath } })
@@ -320,7 +302,7 @@ watch(() => route.params.id, () => {
               <span class="summary-icon">🤖</span>
               <span>AI Course Review Summary</span>
             </div>
-            <el-button type="primary" :loading="isGenerating" @click="fetchAiSummary">
+            <el-button type="primary" :loading="isGenerating" :disabled="isGenerating" @click="fetchAiSummary">
               {{ summaryData ? 'Regenerate' : 'Generate Summary' }}
             </el-button>
           </div>

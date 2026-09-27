@@ -8,6 +8,9 @@ import { getSubjects } from '../api/subjects'
 import { normalizeSemesters } from '../utils/semesters'
 import { useSavedStore } from '../stores/saved'
 import { useAuthStore } from '../stores/auth'
+import CourseAdvancedFilters from '../components/CourseAdvancedFilters.vue'
+import { createDefaultCourseFilters, filtersFromQuery, filtersToApiParams } from '../utils/courseFilters'
+import { courseDetailLocation } from '../utils/courseNavigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,34 +22,19 @@ const error = ref('')
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const courses = ref([])
 const subjects = ref([])
-const showFilters = ref(false)
+const showFilters = ref(Object.keys(route.query).some(key => key !== 'q'))
 const savingIds = ref(new Set())
-const filters = reactive({ subjectId: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
+const filters = reactive(filtersFromQuery(route.query))
 let debounceTimer
 let latestSearchId = 0
 
-const semesterOptions = [
-  ['Semester 1', 'SEMESTER_1'], ['Semester 2', 'SEMESTER_2'], ['Summer', 'SUMMER'],
-]
-const assessmentOptions = ['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION']
-
 function cleanFilters() {
-  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== '' && value !== null))
+  return filtersToApiParams(filters)
 }
 
 async function runSearch() {
   clearTimeout(debounceTimer)
   const searchId = ++latestSearchId
-  if (filters.minCredits !== null && filters.maxCredits !== null && filters.minCredits > filters.maxCredits) {
-    loading.value = false
-    ElMessage.warning('Minimum credits cannot exceed maximum credits.')
-    return
-  }
-  if (filters.minWorkload !== null && filters.maxWorkload !== null && filters.minWorkload > filters.maxWorkload) {
-    loading.value = false
-    ElMessage.warning('Minimum workload cannot exceed maximum workload.')
-    return
-  }
   loading.value = true
   error.value = ''
   try {
@@ -54,7 +42,7 @@ async function runSearch() {
     const matches = await searchCourses({ keyword: query.value.trim(), mode: 'fuzzy', ...advanced })
     if (searchId !== latestSearchId) return
     courses.value = matches
-    router.replace({ query: { ...(query.value.trim() && { q: query.value.trim() }) } })
+    router.replace({ query: { ...(query.value.trim() && { q: query.value.trim() }), ...advanced } })
   } catch (err) {
     if (searchId !== latestSearchId) return
     error.value = err.response?.data?.error || err.response?.data?.message || 'Courses cannot be searched right now.'
@@ -69,7 +57,13 @@ function scheduleSearch() {
 }
 
 function resetFilters() {
-  Object.assign(filters, { subjectId: '', level: '', semester: '', assessmentType: '', minCredits: null, maxCredits: null, minWorkload: null, maxWorkload: null, minRating: null, hasPrerequisites: '' })
+  Object.assign(filters, createDefaultCourseFilters())
+  runSearch()
+}
+
+function applyFilters() {
+  filters.creditsRangeActive = true
+  filters.workloadRangeActive = true
   runSearch()
 }
 
@@ -98,13 +92,14 @@ async function handleQuickSave(course, event) {
 }
 
 function goToDetail(courseId) {
-  router.push(`/courses/${courseId}`)
+  window.sessionStorage.setItem('course-compass:courses-scroll', String(window.scrollY))
+  router.push(courseDetailLocation(courseId, route, 'courses'))
 }
 
 watch(query, scheduleSearch)
 
 onMounted(async () => {
-  runSearch()
+  await runSearch()
   try {
     subjects.value = await getSubjects()
   } catch (err) {
@@ -112,6 +107,11 @@ onMounted(async () => {
   }
   if (authStore.isStudent) {
     savedStore.loadSaved().catch(() => {})
+  }
+  const savedScroll = Number(window.sessionStorage.getItem('course-compass:courses-scroll'))
+  if (Number.isFinite(savedScroll) && savedScroll > 0) {
+    window.requestAnimationFrame(() => window.scrollTo({ top: savedScroll }))
+    window.sessionStorage.removeItem('course-compass:courses-scroll')
   }
 })
 
@@ -176,30 +176,15 @@ onBeforeUnmount(() => {
         </el-button>
       </div>
 
-      <div v-show="showFilters" class="filter-grid">
-        <el-select v-model="filters.level" clearable placeholder="Course level">
-          <el-option v-for="level in [100,200,300,400,500,600,700,800,900]" :key="level" :label="`Level ${level}`" :value="level" />
-        </el-select>
-        <el-select v-model="filters.semester" clearable placeholder="Semester">
-          <el-option v-for="([label, value]) in semesterOptions" :key="value" :label="label" :value="value" />
-        </el-select>
-        <el-select v-model="filters.assessmentType" clearable placeholder="Assessment type">
-          <el-option v-for="item in assessmentOptions" :key="item" :label="item.toLowerCase().replace('_', ' ')" :value="item" />
-        </el-select>
-        <el-input-number v-model="filters.minCredits" :min="0" controls-position="right" placeholder="Min credits" />
-        <el-input-number v-model="filters.maxCredits" :min="0" controls-position="right" placeholder="Max credits" />
-        <el-input-number v-model="filters.minWorkload" :min="0" controls-position="right" placeholder="Min workload hours" />
-        <el-input-number v-model="filters.maxWorkload" :min="0" controls-position="right" placeholder="Max workload hours" />
-        <el-input-number v-model="filters.minRating" :min="1" :max="5" controls-position="right" placeholder="Min rating" />
-        <el-select v-model="filters.hasPrerequisites" clearable placeholder="Prerequisites">
-          <el-option label="Has prerequisites" value="true" />
-          <el-option label="No prerequisites" value="false" />
-        </el-select>
-        <div class="filter-actions">
-          <el-button @click="resetFilters">Reset</el-button>
-          <el-button type="primary" @click="runSearch">Apply filters</el-button>
-        </div>
-      </div>
+      <CourseAdvancedFilters
+        v-show="showFilters"
+        :model-value="filters"
+        :subjects="subjects"
+        class="filter-grid"
+        @update:model-value="Object.assign(filters, $event)"
+        @reset="resetFilters"
+        @apply="applyFilters"
+      />
     </el-card>
 
     <el-alert
@@ -441,24 +426,9 @@ onBeforeUnmount(() => {
 }
 
 .filter-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid var(--border);
-}
-
-.filter-grid :deep(.el-input-number) {
-  width: 100%;
-}
-
-.filter-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  align-items: center;
 }
 
 .state-alert {
@@ -627,18 +597,11 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
-  .filter-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
   .course-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 480px) {
-  .filter-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

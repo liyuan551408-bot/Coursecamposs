@@ -3,35 +3,44 @@
 /**
  * Course comparison page.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAllCoursesForComparison, getCourse } from '../api/courses'
+import { getSubjects } from '../api/subjects'
 import { getCourseComparisonAnalysis } from '../api/ai'
 import { getToken } from '../utils/auth'
 import { useSavedStore } from '../stores/saved'
 import { useAuthStore } from '../stores/auth'
+import { useCompareStore, MAX_COMPARE } from '../stores/compare'
+import { courseDetailLocation } from '../utils/courseNavigation'
 
 const router = useRouter()
 const route = useRoute()
 const savedStore = useSavedStore()
 const authStore = useAuthStore()
+const compareStore = useCompareStore()
+const {
+  selectedIds: compareIds,
+  selectedCourses: compareCourses,
+  searchQuery,
+  subjectId,
+  generating: aiLoading,
+  analysis: aiAnalysis,
+  originCourseId,
+  canAdd,
+} = storeToRefs(compareStore)
 const loading = ref(false)
 const allCourses = ref([])
-const compareIds = ref([])
-const compareCourses = ref([])
-const searchQuery = ref('')
-const aiLoading = ref(false)
-const aiAnalysis = ref(null)
+const subjects = ref([])
 const savingIds = ref(new Set())
-const originCourseId = ref(null)
-
-const MAX_COMPARE = 4
 
 const filteredCourses = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase()
   return allCourses.value.filter((course) => {
     if (course.id === originCourseId.value) return false
+    if (subjectId.value && Number(course.subjectId) !== Number(subjectId.value)) return false
     if (!keyword) return true
     return [course.code, course.name, course.description].some((value) =>
       value?.toLowerCase().includes(keyword)
@@ -39,8 +48,20 @@ const filteredCourses = computed(() => {
   })
 })
 
-const canAdd = computed(() => compareIds.value.length < MAX_COMPARE)
 const originCourse = computed(() => compareCourses.value.find((course) => course.id === originCourseId.value))
+const groupedCourses = computed(() => {
+  const groups = new Map()
+  for (const course of filteredCourses.value) {
+    const key = course.subject?.id || 'uncategorized'
+    if (!groups.has(key)) groups.set(key, {
+      id: key,
+      label: course.subject ? `${course.subject.code} — ${course.subject.name}` : 'Other courses',
+      courses: [],
+    })
+    groups.get(key).courses.push(course)
+  }
+  return [...groups.values()]
+})
 
 async function loadCourses() {
   loading.value = true
@@ -54,41 +75,38 @@ async function loadCourses() {
 }
 
 async function addToCompare(courseId) {
+  if (aiLoading.value) return
   if (!canAdd.value) {
     ElMessage.warning(`You can compare up to ${MAX_COMPARE} courses at a time`)
     return
   }
   if (compareIds.value.includes(Number(courseId))) return
 
-  compareIds.value.push(Number(courseId))
   await loadCompareCourse(courseId)
 }
 
 async function loadCompareCourse(courseId) {
+  if (compareIds.value.includes(Number(courseId))) return
   try {
     const course = await getCourse(courseId)
-    compareCourses.value.push(course)
-    aiAnalysis.value = null
+    compareStore.addCourse(course)
   } catch (err) {
-    compareIds.value = compareIds.value.filter((id) => id !== Number(courseId))
     ElMessage.error('Failed to load course details')
   }
 }
 
 async function removeFromCompare(courseId) {
+  if (aiLoading.value) return
   const id = Number(courseId)
   if (id === originCourseId.value) return
   try { await ElMessageBox.confirm('Remove this course from the comparison?', 'Confirm removal', { confirmButtonText: 'Remove', cancelButtonText: 'Cancel', type: 'warning' }) } catch { return }
-  compareIds.value = compareIds.value.filter((cid) => cid !== id)
-  compareCourses.value = compareCourses.value.filter((c) => c.id !== id)
-  aiAnalysis.value = null
+  compareStore.removeCourse(id)
 }
 
 async function clearAll() {
+  if (aiLoading.value) return
   try { await ElMessageBox.confirm('Clear all comparison selections?', 'Confirm removal', { confirmButtonText: 'Clear all', cancelButtonText: 'Cancel', type: 'warning' }) } catch { return }
-  compareIds.value = originCourse.value ? [originCourse.value.id] : []
-  compareCourses.value = originCourse.value ? [originCourse.value] : []
-  aiAnalysis.value = null
+  compareStore.clearSelection()
 }
 
 function isInCompare(courseId) {
@@ -103,19 +121,13 @@ function parseCompareIds(value) {
 }
 
 function viewCourseDetails(courseId) {
-  router.push({
-    name: 'CourseDetail',
-    params: { id: courseId },
-    query: {
-      from: 'compare',
-      compareIds: compareIds.value.join(','),
-      ...(originCourseId.value ? { originCourseId: String(originCourseId.value) } : {}),
-    },
-  })
+  if (aiLoading.value) return
+  router.push(courseDetailLocation(courseId, route, 'compare'))
 }
 
 /** Request an on-demand AI analysis for the currently selected courses. */
 async function generateAiComparison() {
+  if (aiLoading.value) return
   if (compareIds.value.length < 2) {
     ElMessage.warning('Select at least two courses for an AI comparison')
     return
@@ -127,12 +139,14 @@ async function generateAiComparison() {
     return
   }
 
-  aiLoading.value = true
-  aiAnalysis.value = null
+  if (!compareStore.beginGeneration()) return
   try {
-    aiAnalysis.value = await getCourseComparisonAnalysis(compareIds.value)
+    const result = await getCourseComparisonAnalysis([...compareIds.value])
+    compareStore.finishGeneration(result)
   } catch (err) {
-    const message = err.response?.data?.error
+    compareStore.endGeneration()
+    const apiError = err.response?.data?.error
+    const message = (typeof apiError === 'object' ? apiError.message : apiError)
       || err.response?.data?.message
       || (err.response?.status === 404 ? 'The AI comparison endpoint is not available on the current backend' : '')
       || (err.response?.status === 429 ? 'Too many AI requests. Please try again later' : '')
@@ -141,8 +155,6 @@ async function generateAiComparison() {
       || (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT' ? 'The AI comparison timed out. Please try again.' : '')
       || 'Unable to generate AI comparison'
     ElMessage.error(message)
-  } finally {
-    aiLoading.value = false
   }
 }
 
@@ -176,19 +188,26 @@ async function handleQuickSave(course, event) {
 onMounted(async () => {
   const requestedCourseId = Number(route.query.courseId)
   if (Number.isInteger(requestedCourseId) && requestedCourseId > 0) {
-    originCourseId.value = requestedCourseId
+    if (originCourseId.value !== requestedCourseId) compareStore.clearSelection({ keepOrigin: false })
+    compareStore.setOrigin(requestedCourseId)
   }
   const restoredIds = parseCompareIds(route.query.compareIds)
   const initialIds = [...new Set([
     ...(originCourseId.value ? [originCourseId.value] : []),
     ...restoredIds,
   ])].slice(0, MAX_COMPARE)
+  await Promise.all([
+    loadCourses(),
+    getSubjects().then(value => { subjects.value = value }).catch(() => { subjects.value = [] }),
+  ])
   for (const courseId of initialIds) await addToCompare(courseId)
-  loadCourses()
   if (authStore.isStudent) {
     savedStore.loadSaved().catch(() => {})
   }
 })
+
+watch(searchQuery, value => compareStore.setSearch(value))
+watch(subjectId, value => compareStore.setSubject(value))
 </script>
 
 <template>
@@ -200,7 +219,7 @@ onMounted(async () => {
         <p v-if="originCourse">Choose up to {{ MAX_COMPARE - 1 }} other courses to compare with {{ originCourse.code }}.</p>
         <p v-else>Select up to {{ MAX_COMPARE }} courses to compare credits, workload, ratings and prerequisites.</p>
       </div>
-      <el-button v-if="compareCourses.length > (originCourse ? 1 : 0)" plain @click="clearAll">
+      <el-button v-if="compareCourses.length > (originCourse ? 1 : 0)" plain :disabled="aiLoading" @click="clearAll">
         {{ originCourse ? 'Clear comparisons' : 'Clear all' }}
       </el-button>
     </div>
@@ -211,45 +230,55 @@ onMounted(async () => {
         <h2>{{ originCourse ? `Choose courses to compare with ${originCourse.code}` : 'Select courses to compare' }}</h2>
         <span class="count-badge">{{ compareIds.length }} / {{ MAX_COMPARE }} selected</span>
       </div>
-      <el-input
-        v-model="searchQuery"
-        clearable
-        placeholder="Search by course code, name or keyword"
-        class="search-input"
-      >
-        <template #prefix>⌕</template>
-      </el-input>
-      <div v-loading="loading" class="course-selector">
-        <div
-          v-for="course in filteredCourses"
-          :key="course.id"
-          class="course-item"
-          :class="{ selected: isInCompare(course.id), disabled: !canAdd && !isInCompare(course.id) }"
-          @click="!isInCompare(course.id) && canAdd && addToCompare(course.id)"
+      <div class="selector-filters">
+        <el-select v-model="subjectId" clearable placeholder="All subjects / disciplines" :disabled="aiLoading">
+          <el-option v-for="subject in subjects" :key="subject.id" :label="`${subject.code} — ${subject.name}`" :value="subject.id" />
+        </el-select>
+        <el-input
+          v-model="searchQuery"
+          clearable
+          :disabled="aiLoading"
+          placeholder="Search by course code, name or keyword"
         >
-          <div class="course-info">
-            <span class="course-code">{{ course.code }}</span>
-            <span class="course-name">{{ course.name }}</span>
+          <template #prefix>⌕</template>
+        </el-input>
+      </div>
+      <p v-if="aiLoading" class="selection-lock-note">Course selection is locked while the AI comparison is generated.</p>
+      <div v-loading="loading" class="course-selector" :class="{ 'course-selector--locked': aiLoading }">
+        <section v-for="group in groupedCourses" :key="group.id" class="course-group">
+          <h3 class="course-group-title">{{ group.label }} <span>{{ group.courses.length }}</span></h3>
+          <div
+            v-for="course in group.courses"
+            :key="course.id"
+            class="course-item"
+            :class="{ selected: isInCompare(course.id), disabled: aiLoading || (!canAdd && !isInCompare(course.id)) }"
+            @click="!aiLoading && !isInCompare(course.id) && canAdd && addToCompare(course.id)"
+          >
+            <div class="course-info">
+              <span class="course-code">{{ course.code }}</span>
+              <span class="course-name">{{ course.name }}</span>
+            </div>
+            <div class="item-actions">
+              <button
+                v-if="!authStore.isLoggedIn || authStore.isStudent"
+                class="quick-save-btn"
+                :disabled="aiLoading"
+                :class="{ 'quick-save-btn--saved': savedStore.isSaved(course.id) }"
+                :title="savedStore.isSaved(course.id) ? 'Remove from saved' : 'Quick save'"
+                @click="handleQuickSave(course, $event)"
+              >
+                <svg v-if="!savedStore.isSaved(course.id)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+              </button>
+              <el-checkbox
+                :model-value="isInCompare(course.id)"
+                :disabled="aiLoading || (!canAdd && !isInCompare(course.id))"
+                @change="isInCompare(course.id) ? removeFromCompare(course.id) : addToCompare(course.id)"
+                @click.stop
+              />
+            </div>
           </div>
-          <div class="item-actions">
-            <button
-              v-if="!authStore.isLoggedIn || authStore.isStudent"
-              class="quick-save-btn"
-              :class="{ 'quick-save-btn--saved': savedStore.isSaved(course.id) }"
-              :title="savedStore.isSaved(course.id) ? 'Remove from saved' : 'Quick save'"
-              @click="handleQuickSave(course, $event)"
-            >
-              <svg v-if="!savedStore.isSaved(course.id)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-            </button>
-            <el-checkbox
-              :model-value="isInCompare(course.id)"
-              :disabled="!canAdd && !isInCompare(course.id)"
-              @change="isInCompare(course.id) ? removeFromCompare(course.id) : addToCompare(course.id)"
-              @click.stop
-            />
-          </div>
-        </div>
+        </section>
         <el-empty v-if="!loading && !filteredCourses.length" description="No matching courses" />
       </div>
     </el-card>
@@ -261,7 +290,7 @@ onMounted(async () => {
         <el-button
           type="primary"
           :loading="aiLoading"
-          :disabled="compareCourses.length < 2"
+          :disabled="aiLoading || compareCourses.length < 2"
           @click="generateAiComparison"
         >
           ✨ Generate AI summary
@@ -294,7 +323,7 @@ onMounted(async () => {
             <span>{{ course.workloadHours || '—' }}h</span>
             <span v-if="course.level">Level {{ course.level }}</span>
           </div>
-          <el-button link type="primary" size="small" @click="viewCourseDetails(course.id)">View details →</el-button>
+          <el-button link type="primary" size="small" :disabled="aiLoading" @click="viewCourseDetails(course.id)">View details →</el-button>
         </div>
       </div>
 
@@ -321,11 +350,11 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div v-if="aiAnalysis.learningPath?.length" class="ai-section">
+        <div v-if="aiAnalysis.learningOrder?.length" class="ai-section">
           <h4>Suggested learning order</h4>
           <div class="plain-text-lines">
-            <p v-for="item in aiAnalysis.learningPath" :key="`${item.courseId}-${item.position}`">
-              <strong>{{ courseCodes([item.courseId]) }}</strong> — {{ item.reason }}
+            <p v-for="(item, index) in aiAnalysis.learningOrder" :key="`${item.courseId}-${item.position || index}`">
+              <strong>{{ index + 1 }}. {{ courseCodes([item.courseId]) }}</strong> — {{ item.reason }}
             </p>
           </div>
         </div>
@@ -418,8 +447,18 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.search-input {
+.selector-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.38fr) minmax(0, 1fr);
+  gap: 10px;
   margin-bottom: 16px;
+}
+
+.selection-lock-note {
+  margin: -4px 0 12px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .course-selector {
@@ -427,6 +466,34 @@ onMounted(async () => {
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.course-selector--locked {
+  cursor: wait;
+}
+
+.course-group + .course-group {
+  border-top: 1px solid var(--border);
+}
+
+.course-group-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 9px 16px;
+  color: var(--text-h);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-light);
+  font-size: 12px;
+  letter-spacing: .03em;
+}
+
+.course-group-title span {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .course-item {
@@ -513,6 +580,11 @@ onMounted(async () => {
   color: var(--danger);
   border-color: var(--danger);
   background: rgba(239, 68, 68, 0.1);
+}
+
+.quick-save-btn:disabled {
+  opacity: .5;
+  pointer-events: none;
 }
 
 /* Selected courses overview */
@@ -686,6 +758,10 @@ onMounted(async () => {
   }
 
   .ai-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .selector-filters {
     grid-template-columns: 1fr;
   }
 }

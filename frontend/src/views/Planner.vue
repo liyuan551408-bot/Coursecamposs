@@ -9,6 +9,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourse } from '../api/courses'
 import { usePlannerStore } from '../stores/planner'
 import { useSavedStore } from '../stores/saved'
+import { courseDetailLocation } from '../utils/courseNavigation'
 
 const router = useRouter()
 const route = useRoute()
@@ -331,7 +332,7 @@ function clearPlan() {
 }
 
 function goToCourseDetail(courseId) {
-  router.push(`/courses/${courseId}`)
+  router.push(courseDetailLocation(courseId, route, 'planner'))
 }
 
 onMounted(loadCourses)

@@ -4,6 +4,10 @@ const courseRetrievalService = require('../services/courseRetrievalService');
 const courseService = require('../services/courseService');
 const llmService = require('../services/llmService');
 const {
+    generateComparisonAnalysis,
+    InvalidAiComparisonError
+} = require('../services/aiComparisonService');
+const {
     attachCompletedCourseConnections,
     collectRelevantCompletedCourses
 } = require('../services/completedCourseAnalysisService');
@@ -142,49 +146,6 @@ const parseRecommendationOutput = (raw, candidates, query) => {
     }
 };
 
-/** Parse and constrain the structured response returned for course comparison. */
-const parseComparisonOutput = (raw, courses) => {
-    const selectedIds = new Set(courses.map(course => course.id));
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-    try {
-        const parsed = JSON.parse(cleaned);
-        const relationships = Array.isArray(parsed.relationships)
-            ? parsed.relationships.slice(0, 10).map(item => ({
-                type: toPlainText(item.type).slice(0, 60) || 'relationship',
-                courseIds: Array.isArray(item.courseIds)
-                    ? item.courseIds.map(Number).filter(id => selectedIds.has(id)).slice(0, 4)
-                    : [],
-                description: toPlainText(item.description).slice(0, 500)
-            })).filter(item => item.courseIds.length >= 2 && item.description) : [];
-        const learningPath = Array.isArray(parsed.learningPath)
-            ? parsed.learningPath.slice(0, courses.length).map(item => ({
-                courseId: Number(item.courseId),
-                position: Number(item.position),
-                reason: toPlainText(item.reason).slice(0, 500)
-            })).filter(item => selectedIds.has(item.courseId) && item.reason) : [];
-
-        return {
-            summary: toPlainText(parsed.summary).slice(0, 2000),
-            relationships,
-            learningPath,
-            strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(toPlainText).filter(Boolean).slice(0, 8) : [],
-            tradeoffs: Array.isArray(parsed.tradeoffs) ? parsed.tradeoffs.map(toPlainText).filter(Boolean).slice(0, 8) : [],
-            recommendation: toPlainText(parsed.recommendation).slice(0, 1000),
-            limitations: toPlainText(parsed.limitations).slice(0, 1000)
-        };
-    } catch {
-        return {
-            summary: toPlainText(raw).slice(0, 2000),
-            relationships: [],
-            learningPath: [],
-            strengths: [],
-            tradeoffs: [],
-            recommendation: '',
-            limitations: 'The AI response could not be parsed into structured sections.'
-        };
-    }
-};
-
 /** Generate a grounded relationship and trade-off analysis for selected courses. */
 const compareCoursesWithAi = async (req, res) => {
     try {
@@ -203,20 +164,10 @@ const compareCoursesWithAi = async (req, res) => {
             return res.status(404).json({ success: false, error: 'One or more selected courses were not found' });
         }
 
-        const systemPrompt = `You are CourseCompass's course comparison assistant.
-Use only the supplied course data, prerequisite relationships, and approved student review evidence.
-Compare the selected courses as a group, not as isolated table rows.
-Discuss prerequisite paths, shared or complementary topics, possible content overlap, workload balance, assessment differences, and a sensible learning order when evidence supports it.
-Do not invent facts. If evidence is missing, state that clearly. Distinguish database facts from reasonable interpretation.
-All text values must use plain text only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.
-Return JSON only in this exact shape:
-{"summary":"...","relationships":[{"type":"prerequisite|complementary|overlap|workload|other","courseIds":[1,2],"description":"..."}],"learningPath":[{"courseId":1,"position":1,"reason":"..."}],"strengths":["..."],"tradeoffs":["..."],"recommendation":"...","limitations":"..."}`;
-        const userContent = `Selected course data:\n${JSON.stringify(courses, null, 2)}`;
-        const rawAnalysis = await llmService.chatCompletion({
-            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
-            temperature: 0.4
+        const analysis = await generateComparisonAnalysis({
+            courses,
+            chatCompletion: llmService.chatCompletion
         });
-        const analysis = parseComparisonOutput(rawAnalysis, courses);
 
         return res.json({
             success: true,
@@ -225,6 +176,15 @@ Return JSON only in this exact shape:
         });
     } catch (error) {
         console.error('AI course comparison failed:', error);
+        if (error instanceof InvalidAiComparisonError) {
+            return res.status(502).json({
+                success: false,
+                error: {
+                    code: error.code,
+                    message: 'The AI could not produce a complete comparison. Please try again.'
+                }
+            });
+        }
         if (error.code === 'LLM_TIMEOUT') {
             return res.status(504).json({ success: false, error: 'The AI provider timed out. Please try again.' });
         }

@@ -76,6 +76,7 @@ const courseRecommendations = computed(() => courses.value.map(course => {
 }))
 
 async function recommend() {
+  if (loading.value) return
   if (!query.value.trim()) return
   loading.value = true
   error.value = ''
@@ -115,13 +116,13 @@ async function recommend() {
       <p class="eyebrow">AI COURSE COMPASS</p>
       <h1>Turn your goals into a course pathway</h1>
       <p>Tell the AI about your interests, background and time preferences for evidence-based course suggestions.</p>
-      <el-input v-model="query" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="For example: I want to begin studying AI next semester, with programming practice and a manageable workload." @keyup.ctrl.enter="recommend" />
+      <el-input v-model="query" type="textarea" :rows="3" maxlength="500" show-word-limit :disabled="loading" placeholder="For example: I want to begin studying AI next semester, with programming practice and a manageable workload." @keyup.ctrl.enter="recommend" />
       <div class="ai-actions">
-        <el-button type="primary" :loading="loading" @click="recommend">✨ Generate recommendations</el-button>
+        <el-button type="primary" :loading="loading" :disabled="loading || !query.trim()" @click="recommend">✨ Generate recommendations</el-button>
         <span>Press Ctrl + Enter to submit</span>
       </div>
       <div class="prompt-list">
-        <el-button v-for="prompt in prompts" :key="prompt" round size="small" @click="query = prompt">{{ prompt }}</el-button>
+        <el-button v-for="prompt in prompts" :key="prompt" round size="small" :disabled="loading" @click="query = prompt">{{ prompt }}</el-button>
       </div>
     </div>
     <el-alert v-if="error" :title="error" type="warning" show-icon :closable="false" />
