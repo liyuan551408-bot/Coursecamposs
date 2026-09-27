@@ -1,29 +1,223 @@
 # CourseCompass
 
-CourseCompass is a full-stack university course-planning application that helps students browse, compare, save, plan, review, and receive AI-assisted course recommendations.
+**CourseCompass** is a full-stack university course-planning web application designed to help students discover, compare, organise, and plan university courses more effectively.
 
-## Technology Stack
+The platform combines traditional course-management features with **semantic search and AI-assisted recommendations**, allowing students to explore courses based not only on keywords, but also on their interests, academic goals, and planning preferences.
 
-- Frontend: Vue 3, Vite, Vue Router, Pinia, Element Plus, Axios
-- Backend: Node.js, Express, Prisma, JWT, bcrypt, Nodemailer
-- Database: PostgreSQL, Supabase, pgvector
-- AI: SiliconFlow BAAI/bge-m3 and Zhipu AI
+---
+
+## Overview
+
+University course planning can involve information spread across course catalogues, prerequisite rules, semester availability, reviews, and programme requirements.
+
+CourseCompass brings these functions together into one platform where students can:
+
+- Browse and search university courses
+- Compare courses
+- Save and track completed courses
+- Build multi-semester study plans
+- Read and submit course reviews
+- Receive AI-assisted course recommendations
+- Generate AI summaries of course reviews
+- Manage personal study preferences
+
+The project was developed as a university team project with a focus on full-stack development, database design, and practical AI integration.
+
+---
 
 ## Main Features
 
-- Course catalogue, course details, prerequisites, credits, workload, semesters, and assessments
-- Keyword search and semantic search
-- Course filtering and comparison
-- Saved and completed courses
-- Multi-semester study planning
-- Course reviews and reports
-- Review moderation and in-app notifications
-- AI-assisted course recommendations
+### Course Discovery
+
+- Browse the course catalogue
+- View course descriptions, credits, prerequisites, workload, semesters, and assessments
+- Search courses using keywords
+- Search courses using semantic similarity
+- Filter and compare courses
+
+### Study Planning
+
+- Save courses for later
+- Track completed courses
+- Create multi-semester study plans
+- Manage course-planning preferences
+- View prerequisite relationships
+
+### Reviews
+
+- Submit course reviews
+- Browse approved reviews
+- Report inappropriate reviews
+- Moderator review-management workflow
+- In-app moderation notifications
 - AI-generated review summaries
+
+### AI Features
+
+- Semantic course search
+- AI-assisted course recommendations
+- AI-generated recommendation explanations
 - AI-assisted course comparison
-- Student profile and planning-preference management
-- Administrator course management
-- Registration, login, and password reset
+- AI-generated review summaries
+
+### Account Management
+
+- Student registration
+- Login and authentication
+- Password reset by email
+- Student profile management
+- Role-based access for students, moderators, and administrators
+
+### Administration
+
+- Course management
+- Review moderation
+- User-role management
+- Course-data maintenance
+
+---
+
+## Technology Stack
+
+### Frontend
+
+- Vue 3
+- Vite
+- Vue Router
+- Pinia
+- Element Plus
+- Axios
+
+### Backend
+
+- Node.js
+- Express
+- Prisma ORM
+- JWT
+- bcrypt
+- Nodemailer
+
+### Database
+
+- PostgreSQL
+- Supabase
+- pgvector
+
+### AI
+
+- SiliconFlow
+- BAAI/bge-m3
+- Zhipu AI
+
+---
+
+## System Architecture
+
+```text
+                         ┌─────────────────────┐
+                         │       Student       │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │    Vue 3 Frontend   │
+                         │  Vite / Pinia / UI  │
+                         └──────────┬──────────┘
+                                    │
+                              REST API / Axios
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │   Express Backend   │
+                         │ Authentication      │
+                         │ Business Logic      │
+                         │ AI Services         │
+                         └───────┬───────┬─────┘
+                                 │       │
+                    Prisma ORM   │       │ AI APIs
+                                 ▼       ▼
+                    ┌────────────────┐  ┌──────────────────┐
+                    │ PostgreSQL     │  │ SiliconFlow      │
+                    │ Supabase       │  │ BAAI/bge-m3      │
+                    │ pgvector       │  │ Zhipu AI         │
+                    └────────────────┘  └──────────────────┘
+```
+
+---
+
+## How AI Recommendation Works
+
+CourseCompass combines vector-based semantic retrieval with large-language-model-generated explanations.
+
+```text
+Student Preferences
+        │
+        ▼
+Create Search Query
+        │
+        ▼
+Generate Query Embedding
+        │
+        ▼
+Vector Similarity Search
+        │
+        ▼
+Retrieve Relevant Courses
+        │
+        ▼
+Course Information + Preferences
+        │
+        ▼
+Zhipu AI
+        │
+        ▼
+Recommendation Explanation
+        │
+        ▼
+Recommended Courses
+```
+
+Course embeddings are generated using SiliconFlow's **BAAI/bge-m3** embedding model.
+
+Each course is represented by a **1024-dimensional vector**, which is stored in PostgreSQL using the `pgvector` extension.
+
+When a student requests recommendations, CourseCompass generates an embedding from the student's preferences and performs vector similarity search against stored course embeddings.
+
+Relevant courses are then provided to the language model to generate user-friendly recommendation explanations.
+
+---
+
+## Project Structure
+
+```text
+CourseCompass/
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── views/
+│   │   ├── stores/
+│   │   ├── router/
+│   │   └── services/
+│   └── package.json
+│
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   └── migrations/
+│   ├── routes/
+│   ├── services/
+│   ├── middleware/
+│   ├── tests/
+│   ├── app.js
+│   └── package.json
+│
+└── README.md
+```
+
+The exact directory structure may evolve as the project is developed.
+
+---
 
 ## Requirements
 
@@ -31,143 +225,236 @@ Before running the project, make sure the following are available:
 
 - Node.js 18+
 - npm
-- PostgreSQL database with pgvector support
+- PostgreSQL with `pgvector` support
 - Zhipu AI API key
 - SiliconFlow API key
 - SMTP credentials for password-reset emails
+
+---
 
 ## Environment Configuration
 
 ### Backend
 
-Create `backend/.env`.
+Create:
 
-Example configuration:
+```text
+backend/.env
+```
 
-- `DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"`
-- `JWT_SECRET="replace-with-a-secure-secret"`
-- `ZHIPU_API_KEY="replace-with-your-zhipu-api-key"`
-- `SILICONFLOW_API_KEY="replace-with-your-siliconflow-api-key"`
-- `SMTP_HOST="smtp.example.com"`
-- `SMTP_PORT="465"`
-- `SMTP_USER="your-app@example.com"`
-- `SMTP_PASS="your-app-password"`
+Example:
 
-Do not commit the `.env` file to Git.
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+JWT_SECRET="replace-with-a-secure-secret"
+
+ZHIPU_API_KEY="replace-with-your-zhipu-api-key"
+SILICONFLOW_API_KEY="replace-with-your-siliconflow-api-key"
+
+SMTP_HOST="smtp.example.com"
+SMTP_PORT="465"
+SMTP_USER="your-app@example.com"
+SMTP_PASS="your-app-password"
+```
+
+Never commit `.env` files, passwords, API keys, or other credentials to Git.
 
 ### Frontend
 
-Create `frontend/.env.development`.
+Create:
 
-Example configuration:
+```text
+frontend/.env.development
+```
 
-- `VITE_API_BASE_URL="http://localhost:3000/api"`
-- `VITE_USE_MOCK="false"`
+Example:
 
-## Local Setup
+```env
+VITE_API_BASE_URL="http://localhost:3000/api"
+VITE_USE_MOCK="false"
+```
 
-### Backend
+---
 
-For a cloud database that already has the CourseCompass schema and data, set `DATABASE_URL`, then run `cd backend`, `npm ci`, `npx prisma generate`, and `npm run dev`. The backend reads courses and accounts from that database.
+## Getting Started
 
-Run `npm run setup` only when you intend to apply the repository's migrations and generate missing course embeddings on the database in `DATABASE_URL`.
+### 1. Clone the Repository
 
-The `npm run setup` command automatically performs the following steps:
+```bash
+git clone <repository-url>
+cd CourseCompass
+```
+
+### 2. Start the Backend
+
+```bash
+cd backend
+npm ci
+npx prisma generate
+npm run dev
+```
+
+The backend runs at:
+
+```text
+http://localhost:3000
+```
+
+For a standard non-development start:
+
+```bash
+npm start
+```
+
+### 3. Start the Frontend
+
+Open another terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+The frontend runs at:
+
+```text
+http://localhost:5173
+```
+
+The frontend communicates with the backend through:
+
+```text
+http://localhost:3000/api
+```
+
+---
+
+## Database Setup
+
+The Prisma schema is located at:
+
+```text
+backend/prisma/schema.prisma
+```
+
+Database migrations are stored in:
+
+```text
+backend/prisma/migrations/
+```
+
+If the connected database already contains the CourseCompass schema and course data, normal development usually requires only:
+
+```bash
+npx prisma generate
+npm run dev
+```
+
+To provision a database using the repository's existing migrations and generate missing course embeddings:
+
+```bash
+npm run setup
+```
+
+The setup process:
 
 1. Validates the Prisma schema
 2. Generates Prisma Client
 3. Applies existing database migrations
 4. Generates missing course embeddings
-5. Verifies the migration status
+5. Checks migration status
 
-After the setup is complete, start the backend with `npm run dev`.
+`npm run setup` does not create demo accounts or insert demo course data.
 
-The backend runs at `http://localhost:3000`.
+---
 
-For a normal non-development start, use `npm start`.
+## Database Development
 
-### Frontend
+After modifying `schema.prisma`, validate the schema:
 
-Open a second terminal and run `cd frontend`, followed by `npm ci` and `npm run dev`.
+```bash
+npx prisma validate
+```
 
-The frontend runs at `http://localhost:5173`.
+Create a migration:
 
-The frontend communicates with the backend through `http://localhost:3000/api`.
+```bash
+npx prisma migrate dev --name migration-name
+```
 
-## Backend Commands
+Example:
 
-### Project Setup
+```bash
+npx prisma migrate dev --name add-course-status
+```
 
-Run `npm run setup` when provisioning a database or generating missing course embeddings.
+Regenerate Prisma Client when required:
 
-This includes Prisma schema validation, Prisma Client generation, database migration deployment, course embedding generation, and migration status verification. It does not insert demo data.
+```bash
+npx prisma generate
+```
 
-### Development Server
+Existing migrations are deployed during project setup using:
 
-Run `npm run dev` to start the backend using Nodemon.
+```bash
+npx prisma migrate deploy
+```
 
-The server automatically restarts when backend source files change.
+---
 
-### Normal Server Start
+## Prisma Studio
 
-Run `npm start` to start the backend using `node app.js` without automatic restart.
+To inspect the database using Prisma's graphical interface:
 
-## Database
+```bash
+cd backend
+npx prisma studio
+```
 
-The Prisma schema is located at `backend/prisma/schema.prisma`.
-
-Database migrations are stored in `backend/prisma/migrations/`.
-
-Existing migrations are automatically applied when running `npm run setup`.
-
-### Creating a New Migration During Development
-
-After modifying `schema.prisma`, validate the schema with `npx prisma validate`.
-
-Create a new migration with `npx prisma migrate dev --name migration-name`.
-
-For example, `npx prisma migrate dev --name add-course-status`.
-
-Regenerate Prisma Client if required with `npx prisma generate`.
-
-`prisma migrate dev` is intended for development when creating new migrations.
-
-For normal project setup, existing migrations are applied using `prisma migrate deploy`, which is already included in `npm run setup`.
-
-### Prisma Studio
-
-Run `npx prisma studio` to inspect the database using Prisma's graphical interface.
+---
 
 ## AI Embeddings
 
-CourseCompass uses SiliconFlow's `BAAI/bge-m3` embedding model.
+CourseCompass uses SiliconFlow's **BAAI/bge-m3** model for course embeddings.
 
-Course embeddings are stored as 1024-dimensional vectors using PostgreSQL `pgvector`.
+Embeddings are stored as **1024-dimensional vectors** in PostgreSQL using `pgvector`.
 
 ### Generate Missing Embeddings
 
-Run `npm run embeddings:generate`.
+```bash
+npm run embeddings:generate
+```
 
-This generates embeddings only for courses that do not currently have an embedding.
+Only courses without an existing embedding are processed.
 
 ### Rebuild All Embeddings
 
-Run `npm run embeddings:rebuild`.
+```bash
+npm run embeddings:rebuild
+```
 
-This regenerates embeddings for all courses.
+This regenerates embeddings for every course.
 
-Embedding generation is included in `npm run setup`. An existing cloud database with course embeddings needs no generation step.
+For an existing database with valid embeddings, regeneration is not required.
+
+---
 
 ## Testing
 
-Run the complete backend test suite with `cd backend` followed by `npm test`.
+Run the backend test suite with:
+
+```bash
+cd backend
+npm test
+```
 
 The backend uses Node.js's built-in test runner.
 
-The test suite includes coverage for:
+Tests cover areas including:
 
-- Backend validation rules
-- Password policy
+- Backend validation
+- Password policies
 - Rate limiting
 - Health checks
 - Background embedding jobs
@@ -177,57 +464,173 @@ The test suite includes coverage for:
 - Course prerequisites
 - Reviews and related database behaviour
 
-Some integration tests connect to the configured database and create temporary records. Run them against an isolated development or test database, not a populated cloud database.
+Some integration tests connect to the configured database and create temporary records.
 
-Temporary test data is cleaned up after the tests complete.
+Use an isolated development or test database when running integration tests rather than a populated production or shared database.
+
+---
 
 ## Frontend Production Build
 
-Run `cd frontend` followed by `npm run build` to verify that the frontend can be built successfully.
+To verify the frontend production build:
 
-The production build is generated in `frontend/dist/`.
+```bash
+cd frontend
+npm run build
+```
 
-Run `npm run preview` to preview the production build locally.
+The output is generated in:
 
-## Recommended First Run
+```text
+frontend/dist/
+```
 
-After cloning the repository, use the following workflow.
+Preview the production build locally with:
 
-### Backend
+```bash
+npm run preview
+```
 
-1. `cd backend`
-2. `npm ci`
-3. `npx prisma generate`
-4. `npm run dev`
+---
 
-Run `npm run setup` separately if this database needs the repository's migrations or missing course embeddings. Run `npm test` against an isolated development or test database.
+## Useful Backend Commands
 
-### Frontend
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start backend development server |
+| `npm start` | Start backend normally |
+| `npm run setup` | Apply migrations and generate missing embeddings |
+| `npm test` | Run backend tests |
+| `npm run embeddings:generate` | Generate missing course embeddings |
+| `npm run embeddings:rebuild` | Rebuild all course embeddings |
+| `npx prisma studio` | Open Prisma Studio |
+| `npx prisma validate` | Validate Prisma schema |
+| `npx prisma generate` | Generate Prisma Client |
 
-Open a second terminal and run:
+---
 
-1. `cd frontend`
-2. `npm ci`
-3. `npm run build`
-4. `npm run dev`
+## Accounts and Roles
 
-## Accounts
+Project setup does not automatically create user accounts.
 
-Setup does not create accounts. Use accounts already present in the connected database or register a student account through the application. Administrator and moderator roles must be provisioned separately.
+Students may register directly through the application.
+
+CourseCompass currently supports the following roles:
+
+- `STUDENT`
+- `MODERATOR`
+- `ADMIN`
+
+Administrator and moderator accounts must be provisioned separately.
+
+
+
+## Key Technical Challenges
+
+Several technical challenges were addressed during the development of CourseCompass.
+
+### Semantic Course Retrieval
+
+Traditional keyword search may fail when a student's interests do not exactly match wording in course descriptions.
+
+CourseCompass addresses this by representing course information as embedding vectors and retrieving courses based on semantic similarity.
+
+### AI Integration
+
+The AI recommendation system separates retrieval from explanation generation.
+
+Vector search first identifies potentially relevant courses, while the language model is used to explain recommendations rather than directly selecting from the entire catalogue.
+
+### Database and Vector Integration
+
+CourseCompass integrates Prisma-managed relational data with PostgreSQL `pgvector` for semantic search while maintaining normal course, prerequisite, review, and account relationships.
+
+### Full-Stack Integration
+
+The project connects the Vue frontend, Express REST API, Prisma data layer, PostgreSQL database, authentication system, and external AI services into a single application workflow.
+
+---
+
+## Known Limitations
+
+- AI features depend on external AI API availability.
+- Recommendation quality depends on the quality and completeness of stored course information.
+- Course embeddings must be generated before semantic retrieval can operate correctly.
+- Programme requirements and official course rules may change over time.
+- AI-generated recommendations should be treated as planning assistance rather than authoritative academic advice.
+
+Students should verify final course selections and programme requirements using official university information.
+
+---
+
+## Future Improvements
+
+Potential future improvements include:
+
+- Hybrid keyword and semantic search
+- More advanced recommendation-ranking strategies
+- Dynamic retrieval parameters
+- Improved AI recommendation evaluation
+- More comprehensive course datasets
+- Improved prerequisite visualisation
+- Additional recommendation personalisation
+- Improved administrator analytics
+- Deployment automation and monitoring
+
+---
 
 ## Dependency Management
 
-Use `npm ci` for a clean installation based on the committed `package-lock.json`.
+Use:
 
-Use `npm install` when adding, removing, or updating project dependencies during development.
+```bash
+npm ci
+```
 
-Do not commit `node_modules/` to the repository.
+for clean installations based on the committed `package-lock.json`.
+
+Use:
+
+```bash
+npm install
+```
+
+when adding, removing, or updating dependencies.
+
+Do not commit:
+
+```text
+node_modules/
+```
+
+---
 
 ## Security Notes
 
-- Never commit `.env` files or API credentials.
+- Never commit `.env` files.
+- Never commit API credentials.
 - Never commit database passwords.
 - Use a strong random `JWT_SECRET`.
 - Configure `CORS_ORIGIN` appropriately in production.
-- AI-generated output is planning assistance only.
-- Course prerequisites and programme requirements should be verified against official university information.
+- Use isolated databases when running integration tests.
+- AI-generated output should not replace official university programme information.
+
+---
+
+## Academic Project
+
+CourseCompass was developed as a university software-development project for educational purposes.
+
+The repository demonstrates practical experience with:
+
+- Full-stack web development
+- REST API development
+- Relational database design
+- Authentication and role-based access control
+- Vector databases
+- Semantic search
+- Embedding models
+- Large language model integration
+- AI-assisted recommendation systems
+- Automated testing
+- Team-based software development
