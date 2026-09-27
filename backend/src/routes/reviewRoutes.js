@@ -6,7 +6,7 @@ const { verifyToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 
 const studentOnly = [verifyToken, requireRole('STUDENT')];
-const moderatorOnly = [verifyToken, requireRole('MODERATOR')];
+const moderationRoles = [verifyToken, requireRole('MODERATOR', 'ADMIN')];
 
 // Public: approved reviews for a course
 router.get('/course/:courseId', reviewController.getCourseReviews);
@@ -23,18 +23,18 @@ router.post('/', ...studentOnly, reviewController.addReview);
 // Student: update own review (resets to PENDING)
 router.put('/course/:courseId', ...studentOnly, reviewController.updateReview);
 
-// Moderator: pending review queue
-router.get('/pending', ...moderatorOnly, reviewController.getPendingReviews);
+// Moderator or administrator: pending review queue
+router.get('/pending', ...moderationRoles, reviewController.getPendingReviews);
 
-// Moderator: pending report queue
-router.get('/reports/pending', ...moderatorOnly, reviewController.getPendingReports);
-router.get('/moderation/counts', ...moderatorOnly, reviewController.getModerationQueueCounts);
-router.patch('/reports/:id/status', ...moderatorOnly, reviewController.updateReportStatus);
+// Moderator or administrator: pending report queue
+router.get('/reports/pending', ...moderationRoles, reviewController.getPendingReports);
+router.get('/moderation/counts', ...moderationRoles, reviewController.getModerationQueueCounts);
+router.patch('/reports/:id/status', ...moderationRoles, reviewController.updateReportStatus);
 
 // Student: report a review
 router.post('/:id/report', ...studentOnly, reviewController.reportReview);
 
-// Moderator: moderate a review
-router.patch('/:id/status', ...moderatorOnly, reviewController.moderateReview);
+// Moderator or administrator: moderate a review
+router.patch('/:id/status', ...moderationRoles, reviewController.moderateReview);
 
 module.exports = router;

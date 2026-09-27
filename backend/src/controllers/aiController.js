@@ -3,6 +3,10 @@ const aiService = require('../services/aiService');
 const courseRetrievalService = require('../services/courseRetrievalService');
 const courseService = require('../services/courseService');
 const llmService = require('../services/llmService');
+const {
+    attachCompletedCourseConnections,
+    collectRelevantCompletedCourses
+} = require('../services/completedCourseAnalysisService');
 const prisma = require('../lib/prisma');
 const { toPlainText } = require('../utils/plainText');
 const MAX_RESULT_LIMIT = 10;
@@ -83,7 +87,13 @@ const buildFallbackRecommendation = (course, query) => {
         cautions.push('The workload is not specified in the available data, so verify the expected time commitment.');
     }
 
-    return { courseId: course.id, reasons, cautions: cautions.slice(0, 3) };
+    const completedCourseAnalysis = (course.completedCourseConnections || []).slice(0, 2).map(connection => (
+        connection.relationship === 'prerequisite'
+            ? `${connection.code} ${connection.name} is a recorded prerequisite that you have already completed.`
+            : `${connection.code} ${connection.name} gives you prior study in the same subject area.`
+    ));
+
+    return { courseId: course.id, reasons, cautions: cautions.slice(0, 3), completedCourseAnalysis };
 };
 
 /** Parse the model's JSON, keeping only recommendations that match retrieved courses. */
@@ -98,7 +108,10 @@ const parseRecommendationOutput = (raw, candidates, query) => {
             .map(item => ({
                 courseId: Number(item.courseId),
                 reasons: Array.isArray(item.reasons) ? item.reasons.map(toPlainText).filter(Boolean).slice(0, 5) : [],
-                cautions: Array.isArray(item.cautions) ? item.cautions.map(toPlainText).filter(Boolean).slice(0, 5) : []
+                cautions: Array.isArray(item.cautions) ? item.cautions.map(toPlainText).filter(Boolean).slice(0, 5) : [],
+                completedCourseAnalysis: Array.isArray(item.completedCourseAnalysis)
+                    ? item.completedCourseAnalysis.map(toPlainText).filter(Boolean).slice(0, 3)
+                    : []
             }));
         const recommendationsByCourse = new Map(parsedRecommendations.map(item => [item.courseId, item]));
         const recommendations = candidates.map(course => {
@@ -111,7 +124,10 @@ const parseRecommendationOutput = (raw, candidates, query) => {
                     : fallback.reasons,
                 cautions: recommendation?.cautions.length
                     ? recommendation.cautions
-                    : fallback.cautions
+                    : fallback.cautions,
+                completedCourseAnalysis: recommendation?.completedCourseAnalysis.length
+                    ? recommendation.completedCourseAnalysis
+                    : fallback.completedCourseAnalysis
             };
         });
         return {
@@ -304,7 +320,15 @@ const aiRecommendCourses = async (req, res) => {
                 goals: true,
                 planningPreferences: true,
                 savedCourses: { select: { course: { select: { id: true, code: true, name: true } } } },
-                completedCourses: { select: { course: { select: { id: true, code: true, name: true } } } }
+                completedCourses: { select: { course: { select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    description: true,
+                    level: true,
+                    subjectId: true,
+                    subject: { select: { id: true, code: true, name: true } }
+                } } } }
             }
         });
         const preferences = profile?.planningPreferences && typeof profile.planningPreferences === 'object'
@@ -331,6 +355,7 @@ const aiRecommendCourses = async (req, res) => {
             studentContext.programme && `Programme: ${studentContext.programme}`,
             studentContext.interests.length && `Interests: ${studentContext.interests.join(', ')}`,
             studentContext.goals.length && `Goals: ${studentContext.goals.join(', ')}`,
+            studentContext.completedCourses.length && `Completed-course foundation: ${studentContext.completedCourses.slice(0, 30).map(course => `${course.code} ${course.name}`).join(', ')}`,
             studentContext.savedCourses.length && `Saved course interests: ${studentContext.savedCourses.map(course => `${course.code} ${course.name}`).join(', ')}`
         ].filter(Boolean).join('\n').slice(0, MAX_EMBEDDING_TEXT_LENGTH);
 
@@ -341,7 +366,11 @@ const aiRecommendCourses = async (req, res) => {
             ...filterResult.filters,
             excludeUserId: req.user.id
         });
-        const candidates = retrievedCandidates;
+        const candidates = attachCompletedCourseConnections(
+            retrievedCandidates,
+            studentContext.completedCourses
+        );
+        const relevantCompletedCourses = collectRelevantCompletedCourses(candidates);
 
         if (candidates.length === 0) {
             const emptyMessage = "Sorry, there are no matching courses in the database yet.";
@@ -366,10 +395,12 @@ const aiRecommendCourses = async (req, res) => {
             Distinguish semantic relevance from confirmed course facts. Keep the analysis concise and objective.
             Return exactly one recommendation object for every supplied candidate course.
             Each recommendation must contain exactly two concise reasons explaining how that specific course fits the student's stated requirements, using evidence from the supplied course data.
+            When completedCourseConnections are supplied, explain how one or two completed courses prepare the student for that candidate. Distinguish recorded prerequisites from broader same-subject background.
+            When no completedCourseConnections are supplied, return an empty completedCourseAnalysis array. Never imply that an unrelated completed course is relevant.
             Each recommendation must also contain one or two concise cautions. Mention missing prerequisite, semester, workload, or assessment evidence when no course-specific risk can be confirmed.
             Keep the summary under 60 words and every reason or caution under 35 words so the complete JSON response is not truncated.
             All text values must use plain text only. Do not use Markdown headings, bullet markers, numbered-list markers, asterisks, code fences, or tables.
-            Return JSON only in this exact shape: {"summary":"...","recommendations":[{"courseId":1,"reasons":["..."],"cautions":["..."]}]}.
+            Return JSON only in this exact shape: {"summary":"...","recommendations":[{"courseId":1,"reasons":["..."],"cautions":["..."],"completedCourseAnalysis":["..."]}]}.
             courseId must be copied from the supplied candidate data.`;
         
         const userContent = `Student requirements: "${normalizedQuery}"\n\nNon-identifying student context:\n${JSON.stringify(studentContext, null, 2)}\n\nCandidate course data:\n${JSON.stringify(candidates, null, 2)}`;
@@ -393,7 +424,8 @@ const aiRecommendCourses = async (req, res) => {
                 recommendations: candidates.map(course => ({
                     courseId: course.id,
                     reasons: ['This course is a semantic match for your stated goals.'],
-                    cautions: ['A generated course-specific explanation is temporarily unavailable.']
+                    cautions: ['A generated course-specific explanation is temporarily unavailable.'],
+                    completedCourseAnalysis: buildFallbackRecommendation(course, normalizedQuery).completedCourseAnalysis
                 })),
                 summary: 'These courses are ranked by semantic similarity to your goals. Personalized AI explanations will return when the language model is available.'
             };
@@ -408,6 +440,7 @@ const aiRecommendCourses = async (req, res) => {
                 candidateCourses: candidates,
                 aiRationale: structuredResult.summary,
                 recommendations: structuredResult.recommendations,
+                relevantCompletedCourses,
                 summary: structuredResult.summary,
                 mode: warning ? 'semantic' : 'ai',
                 disclaimer: 'Planning support only. Verify prerequisites and programme rules with official university sources.',

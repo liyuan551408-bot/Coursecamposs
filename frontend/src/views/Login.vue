@@ -21,9 +21,9 @@ const form = reactive({
 })
 
 const roleOptions = [
-  { value: 'STUDENT', label: 'Student', mark: 'ST', description: 'Plan courses, save favourites and share reviews.' },
-  { value: 'MODERATOR', label: 'Moderator', mark: 'MO', description: 'Review submissions and resolve reported content.' },
-  { value: 'ADMIN', label: 'Administrator', mark: 'AD', description: 'Manage courses, subjects and user access.' },
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'MODERATOR', label: 'Moderator' },
+  { value: 'ADMIN', label: 'Administrator' },
 ]
 
 const selectedRole = computed(() => roleOptions.find((option) => option.value === form.role))
@@ -74,29 +74,16 @@ async function handleLogin() {
 
 <template>
   <div class="login-page">
-    <el-card class="login-card" shadow="hover">
-      <div class="brand-lockup">
-        <span class="brand-mark">C</span>
-        <div><strong>CourseCompass</strong><small>Account access</small></div>
-      </div>
-
-      <div class="login-steps" aria-label="Login progress">
-        <span class="is-active">1 <b>Identity</b></span>
-        <i />
-        <span :class="{ 'is-active': form.role }">2 <b>Credentials</b></span>
-      </div>
-
+    <el-card class="login-card" shadow="never">
       <template v-if="!form.role">
         <div class="login-heading">
-          <p class="eyebrow">CHOOSE YOUR ACCESS</p>
-          <h1>How are you signing in?</h1>
-          <p>Select the account type assigned to your email address.</p>
+          <h1>Choose your account type</h1>
+          <p>Select how you use CourseCompass.</p>
         </div>
 
         <div class="role-grid">
           <button v-for="option in roleOptions" :key="option.value" type="button" class="role-card" @click="selectRole(option.value)">
-            <span class="role-mark">{{ option.mark }}</span>
-            <span class="role-copy"><strong>{{ option.label }}</strong><small>{{ option.description }}</small></span>
+            <strong>{{ option.label }}</strong>
             <span class="role-arrow">→</span>
           </button>
         </div>
@@ -104,8 +91,7 @@ async function handleLogin() {
 
       <template v-else>
         <div class="selected-role">
-          <span class="role-mark">{{ selectedRole.mark }}</span>
-          <span><small>SIGNING IN AS</small><strong>{{ selectedRole.label }}</strong></span>
+          <span>Signing in as <strong>{{ selectedRole.label }}</strong></span>
           <el-button link type="primary" @click="changeRole">Change</el-button>
         </div>
 
@@ -148,68 +134,12 @@ async function handleLogin() {
 
 .login-card {
   width: 100%;
-  max-width: 560px;
+  max-width: 440px;
   text-align: left;
 }
 
-.brand-lockup {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border);
-}
-
-.brand-mark,
-.role-mark {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: var(--accent);
-  color: white;
-  font: 800 12px/1 var(--mono);
-  letter-spacing: .05em;
-}
-
-.brand-lockup > div {
-  display: grid;
-}
-
-.brand-lockup strong {
-  color: var(--text-h);
-  font-size: 16px;
-}
-
-.brand-lockup small {
-  color: var(--text-muted);
-}
-
-.login-steps {
-  display: flex;
-  align-items: center;
-  margin: 20px 0 26px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.login-steps span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.login-steps span.is-active {
-  color: var(--accent);
-}
-
-.login-steps i {
-  flex: 1;
-  height: 1px;
-  margin: 0 12px;
-  background: var(--border);
+.login-card :deep(.el-card__body) {
+  padding: 30px;
 }
 
 .login-heading {
@@ -217,9 +147,9 @@ async function handleLogin() {
 }
 
 .login-heading h1 {
-  margin: 5px 0 7px;
+  margin: 0 0 7px;
   color: var(--text-h);
-  font-size: 27px;
+  font-size: 26px;
 }
 
 .login-heading > p:last-child {
@@ -228,41 +158,32 @@ async function handleLogin() {
   line-height: 1.55;
 }
 
-.eyebrow {
-  margin: 0;
-  color: var(--accent);
-  font: 700 10px/1.3 var(--mono);
-  letter-spacing: .13em;
-}
-
 .role-grid {
   display: grid;
   gap: 10px;
 }
 
 .role-card {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 13px;
   width: 100%;
-  padding: 14px;
+  padding: 15px 16px;
   border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--bg);
+  border-radius: 10px;
+  background: var(--bg-card);
   color: var(--text);
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+  transition: border-color .15s ease, background .15s ease;
 }
 
 .role-card:hover,
 .role-card:focus-visible {
   border-color: var(--accent);
   background: var(--accent-bg);
-  box-shadow: 0 8px 20px rgba(50, 37, 79, .08);
-  transform: translateY(-2px);
 }
 
 .role-card:focus-visible {
@@ -270,18 +191,9 @@ async function handleLogin() {
   outline-offset: 2px;
 }
 
-.role-copy {
-  display: grid;
-  gap: 3px;
-}
-
-.role-copy strong {
+.role-card strong {
   color: var(--text-h);
   font-size: 15px;
-}
-
-.role-copy small {
-  line-height: 1.4;
 }
 
 .role-arrow {
@@ -290,25 +202,14 @@ async function handleLogin() {
 }
 
 .selected-role {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 22px;
-  padding: 12px;
-  border: 1px solid var(--accent-border);
-  border-radius: 13px;
-  background: var(--accent-bg);
-}
-
-.selected-role > span:nth-child(2) {
-  display: grid;
-}
-
-.selected-role small {
-  color: var(--accent);
-  font: 700 9px/1.4 var(--mono);
-  letter-spacing: .1em;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
 }
 
 .selected-role strong {
@@ -335,6 +236,11 @@ async function handleLogin() {
 .footer-link a {
   color: var(--accent);
   text-decoration: none;
+}
+
+@media (max-width: 520px) {
+  .login-page { padding: 8px; }
+  .login-card :deep(.el-card__body) { padding: 22px; }
 }
 
 </style>

@@ -272,11 +272,14 @@ onMounted(() => {
 
 <template>
   <section class="admin-page">
-    <div class="page-heading"><div><p class="eyebrow">ADMIN CONSOLE</p><h1>Course management</h1><p class="muted">Manage the course catalogue, subject categories and user access.</p></div></div>
+    <div class="page-heading"><div><p class="eyebrow">ADMIN CONSOLE</p><h1>Administration</h1><p class="muted">Manage courses, subjects, user access, reviews and reports.</p></div></div>
     <div v-if="stats" class="stats-grid">
       <el-card><strong>Users</strong><h2>{{ stats.users }}</h2></el-card>
-      <el-card><strong>Courses</strong><h2>{{ stats.courses }}</h2></el-card>
-      <el-card><strong>Active courses</strong><h2>{{ stats.activeCourses }}</h2></el-card>
+      <el-card><strong>Courses</strong><h2>{{ stats.courses }}</h2><small>{{ stats.activeCourses }} active</small></el-card>
+      <el-card><strong>Reviews</strong><h2>{{ stats.reviews }}</h2><small>{{ stats.pendingReviews }} pending</small></el-card>
+      <el-card><strong>Semester plans</strong><h2>{{ stats.plans }}</h2></el-card>
+      <el-card><strong>Reports</strong><h2>{{ stats.reports }}</h2><small>{{ stats.pendingReports }} pending</small></el-card>
+      <el-card class="moderation-stat"><strong>Review moderation</strong><p>Open the shared queue to manage pending reviews and reports.</p><el-button type="primary" plain @click="$router.push('/moderation')">Open queue</el-button></el-card>
     </div>
     <div class="admin-grid">
       <el-card class="catalogue-card">
@@ -444,6 +447,22 @@ onMounted(() => {
 
 .stats-grid h2 {
   margin: 8px 0 0;
+}
+
+.stats-grid small {
+  color: var(--text-muted);
+}
+
+.moderation-stat {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.moderation-stat p {
+  margin: 8px 0 12px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .users-card {

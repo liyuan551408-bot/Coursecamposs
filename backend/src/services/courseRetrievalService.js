@@ -90,7 +90,7 @@ const semanticSearchCourses = async ({
     }
     values.push(limit);
     const courses = await prisma.$queryRawUnsafe(`
-        SELECT id, code, name, description, credits, level,
+        SELECT id, code, name, description, credits, level, "subjectId",
                "offeredSemesters", "assessmentTypes", "workloadHours", "officialLink",
                CAST(1 - (embedding <=> $1::vector) AS TEXT) AS similarity_text
         FROM "Course"
@@ -102,6 +102,18 @@ const semanticSearchCourses = async ({
         LIMIT $${values.length}::int;
     `, ...values);
 
+    const details = courses.length
+        ? await prisma.course.findMany({
+            where: { id: { in: courses.map(course => course.id) } },
+            select: {
+                id: true,
+                subject: { select: { id: true, code: true, name: true } },
+                prerequisites: { select: { id: true, code: true, name: true } }
+            }
+        })
+        : [];
+    const detailsById = new Map(details.map(course => [course.id, course]));
+
     return courses.map(course => ({
         id: course.id,
         code: course.code,
@@ -109,6 +121,9 @@ const semanticSearchCourses = async ({
         description: course.description,
         credits: course.credits,
         level: course.level,
+        subjectId: course.subjectId,
+        subject: detailsById.get(course.id)?.subject || null,
+        prerequisites: detailsById.get(course.id)?.prerequisites || [],
         offeredSemesters: normalizeEnumArray(course.offeredSemesters),
         assessmentTypes: normalizeEnumArray(course.assessmentTypes),
         workloadHours: course.workloadHours,

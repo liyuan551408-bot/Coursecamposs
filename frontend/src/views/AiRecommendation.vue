@@ -69,6 +69,9 @@ const courseRecommendations = computed(() => courses.value.map(course => {
     course,
     reasons: Array.isArray(recommendation?.reasons) ? recommendation.reasons.filter(Boolean) : [],
     cautions: Array.isArray(recommendation?.cautions) ? recommendation.cautions.filter(Boolean) : [],
+    completedCourseAnalysis: Array.isArray(recommendation?.completedCourseAnalysis)
+      ? recommendation.completedCourseAnalysis.filter(Boolean)
+      : [],
   }
 }))
 
@@ -127,12 +130,17 @@ async function recommend() {
       <div class="recommendations">
         <h2>Recommended courses</h2>
         <p class="rationale">{{ rationalePayload.summary }}</p>
+        <p v-if="result.relevantCompletedCourses?.length" class="completed-context">
+          <strong>Personalised with your completed study:</strong>
+          {{ result.relevantCompletedCourses.map(course => `${course.code} ${course.name}`).join(', ') }}
+        </p>
         <AiCourseRecommendationCard
           v-for="item in courseRecommendations"
           :key="item.course.id"
           :course="item.course"
           :reasons="item.reasons"
           :cautions="item.cautions"
+          :completed-course-analysis="item.completedCourseAnalysis"
         />
         <el-empty v-if="!courses.length" description="The AI did not return any courses" />
       </div>
@@ -141,5 +149,5 @@ async function recommend() {
 </template>
 
 <style scoped>
-.ai-page{max-width:850px;margin:0 auto}.ai-notice{margin-bottom:16px}.ai-hero{padding:36px;border:1px solid var(--accent-border);border-radius:16px;background:linear-gradient(135deg,var(--accent-bg),transparent)}.eyebrow{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em}.ai-hero h1{font-size:38px;margin:8px 0}.ai-hero>p:not(.eyebrow){line-height:1.6;margin-bottom:22px}.ai-actions{display:flex;align-items:center;gap:12px;margin-top:12px}.ai-actions span{font-size:13px;color:var(--text)}.prompt-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.ai-result{margin-top:24px}.fallback-alert{margin-bottom:12px}.rationale{white-space:pre-wrap;line-height:1.7}.recommendations{margin-top:24px}
+.ai-page{max-width:850px;margin:0 auto}.ai-notice{margin-bottom:16px}.ai-hero{padding:36px;border:1px solid var(--accent-border);border-radius:16px;background:linear-gradient(135deg,var(--accent-bg),transparent)}.eyebrow{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.12em}.ai-hero h1{font-size:38px;margin:8px 0}.ai-hero>p:not(.eyebrow){line-height:1.6;margin-bottom:22px}.ai-actions{display:flex;align-items:center;gap:12px;margin-top:12px}.ai-actions span{font-size:13px;color:var(--text)}.prompt-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.ai-result{margin-top:24px}.fallback-alert{margin-bottom:12px}.rationale{white-space:pre-wrap;line-height:1.7}.recommendations{margin-top:24px}.completed-context{margin-top:14px;padding:12px 14px;border-left:3px solid var(--secondary);background:var(--secondary-bg);border-radius:0 var(--radius-sm) var(--radius-sm) 0;font-size:14px;line-height:1.6}.completed-context strong{color:var(--text-h)}
 </style>

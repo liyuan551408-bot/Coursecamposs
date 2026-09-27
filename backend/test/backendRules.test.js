@@ -4,6 +4,7 @@ const test = require('node:test');
 const { validatePassword } = require('../src/utils/passwordPolicy');
 const { forgotPasswordLimiter } = require('../src/middlewares/rateLimit');
 const { getHealth } = require('../src/controllers/healthController');
+const { normalizePlanningPreferences } = require('../src/services/userService');
 
 const response = () => {
     const result = { statusCode: 200, body: null, headers: {} };
@@ -42,4 +43,26 @@ test('service health endpoint returns an OK response', () => {
     const result = response();
     getHealth({}, result);
     assert.deepEqual(result.result, { statusCode: 200, body: { success: true, status: 'ok' }, headers: {} });
+});
+
+test('planning preferences are normalized and constrained', () => {
+    assert.deepEqual(normalizePlanningPreferences({
+        maxCreditsPerSemester: 60,
+        preferredAssessmentTypes: ['PROJECT', 'PROJECT', 'LAB'],
+        preferredWorkload: 'MODERATE',
+        avoidExamHeavy: true
+    }), {
+        maxCreditsPerSemester: 60,
+        preferredAssessmentTypes: ['PROJECT', 'LAB'],
+        preferredWorkload: 'MODERATE',
+        avoidExamHeavy: true
+    });
+    assert.throws(
+        () => normalizePlanningPreferences({ preferredAssessmentTypes: ['ESSAY'] }),
+        /invalid value/
+    );
+    assert.throws(
+        () => normalizePlanningPreferences({ maxCreditsPerSemester: 0 }),
+        /between 1 and 120/
+    );
 });

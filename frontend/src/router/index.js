@@ -48,7 +48,7 @@ const routes = [
     path: '/moderation',
     name: 'ModerationDashboard',
     component: ModerationDashboard,
-    meta: { requiresAuth: true, roles: ['moderator'] },
+    meta: { requiresAuth: true, roles: ['moderator', 'admin'] },
   },
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   { path: '/notifications', name: 'Notifications', component: Notifications, meta: { requiresAuth: true } },

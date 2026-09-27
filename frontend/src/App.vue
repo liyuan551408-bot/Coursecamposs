@@ -29,7 +29,7 @@ function stopBadgeRefresh() {
 async function refreshBadges() {
   if (!authStore.isLoggedIn) return
   const refreshes = [notificationStore.refresh()]
-  if (authStore.isModerator) {
+  if (authStore.isModerator || authStore.isAdmin) {
     refreshes.push(moderationStore.refresh())
   } else {
     moderationStore.reset()
@@ -127,7 +127,7 @@ onBeforeUnmount(() => {
         <router-link v-if="authStore.isStudent" to="/planner" class="nav-link">Planner</router-link>
         <router-link to="/compare" class="nav-link">Compare</router-link>
         <router-link v-if="authStore.isStudent" to="/ai-recommend" class="nav-link">AI Recommendations</router-link>
-        <router-link v-if="authStore.isModerator" to="/moderation" class="nav-link nav-link--badge">
+        <router-link v-if="authStore.isModerator || authStore.isAdmin" to="/moderation" class="nav-link nav-link--badge">
           Moderation
           <span v-if="moderationStore.pendingCount" class="nav-badge" aria-label="Pending moderation items">
             {{ moderationStore.pendingCount > 99 ? '99+' : moderationStore.pendingCount }}

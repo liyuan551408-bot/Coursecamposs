@@ -20,11 +20,37 @@ const savedSnapshot = ref('')
 const saveFeedback = ref('')
 let feedbackTimer
 
-const form = reactive({ name: '', major: '', studyYear: null })
+const assessmentOptions = ['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION']
+const emptyPlanningPreferences = () => ({
+  maxCreditsPerSemester: null,
+  preferredAssessmentTypes: [],
+  preferredWorkload: null,
+  avoidExamHeavy: false,
+})
+const form = reactive({
+  name: '',
+  major: '',
+  studyYear: null,
+  interests: [],
+  goals: [],
+  planningPreferences: emptyPlanningPreferences(),
+})
 
 function profileDraft() {
+  const maxCredits = form.planningPreferences.maxCreditsPerSemester
   return authStore.isStudent
-    ? { name: form.name, major: form.major, studyYear: form.studyYear }
+    ? {
+        name: form.name,
+        major: form.major,
+        studyYear: form.studyYear,
+        interests: [...form.interests],
+        goals: [...form.goals],
+        planningPreferences: {
+          ...form.planningPreferences,
+          maxCreditsPerSemester: maxCredits === '' ? null : maxCredits,
+          preferredAssessmentTypes: [...form.planningPreferences.preferredAssessmentTypes],
+        },
+      }
     : { name: form.name }
 }
 
@@ -47,10 +73,20 @@ const filteredCompleted = computed(() => {
 })
 
 function fillForm(user) {
+  const preferences = user.planningPreferences && typeof user.planningPreferences === 'object'
+    ? user.planningPreferences
+    : {}
   Object.assign(form, {
     name: user.name || '',
     major: user.major || '',
     studyYear: user.studyYear,
+    interests: [...(user.interests || [])],
+    goals: [...(user.goals || [])],
+    planningPreferences: {
+      ...emptyPlanningPreferences(),
+      ...preferences,
+      preferredAssessmentTypes: [...(preferences.preferredAssessmentTypes || [])],
+    },
   })
   savedSnapshot.value = JSON.stringify(profileDraft())
 }
@@ -96,7 +132,7 @@ async function saveProfile() {
   saveFeedback.value = ''
   try {
     const payload = authStore.isStudent
-      ? { name: form.name, major: form.major, studyYear: form.studyYear }
+      ? profileDraft()
       : { name: form.name }
     const user = await updateProfile(payload)
     profile.value = user
@@ -201,6 +237,65 @@ onBeforeRouteLeave(async () => {
                 <el-option v-for="year in [1, 2, 3, 4, 5]" :key="year" :label="`Year ${year}`" :value="year" />
               </el-select>
             </el-form-item>
+            <template v-if="authStore.isStudent">
+              <div class="form-section-heading">
+                <span>PERSONALISATION</span>
+                <h3>Goals and interests</h3>
+                <p>Add a short phrase, then press Enter. These details help tailor AI recommendations.</p>
+              </div>
+              <el-form-item label="Interests">
+                <el-select
+                  v-model="form.interests"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  :reserve-keyword="false"
+                  :multiple-limit="20"
+                  placeholder="e.g. machine learning, web development"
+                  style="width:100%"
+                />
+              </el-form-item>
+              <el-form-item label="Study goals">
+                <el-select
+                  v-model="form.goals"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  :reserve-keyword="false"
+                  :multiple-limit="20"
+                  placeholder="e.g. prepare for a software engineering role"
+                  style="width:100%"
+                />
+              </el-form-item>
+
+              <div class="form-section-heading planning-heading">
+                <span>PLANNING PREFERENCES</span>
+                <h3>Preferred study pattern</h3>
+              </div>
+              <div class="preference-grid">
+                <el-form-item label="Maximum credits per semester">
+                  <el-input v-model.number="form.planningPreferences.maxCreditsPerSemester" type="number" min="1" max="120" clearable placeholder="No limit" />
+                </el-form-item>
+                <el-form-item label="Preferred workload">
+                  <el-select v-model="form.planningPreferences.preferredWorkload" clearable placeholder="No preference" style="width:100%">
+                    <el-option label="Light" value="LIGHT" />
+                    <el-option label="Moderate" value="MODERATE" />
+                    <el-option label="Intensive" value="INTENSIVE" />
+                  </el-select>
+                </el-form-item>
+              </div>
+              <el-form-item class="assessment-preference" label="Preferred assessment types">
+                <el-select v-model="form.planningPreferences.preferredAssessmentTypes" multiple clearable placeholder="No preference" style="width:100%">
+                  <el-option v-for="type in assessmentOptions" :key="type" :label="type.toLowerCase().replace('_', ' ')" :value="type" />
+                </el-select>
+              </el-form-item>
+              <div class="exam-preference">
+                <div><strong>Avoid exam-heavy courses</strong><span>Use this preference when generating AI recommendations.</span></div>
+                <el-switch v-model="form.planningPreferences.avoidExamHeavy" />
+              </div>
+            </template>
           </el-form>
 
           <div class="profile-save" :class="{ 'profile-save--dirty': hasUnsavedChanges }">
@@ -259,6 +354,16 @@ onBeforeRouteLeave(async () => {
 .profile-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
 
 .profile-details-card, .completed-card { height: 100%; border-top: 4px solid var(--accent); background: rgba(255, 255, 255, .88); }
+.form-section-heading { margin: 26px 0 16px; padding-top: 22px; border-top: 1px solid var(--border); }
+.form-section-heading span { color: var(--accent); font: 700 10px/1.3 var(--mono); letter-spacing: .12em; }
+.form-section-heading h3 { margin: 4px 0; font-size: 18px; }
+.form-section-heading p { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.planning-heading { margin-top: 22px; }
+.preference-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.exam-preference { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 4px 0 18px; padding: 13px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.exam-preference > div { display: grid; gap: 2px; }
+.exam-preference strong { color: var(--text-h); font-size: 14px; }
+.exam-preference span { color: var(--text-muted); font-size: 12px; }
 .profile-details-card:only-child { grid-column: 1 / -1; }
 .profile-details-card :deep(.el-card__header), .completed-card :deep(.el-card__header) { padding: 20px 22px; }
 .profile-details-card :deep(.el-card__body), .completed-card :deep(.el-card__body) { padding: 22px; }
@@ -294,9 +399,11 @@ onBeforeRouteLeave(async () => {
 @media (max-width: 900px) {
   .profile-layout { grid-template-columns: 1fr; }
   .profile-form { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
+  .form-section-heading, .preference-grid, .assessment-preference, .exam-preference { grid-column: 1 / -1; }
 }
 
 @media (max-width: 680px) {
+  .preference-grid { grid-template-columns: 1fr; }
   .page-heading { align-items: flex-start; flex-direction: column; }
   .profile-form { grid-template-columns: 1fr; }
   .completed-heading { align-items: flex-start; flex-direction: column; }

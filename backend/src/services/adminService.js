@@ -5,19 +5,32 @@ const getStats = async () => {
     const [
         users,
         courses,
-        activeCourses
+        activeCourses,
+        reviews,
+        pendingReviews,
+        plans,
+        reports,
+        pendingReports
     ] = await Promise.all([
         prisma.user.count(),
         prisma.course.count(),
-        prisma.course.count({
-            where: { isActive: true }
-        })
+        prisma.course.count({ where: { isActive: true } }),
+        prisma.review.count(),
+        prisma.review.count({ where: { status: 'PENDING' } }),
+        prisma.semesterPlan.count(),
+        prisma.reviewReport.count(),
+        prisma.reviewReport.count({ where: { status: 'PENDING' } })
     ]);
 
     return {
         users,
         courses,
-        activeCourses
+        activeCourses,
+        reviews,
+        pendingReviews,
+        plans,
+        reports,
+        pendingReports
     };
 };
 

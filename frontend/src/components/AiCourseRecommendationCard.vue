@@ -15,6 +15,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  completedCourseAnalysis: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const displayedReasons = computed(() => props.reasons.length
@@ -40,6 +44,12 @@ const displayedCautions = computed(() => props.cautions.length
     </div>
 
     <div class="recommendation-reason">
+      <div v-if="completedCourseAnalysis.length" class="completed-foundation">
+        <strong>Your completed-course foundation</strong>
+        <ul>
+          <li v-for="(item, index) in completedCourseAnalysis" :key="`${index}-${item}`">{{ item }}</li>
+        </ul>
+      </div>
       <div>
         <strong>Why this course fits your requirements</strong>
         <ul>
@@ -57,5 +67,5 @@ const displayedCautions = computed(() => props.cautions.length
 </template>
 
 <style scoped>
-.recommendation-card{margin-top:12px}.course-header{display:flex;justify-content:space-between;gap:20px}.course-header h3{margin:8px 0;font-size:18px}.course-header p{font-size:14px;line-height:1.5}.course-code{color:var(--accent);font-weight:700}.recommendation-reason{padding-top:16px;margin-top:16px;border-top:1px solid var(--border)}.recommendation-reason ul{margin:8px 0 0;padding-left:22px;line-height:1.7}.cautions{margin-top:12px}@media(max-width:600px){.course-header{display:block}.course-header .el-tag{margin-top:10px}}
+.recommendation-card{margin-top:12px}.course-header{display:flex;justify-content:space-between;gap:20px}.course-header h3{margin:8px 0;font-size:18px}.course-header p{font-size:14px;line-height:1.5}.course-code{color:var(--accent);font-weight:700}.recommendation-reason{padding-top:16px;margin-top:16px;border-top:1px solid var(--border)}.recommendation-reason ul{margin:8px 0 0;padding-left:22px;line-height:1.7}.completed-foundation{margin-bottom:16px;padding:12px 14px;background:var(--secondary-bg);border-radius:var(--radius-sm)}.completed-foundation strong{color:var(--text-h)}.cautions{margin-top:12px}@media(max-width:600px){.course-header{display:block}.course-header .el-tag{margin-top:10px}}
 </style>

@@ -4,6 +4,43 @@ const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { validatePassword } = require('../utils/passwordPolicy');
 
+const ASSESSMENT_TYPES = new Set(['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION']);
+const WORKLOAD_PREFERENCES = new Set(['LIGHT', 'MODERATE', 'INTENSIVE']);
+
+/** Validate and normalize the student-controlled AI planning preferences. */
+const normalizePlanningPreferences = (value) => {
+    if (value === null) return null;
+    if (typeof value !== 'object' || Array.isArray(value)) {
+        throw new TypeError('planningPreferences must be an object');
+    }
+
+    const maxCredits = value.maxCreditsPerSemester;
+    if (maxCredits !== null && maxCredits !== undefined
+        && (!Number.isInteger(Number(maxCredits)) || Number(maxCredits) < 1 || Number(maxCredits) > 120)) {
+        throw new TypeError('Maximum credits per semester must be a whole number between 1 and 120');
+    }
+
+    const assessmentTypes = value.preferredAssessmentTypes ?? [];
+    if (!Array.isArray(assessmentTypes) || assessmentTypes.some(type => !ASSESSMENT_TYPES.has(type))) {
+        throw new TypeError('Preferred assessment types contain an invalid value');
+    }
+
+    const preferredWorkload = value.preferredWorkload ?? null;
+    if (preferredWorkload !== null && !WORKLOAD_PREFERENCES.has(preferredWorkload)) {
+        throw new TypeError('Preferred workload must be light, moderate, or intensive');
+    }
+    if (value.avoidExamHeavy !== undefined && typeof value.avoidExamHeavy !== 'boolean') {
+        throw new TypeError('avoidExamHeavy must be true or false');
+    }
+
+    return {
+        maxCreditsPerSemester: maxCredits === null || maxCredits === undefined ? null : Number(maxCredits),
+        preferredAssessmentTypes: [...new Set(assessmentTypes)],
+        preferredWorkload,
+        avoidExamHeavy: Boolean(value.avoidExamHeavy)
+    };
+};
+
 const publicUserSelect = {
     id: true,
     email: true,
@@ -172,14 +209,15 @@ const updateUserProfile = async (id, data) => {
             if (!Array.isArray(data[field]) || data[field].some((value) => typeof value !== 'string')) {
                 throw new TypeError(`${field} must be an array of text values`);
             }
-            updateData[field] = data[field].map((value) => value.trim()).filter(Boolean);
+            const values = [...new Set(data[field].map((value) => value.trim()).filter(Boolean))];
+            if (values.length > 20 || values.some(value => value.length > 100)) {
+                throw new TypeError(`${field} must contain at most 20 values of 100 characters or fewer`);
+            }
+            updateData[field] = values;
         }
     }
     if (data.planningPreferences !== undefined) {
-        if (data.planningPreferences !== null && (typeof data.planningPreferences !== 'object' || Array.isArray(data.planningPreferences))) {
-            throw new TypeError('planningPreferences must be an object');
-        }
-        updateData.planningPreferences = data.planningPreferences;
+        updateData.planningPreferences = normalizePlanningPreferences(data.planningPreferences);
     }
     return prisma.user.update({
         where: { id:Number(id) },
@@ -195,5 +233,6 @@ module.exports = {
     createUser,
     generateResetCode,
     resetPassword,
-    updateUserProfile
+    updateUserProfile,
+    normalizePlanningPreferences
 };
