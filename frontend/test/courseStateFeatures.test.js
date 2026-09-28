@@ -70,7 +70,17 @@ test('comparison generation uses a store-level duplicate request lock', () => {
   assert.equal(store.beginGeneration(), true)
   assert.equal(store.beginGeneration(), false)
   assert.equal(store.removeCourse(2), false)
-  store.endGeneration()
+  store.finishGeneration({
+    summary: 'The courses form a clear learning sequence.',
+    relationships: [],
+    learningOrder: [
+      { courseId: 1, reason: 'Foundation' },
+      { courseId: 2, reason: 'Builds on the foundation' },
+    ],
+  })
+  assert.equal(store.summaryStreaming, true)
+  store.completeSummaryStream()
+  assert.equal(store.summaryStreaming, false)
   assert.equal(store.removeCourse(2), true)
   delete globalThis.window
 })

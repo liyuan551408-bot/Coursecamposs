@@ -266,7 +266,7 @@ onBeforeRouteLeave(async () => {
               </div>
               <div class="preference-grid">
                 <el-form-item label="Maximum credits per semester">
-                  <el-input v-model.number="form.planningPreferences.maxCreditsPerSemester" type="number" min="1" max="120" clearable placeholder="No limit" />
+                  <el-input v-model.number="form.planningPreferences.maxCreditsPerSemester" type="number" min="15" max="120" step="15" clearable placeholder="No limit" />
                 </el-form-item>
                 <el-form-item label="Preferred workload">
                   <el-select v-model="form.planningPreferences.preferredWorkload" clearable placeholder="No preference" style="width:100%">

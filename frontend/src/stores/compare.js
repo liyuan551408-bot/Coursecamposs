@@ -23,6 +23,7 @@ export const useCompareStore = defineStore('compare', () => {
   const searchQuery = ref(typeof restored.searchQuery === 'string' ? restored.searchQuery : '')
   const subjectId = ref(Number.isInteger(restored.subjectId) ? restored.subjectId : null)
   const generating = ref(false)
+  const summaryStreaming = ref(false)
 
   const selectedIds = computed(() => selectedCourses.value.map(course => Number(course.id)))
   const canAdd = computed(() => selectedCourses.value.length < MAX_COMPARE)
@@ -47,6 +48,7 @@ export const useCompareStore = defineStore('compare', () => {
     if (generating.value || !Number.isInteger(id) || selectedIds.value.includes(id) || !canAdd.value) return false
     selectedCourses.value.push(course)
     analysis.value = null
+    summaryStreaming.value = false
     persist()
     return true
   }
@@ -56,6 +58,7 @@ export const useCompareStore = defineStore('compare', () => {
     if (generating.value || id === originCourseId.value) return false
     selectedCourses.value = selectedCourses.value.filter(course => Number(course.id) !== id)
     analysis.value = null
+    summaryStreaming.value = false
     persist()
     return true
   }
@@ -85,6 +88,7 @@ export const useCompareStore = defineStore('compare', () => {
     selectedCourses.value = origin ? [origin] : []
     if (!keepOrigin) originCourseId.value = null
     analysis.value = null
+    summaryStreaming.value = false
     persist()
     return true
   }
@@ -98,11 +102,16 @@ export const useCompareStore = defineStore('compare', () => {
   function finishGeneration(result) {
     analysis.value = result
     generating.value = false
+    summaryStreaming.value = Boolean(result?.summary)
     persist()
   }
 
   function endGeneration() {
     generating.value = false
+  }
+
+  function completeSummaryStream() {
+    summaryStreaming.value = false
   }
 
   return {
@@ -113,6 +122,7 @@ export const useCompareStore = defineStore('compare', () => {
     searchQuery,
     subjectId,
     generating,
+    summaryStreaming,
     canAdd,
     addCourse,
     removeCourse,
@@ -123,6 +133,7 @@ export const useCompareStore = defineStore('compare', () => {
     beginGeneration,
     finishGeneration,
     endGeneration,
+    completeSummaryStream,
     persist,
   }
 })

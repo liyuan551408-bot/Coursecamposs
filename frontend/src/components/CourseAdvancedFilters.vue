@@ -14,8 +14,6 @@ const semesterOptions = [
   ['Semester 1', 'SEMESTER_1'], ['Semester 2', 'SEMESTER_2'], ['Summer', 'SUMMER'],
 ]
 const assessmentOptions = ['EXAM', 'ASSIGNMENT', 'QUIZ', 'PROJECT', 'LAB', 'PRESENTATION']
-const creditMarks = Object.fromEntries(Array.from({ length: 9 }, (_, index) => [index * 15, String(index * 15)]))
-const workloadMarks = Object.fromEntries(Array.from({ length: 8 }, (_, index) => [(index + 1) * 150, String((index + 1) * 150)]))
 
 const creditsLabel = computed(() => `${props.modelValue.creditsRange?.[0] ?? 0}–${props.modelValue.creditsRange?.[1] ?? 120} credits`)
 const workloadLabel = computed(() => `${props.modelValue.workloadRange?.[0] ?? 150}–${props.modelValue.workloadRange?.[1] ?? 1200} hours`)
@@ -27,6 +25,22 @@ function update(field, value) {
     ...(field === 'creditsRange' ? { creditsRangeActive: true } : {}),
     ...(field === 'workloadRange' ? { workloadRangeActive: true } : {}),
   })
+}
+
+function updateRangeBound(field, index, value, rangeConfig) {
+  const fallback = index === 0 ? rangeConfig.min : rangeConfig.max
+  const numericValue = value === '' || value === null ? fallback : Number(value)
+  const boundedValue = Math.min(
+    rangeConfig.max,
+    Math.max(rangeConfig.min, Number.isFinite(numericValue) ? numericValue : fallback),
+  )
+  const steppedValue = rangeConfig.min
+    + Math.round((boundedValue - rangeConfig.min) / rangeConfig.step) * rangeConfig.step
+  const nextRange = [...(props.modelValue[field] || [rangeConfig.min, rangeConfig.max])]
+
+  nextRange[index] = steppedValue
+  if (nextRange[0] > nextRange[1]) nextRange[index === 0 ? 1 : 0] = steppedValue
+  update(field, nextRange)
 }
 </script>
 
@@ -58,31 +72,55 @@ function update(field, value) {
     </div>
     <div class="filter-field filter-field--range">
       <div class="range-heading"><label>Credits</label><span>{{ creditsLabel }}</span></div>
-      <el-slider
-        :model-value="modelValue.creditsRange"
-        range
-        show-stops
-        :min="CREDIT_RANGE.min"
-        :max="CREDIT_RANGE.max"
-        :step="CREDIT_RANGE.step"
-        :marks="creditMarks"
-        :disabled="disabled"
-        @update:model-value="update('creditsRange', $event)"
-      />
+      <div class="range-inputs">
+        <el-input
+          :model-value="modelValue.creditsRange?.[0] ?? CREDIT_RANGE.min"
+          type="number"
+          :min="CREDIT_RANGE.min"
+          :max="CREDIT_RANGE.max"
+          :step="CREDIT_RANGE.step"
+          :disabled="disabled"
+          aria-label="Minimum credits"
+          @change="updateRangeBound('creditsRange', 0, $event, CREDIT_RANGE)"
+        />
+        <span aria-hidden="true">to</span>
+        <el-input
+          :model-value="modelValue.creditsRange?.[1] ?? CREDIT_RANGE.max"
+          type="number"
+          :min="CREDIT_RANGE.min"
+          :max="CREDIT_RANGE.max"
+          :step="CREDIT_RANGE.step"
+          :disabled="disabled"
+          aria-label="Maximum credits"
+          @change="updateRangeBound('creditsRange', 1, $event, CREDIT_RANGE)"
+        />
+      </div>
     </div>
     <div class="filter-field filter-field--range">
       <div class="range-heading"><label>Study hours / workload</label><span>{{ workloadLabel }}</span></div>
-      <el-slider
-        :model-value="modelValue.workloadRange"
-        range
-        show-stops
-        :min="WORKLOAD_RANGE.min"
-        :max="WORKLOAD_RANGE.max"
-        :step="WORKLOAD_RANGE.step"
-        :marks="workloadMarks"
-        :disabled="disabled"
-        @update:model-value="update('workloadRange', $event)"
-      />
+      <div class="range-inputs">
+        <el-input
+          :model-value="modelValue.workloadRange?.[0] ?? WORKLOAD_RANGE.min"
+          type="number"
+          :min="WORKLOAD_RANGE.min"
+          :max="WORKLOAD_RANGE.max"
+          :step="WORKLOAD_RANGE.step"
+          :disabled="disabled"
+          aria-label="Minimum study hours"
+          @change="updateRangeBound('workloadRange', 0, $event, WORKLOAD_RANGE)"
+        />
+        <span aria-hidden="true">to</span>
+        <el-input
+          :model-value="modelValue.workloadRange?.[1] ?? WORKLOAD_RANGE.max"
+          type="number"
+          :min="WORKLOAD_RANGE.min"
+          :max="WORKLOAD_RANGE.max"
+          :step="WORKLOAD_RANGE.step"
+          :disabled="disabled"
+          aria-label="Maximum study hours"
+          @change="updateRangeBound('workloadRange', 1, $event, WORKLOAD_RANGE)"
+        />
+      </div>
     </div>
     <div class="filter-field">
       <label>Minimum rating</label>
@@ -110,8 +148,8 @@ function update(field, value) {
 .filter-field--range { grid-column: 1 / -1; padding: 4px 8px 16px; }
 .range-heading { display: flex; justify-content: space-between; gap: 12px; }
 .range-heading span { color: var(--accent); font-size: 12px; font-weight: 650; }
-.filter-field--range :deep(.el-slider) { margin: 5px 8px 14px; width: calc(100% - 16px); }
-.filter-field--range :deep(.el-slider__marks-text) { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+.range-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.range-inputs > span { color: var(--text-muted); font-size: 12px; }
 .filter-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; padding-top: 2px; }
-@media (max-width: 680px) { .advanced-filter-layout { grid-template-columns: 1fr; } .filter-field--range, .filter-actions { grid-column: 1; } .filter-field--range :deep(.el-slider__marks-text) { display: none; } }
+@media (max-width: 680px) { .advanced-filter-layout { grid-template-columns: 1fr; } .filter-field--range, .filter-actions { grid-column: 1; } }
 </style>
