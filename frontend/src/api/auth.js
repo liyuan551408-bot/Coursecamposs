@@ -5,7 +5,7 @@
 import request from './request'
 
 export function loginApi(credentials) {
-  return request.post('/auth/login', credentials).then((response) => ({
+  return request.post('/auth/login', credentials, { skipAuthRedirect: true }).then((response) => ({
     token: response.token,
     user: response.data,
   }))

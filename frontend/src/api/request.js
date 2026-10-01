@@ -24,10 +24,12 @@ request.interceptors.request.use((config) => {
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.skipAuthRedirect) {
       clearAuthStorage()
       window.dispatchEvent(new Event('course-compass:unauthorized'))
-      router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
+      if (router.currentRoute.value.name !== 'Login') {
+        router.push({ name: 'Login', query: { redirect: router.currentRoute.value.fullPath } })
+      }
     }
     return Promise.reject(error)
   }

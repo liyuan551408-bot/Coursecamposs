@@ -1,6 +1,6 @@
 <!-- @file Provides the shared labelled advanced course-filter layout. -->
 <script setup>
-import { computed } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { CREDIT_RANGE, WORKLOAD_RANGE } from '../utils/courseFilters'
 
 const props = defineProps({
@@ -9,6 +9,12 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue', 'apply', 'reset'])
+const rangeDrafts = reactive({ creditsRange: [], workloadRange: [] })
+for (const [field, config] of [['creditsRange', CREDIT_RANGE], ['workloadRange', WORKLOAD_RANGE]]) {
+  watch(() => props.modelValue[field], value => {
+    rangeDrafts[field] = [...(value || [config.min, config.max])]
+  }, { immediate: true, deep: true })
+}
 
 const semesterOptions = [
   ['Semester 1', 'SEMESTER_1'], ['Semester 2', 'SEMESTER_2'], ['Summer', 'SUMMER'],
@@ -74,25 +80,25 @@ function updateRangeBound(field, index, value, rangeConfig) {
       <div class="range-heading"><label>Credits</label><span>{{ creditsLabel }}</span></div>
       <div class="range-inputs">
         <el-input
-          :model-value="modelValue.creditsRange?.[0] ?? CREDIT_RANGE.min"
+          v-model="rangeDrafts.creditsRange[0]"
           type="number"
           :min="CREDIT_RANGE.min"
           :max="CREDIT_RANGE.max"
           :step="CREDIT_RANGE.step"
           :disabled="disabled"
           aria-label="Minimum credits"
-          @change="updateRangeBound('creditsRange', 0, $event, CREDIT_RANGE)"
+          @blur="updateRangeBound('creditsRange', 0, rangeDrafts.creditsRange[0], CREDIT_RANGE)"
         />
         <span aria-hidden="true">to</span>
         <el-input
-          :model-value="modelValue.creditsRange?.[1] ?? CREDIT_RANGE.max"
+          v-model="rangeDrafts.creditsRange[1]"
           type="number"
           :min="CREDIT_RANGE.min"
           :max="CREDIT_RANGE.max"
           :step="CREDIT_RANGE.step"
           :disabled="disabled"
           aria-label="Maximum credits"
-          @change="updateRangeBound('creditsRange', 1, $event, CREDIT_RANGE)"
+          @blur="updateRangeBound('creditsRange', 1, rangeDrafts.creditsRange[1], CREDIT_RANGE)"
         />
       </div>
     </div>
@@ -100,25 +106,25 @@ function updateRangeBound(field, index, value, rangeConfig) {
       <div class="range-heading"><label>Study hours / workload</label><span>{{ workloadLabel }}</span></div>
       <div class="range-inputs">
         <el-input
-          :model-value="modelValue.workloadRange?.[0] ?? WORKLOAD_RANGE.min"
+          v-model="rangeDrafts.workloadRange[0]"
           type="number"
           :min="WORKLOAD_RANGE.min"
           :max="WORKLOAD_RANGE.max"
           :step="WORKLOAD_RANGE.step"
           :disabled="disabled"
           aria-label="Minimum study hours"
-          @change="updateRangeBound('workloadRange', 0, $event, WORKLOAD_RANGE)"
+          @blur="updateRangeBound('workloadRange', 0, rangeDrafts.workloadRange[0], WORKLOAD_RANGE)"
         />
         <span aria-hidden="true">to</span>
         <el-input
-          :model-value="modelValue.workloadRange?.[1] ?? WORKLOAD_RANGE.max"
+          v-model="rangeDrafts.workloadRange[1]"
           type="number"
           :min="WORKLOAD_RANGE.min"
           :max="WORKLOAD_RANGE.max"
           :step="WORKLOAD_RANGE.step"
           :disabled="disabled"
           aria-label="Maximum study hours"
-          @change="updateRangeBound('workloadRange', 1, $event, WORKLOAD_RANGE)"
+          @blur="updateRangeBound('workloadRange', 1, rangeDrafts.workloadRange[1], WORKLOAD_RANGE)"
         />
       </div>
     </div>

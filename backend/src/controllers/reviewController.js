@@ -21,8 +21,8 @@ const parseReviewBody = (body) => ({
     overallRating: body.overallRating !== undefined ? Number(body.overallRating) : undefined,
     difficultyRating: body.difficultyRating !== undefined ? Number(body.difficultyRating) : undefined,
     workloadRating: body.workloadRating !== undefined ? Number(body.workloadRating) : undefined,
-    teachingRating: body.teachingRating !== undefined ? Number(body.teachingRating) : undefined,
-    usefulnessRating: body.usefulnessRating !== undefined ? Number(body.usefulnessRating) : undefined,
+    teachingRating: body.teachingRating == null ? body.teachingRating : Number(body.teachingRating),
+    usefulnessRating: body.usefulnessRating == null ? body.usefulnessRating : Number(body.usefulnessRating),
     assessmentStyle: body.assessmentStyle,
     comment: body.comment
 });

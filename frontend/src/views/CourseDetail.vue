@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCourse } from '../api/courses'
 import { normalizeSemesters } from '../utils/semesters'
+import { buildReviewPayload, isWholeRating } from '../utils/reviewPayload'
 import { getCourseReviews, getMyCourseReview, reportReview, submitReview, updateMyReview } from '../api/reviews'
 import request from '../api/request'
 import { useAuthStore } from '../stores/auth'
@@ -133,7 +134,7 @@ async function handleReview() {
     router.push({ name: 'Login', query: { redirect: route.fullPath } })
     return
   }
-  if (![form.overallRating, form.difficultyRating, form.workloadRating].every(Boolean)) {
+  if (![form.overallRating, form.difficultyRating, form.workloadRating].every(value => isWholeRating(value, { required: true }))) {
     ElMessage.warning('Please complete all three ratings.')
     return
   }
@@ -141,8 +142,8 @@ async function handleReview() {
   try {
     const wasEditing = Boolean(ownReview.value)
     const updated = wasEditing
-      ? await updateMyReview(route.params.id, { ...form })
-      : await submitReview({ courseId: Number(route.params.id), ...form })
+      ? await updateMyReview(route.params.id, buildReviewPayload(form))
+      : await submitReview({ courseId: Number(route.params.id), ...buildReviewPayload(form) })
     ownReview.value = updated
     await notificationStore.refresh().catch(() => {})
     reviews.value = reviews.value.filter((review) => review.id !== updated.id)

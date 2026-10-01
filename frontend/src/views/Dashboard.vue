@@ -3,7 +3,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getProfile } from '../api/users'
+import { getCompletedCourses, getProfile } from '../api/users'
 import { useAuthStore } from '../stores/auth'
 import { usePlannerStore } from '../stores/planner'
 import { courseDetailLocation } from '../utils/courseNavigation'
@@ -15,15 +15,16 @@ const authStore = useAuthStore()
 const savedStore = useSavedStore()
 const plannerStore = usePlannerStore()
 const profile = ref(null)
+const completedCourses = ref([])
 const loading = ref(true)
 const plannedCourseCount = computed(() => plannerStore.semesters.reduce((sum, plan) => sum + plan.courses.length, 0))
-const completedCourses = computed(() => profile.value?.completedCourses || [])
 
 async function loadDashboard() {
   loading.value = true
   try {
-    const [user] = await Promise.all([getProfile(), savedStore.loadSaved({ force: true }), plannerStore.loadPlans({ force: true })])
+    const [user, completed] = await Promise.all([getProfile(), getCompletedCourses(), savedStore.loadSaved({ force: true }), plannerStore.loadPlans({ force: true })])
     profile.value = user
+    completedCourses.value = completed
     authStore.updateUser(user)
   } catch (err) { ElMessage.error(err.response?.data?.message || 'Unable to load dashboard data.') }
   finally { loading.value = false }

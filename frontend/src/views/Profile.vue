@@ -40,7 +40,7 @@ const form = reactive({
 
 function profileDraft() {
   const maxCredits = form.planningPreferences.maxCreditsPerSemester
-  return authStore.isStudent
+  return profile.value?.role === 'STUDENT'
     ? {
         name: form.name,
         major: form.major,
